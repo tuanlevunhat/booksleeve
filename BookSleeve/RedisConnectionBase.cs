@@ -225,12 +225,18 @@ namespace BookSleeve
         private void ReadMoreAsync()
         {
             bufferOffset = bufferCount = 0;
-            redisStream.BeginRead(buffer, 0, BufferSize, readReplyHeader, null); // read more IO here (in parallel)
+            var tmp = redisStream;
+            if (tmp != null)
+            {
+                tmp.BeginRead(buffer, 0, BufferSize, readReplyHeader, tmp); // read more IO here (in parallel)
+            }
         }
         private bool ReadMoreSync()
         {
+            var tmp = redisStream;
+            if (tmp == null) return false;
             bufferOffset = bufferCount = 0;
-            int bytesRead = redisStream.Read(buffer, 0, BufferSize);
+            int bytesRead = tmp.Read(buffer, 0, BufferSize);
             if (bytesRead > 0)
             {
                 bufferCount = bytesRead;
@@ -245,7 +251,7 @@ namespace BookSleeve
                 int bytesRead;
                 try
                 {
-                    bytesRead = redisStream.EndRead(asyncResult);
+                    bytesRead = ((NetworkStream)asyncResult.AsyncState).EndRead(asyncResult);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -255,7 +261,7 @@ namespace BookSleeve
                 {
                     bytesRead = 0; // simulate EOF
                 }
-                if (bytesRead <= 0) 
+                if (bytesRead <= 0 || redisStream == null) 
                 {   // EOF
                     Shutdown("End of stream", null);
                 }
@@ -282,7 +288,8 @@ namespace BookSleeve
                             OnError("Processing callbacks", ex);
                         }
                         isEof = false;
-                        if (bufferCount == 0 && redisStream.DataAvailable)
+                        NetworkStream tmp = redisStream;
+                        if (bufferCount == 0 && tmp != null && tmp.DataAvailable)
                         {
                             isEof = !ReadMoreSync();
                         }
@@ -417,17 +424,61 @@ namespace BookSleeve
 
         private byte[] ReadBytesToCrlf()
         {
-            byte[] oversizedBuffer;
-            int len = FillBodyBufferToCrlf(out oversizedBuffer);
-            byte[] result = new byte[len];
-            Buffer.BlockCopy(oversizedBuffer, 0, result, 0, len);
+            // check for data inside the buffer first
+            int bytes = FindCrlfInBuffer();
+            byte[] result;
+            if (bytes >= 0)
+            {
+                result = new byte[bytes];
+                Buffer.BlockCopy(buffer, bufferOffset, result, 0, bytes);
+                // subtract the data; don't forget to include the CRLF
+                bufferCount -= (bytes + 2);
+                bufferOffset += (bytes + 2);
+            }
+            else
+            {
+                byte[] oversizedBuffer;
+                int len = FillBodyBufferToCrlf(out oversizedBuffer);
+                result = new byte[len];
+                Buffer.BlockCopy(oversizedBuffer, 0, result, 0, len);
+            }
+
+            
             return result;
+        }
+        int FindCrlfInBuffer()
+        {
+            int max = bufferOffset + bufferCount - 1;
+            for (int i = bufferOffset; i < max; i++)
+            {
+                if (buffer[i] == (byte)'\r' && buffer[i + 1] == (byte)'\n')
+                {
+                    int bytes = i - bufferOffset;
+                    return bytes;
+                }
+            }
+            return -1;
         }
         private string ReadStringToCrlf()
         {
-            byte[] oversizedBuffer;
-            int len = FillBodyBufferToCrlf(out oversizedBuffer);
-            return Encoding.UTF8.GetString(oversizedBuffer, 0, len);
+            // check for data inside the buffer first
+            int bytes = FindCrlfInBuffer();
+            string result;
+            if (bytes >= 0)
+            {
+                result = Encoding.UTF8.GetString(buffer, bufferOffset, bytes);
+                // subtract the data; don't forget to include the CRLF
+                bufferCount -= (bytes + 2);
+                bufferOffset += (bytes + 2);
+            }
+            else
+            {
+                // check for data that steps over the buffer
+                byte[] oversizedBuffer;
+                int len = FillBodyBufferToCrlf(out oversizedBuffer);
+                result = Encoding.UTF8.GetString(oversizedBuffer, 0, len);
+            }
+            return result;
         }
 
         private int FillBodyBufferToCrlf(out byte[] oversizedBuffer)
@@ -693,12 +744,23 @@ namespace BookSleeve
         {
             unsent.Enqueue(message, queueJump);
         }
-
-        public T GetValue<T>(Task<T> task)
+        /// <summary>
+        /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
+        /// Once a task is completed, the result is returned.
+        /// </summary>
+        /// <param name="task">The task to wait on</param>
+        /// <returns>The return value of the task.</returns>
+        /// <exception cref="TimeoutException">If SyncTimeout milliseconds is exceeded.</exception>
+        public T Wait<T>(Task<T> task)
         {
-            Wait(task);
+            Wait((Task)task);
             return task.Result;
         }
+        /// <summary>
+        /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
+        /// </summary>
+        /// <param name="task">The task to wait on</param>
+        /// <exception cref="TimeoutException">If SyncTimeout milliseconds is exceeded.</exception>
         public void Wait(Task task)
         {
             if (task == null) throw new ArgumentNullException("task");
@@ -707,6 +769,11 @@ namespace BookSleeve
                 throw new TimeoutException();
             }
         }
+        /// <summary>
+        /// Waits for all of a set of tasks to complete, up to a maximum of SyncTimeout milliseconds.
+        /// </summary>
+        /// <param name="tasks">The tasks to wait on</param>
+        /// <exception cref="TimeoutException">If SyncTimeout milliseconds is exceeded.</exception>
         public void WaitAll(params Task[] tasks)
         {
             if (tasks == null) throw new ArgumentNullException("tasks");
@@ -715,12 +782,34 @@ namespace BookSleeve
                 throw new TimeoutException();
             }
         }
+        /// <summary>
+        /// Waits for any of a set of tasks to complete, up to a maximum of SyncTimeout milliseconds.
+        /// </summary>
+        /// <param name="tasks">The tasks to wait on</param>
+        /// <returns>The index of a completed task</returns>
+        /// <exception cref="TimeoutException">If SyncTimeout milliseconds is exceeded.</exception>        
         public int WaitAny(params Task[] tasks)
         {
             if (tasks == null) throw new ArgumentNullException("tasks");
             return Task.WaitAny(tasks, syncTimeout);
         }
+        /// <summary>
+        /// Add a continuation (a callback), to be executed once a task has completed
+        /// </summary>
+        /// <param name="task">The task to add a continuation to</param>
+        /// <param name="action">The continuation to perform once completed</param>
+        /// <returns>A new task representing the composed operation</returns>
         public Task ContinueWith<T>(Task<T> task, Action<Task<T>> action)
+        {
+            return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+        /// <summary>
+        /// Add a continuation (a callback), to be executed once a task has completed
+        /// </summary>
+        /// <param name="task">The task to add a continuation to</param>
+        /// <param name="action">The continuation to perform once completed</param>
+        /// <returns>A new task representing the composed operation</returns>
+        public Task ContinueWith(Task task, Action<Task> action)
         {
             return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }

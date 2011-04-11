@@ -43,7 +43,7 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                var ms = conn.GetValue(conn.Ping());
+                var ms = conn.Wait(conn.Ping());
                 Assert.GreaterOrEqual(ms, 0);
             }
         }

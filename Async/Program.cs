@@ -12,7 +12,7 @@ namespace Async
             // just so we don't exit too early
             AsyncRedisUsage().Wait();
             Console.WriteLine("press any key");
-            Console.ReadLine();
+            Console.ReadKey();
         }
 
         // could also be void; only a Task here so I can Wait on

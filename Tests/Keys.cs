@@ -45,7 +45,7 @@ namespace Tests
             {
                 conn.Remove(0, "expire");
                 var exp = conn.Expire(0, "expire", 100);
-                Assert.IsFalse(conn.GetValue(exp));
+                Assert.IsFalse(conn.Wait(exp));
             }
         }
 
@@ -98,8 +98,60 @@ namespace Tests
             }
         }
 
+        [Test]
+        public void TestSuccessfulMove()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Set(1, "move", "move-value");
+                conn.Remove(2, "move");
 
+                var succ = conn.Move(1, "move", 2);
+                var in1 = conn.GetString(1, "move");
+                var in2 = conn.GetString(2, "move");
 
+                Assert.IsTrue(conn.Wait(succ));
+                Assert.IsNull(conn.Wait(in1));
+                Assert.AreEqual("move-value", conn.Wait(in2));
+            }
+        }
 
+        [Test]
+        public void TestFailedMoveWhenNotExistsInSource()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(1, "move");
+                conn.Set(2, "move", "move-value");
+                
+                var succ = conn.Move(1, "move", 2);
+                var in1 = conn.GetString(1, "move");
+                var in2 = conn.GetString(2, "move");
+
+                Assert.IsFalse(conn.Wait(succ));
+                Assert.IsNull(conn.Wait(in1));
+                Assert.AreEqual("move-value", conn.Wait(in2));
+            }
+        }
+
+        [Test]
+        public void TestFailedMoveWhenNotExistsInTarget()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Set(1, "move", "move-valueA");
+                conn.Set(2, "move", "move-valueB");
+
+                var succ = conn.Move(1, "move", 2);
+                var in1 = conn.GetString(1, "move");
+                var in2 = conn.GetString(2, "move");
+
+                Assert.IsFalse(conn.Wait(succ));
+                Assert.AreEqual("move-valueA", conn.Wait(in1));
+                Assert.AreEqual("move-valueB", conn.Wait(in2));
+            }
+        }
     }
 }
+
+

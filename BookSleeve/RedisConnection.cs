@@ -124,7 +124,7 @@ namespace BookSleeve
                 GetSentCount(),
                 GetDbUsage(),
                 // important that ping happens last, as this may artificially drain the queues
-                (int)GetValue(Ping())
+                (int)Wait(Ping())
             );
         }
         private int GetSentCount() { lock (sent) { return sent.Count; } }
@@ -462,6 +462,14 @@ namespace BookSleeve
         public Task<byte[]> PopFromListPushToList(int db, string from, string to, bool queueJump = false)
         {
             return ExecuteBytes(KeyValueMessage.PopFromListPushToList(db, from, to), queueJump);
+        }
+
+
+        public Task<bool> Move(int db, string key, int targetDb)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            if (targetDb < 0) throw new ArgumentOutOfRangeException("targetDb");
+            return ExecuteBoolean(KeyScoreMessage.Move(db, key, targetDb));
         }
     }
 }

@@ -451,6 +451,10 @@ namespace BookSleeve
         {
             return new KeyScoreMessage(db, expire, key, seconds);
         }
+        public static Message Move(int db, string key, int targetDb)
+        {
+            return new KeyScoreMessage(db, move, key, targetDb);
+        }
         private KeyScoreMessage(int db, byte[] cmd, string key, int score)
             : base(db, cmd)
         {
@@ -458,7 +462,8 @@ namespace BookSleeve
             this.score = score;
         }
         private readonly static byte[]
-            expire = Encoding.ASCII.GetBytes("EXPIRE");
+            expire = Encoding.ASCII.GetBytes("EXPIRE"),
+            move = Encoding.ASCII.GetBytes("MOVE");
         private readonly string key;
         private readonly int score;
         public override string ToString()
