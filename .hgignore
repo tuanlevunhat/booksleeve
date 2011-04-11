@@ -1,0 +1,6 @@
+syntax: glob
+BookSleeve/bin/
+BookSleeve/obj/
+Tests/bin/
+Tests/obj/
+*.suo
