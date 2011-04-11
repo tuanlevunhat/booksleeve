@@ -4,3 +4,5 @@ BookSleeve/obj/
 Tests/bin/
 Tests/obj/
 *.suo
+Async/bin/
+Async/obj/
