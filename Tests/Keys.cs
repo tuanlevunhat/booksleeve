@@ -1,4 +1,6 @@
 ﻿using NUnit.Framework;
+using BookSleeve;
+using System.Threading;
 
 namespace Tests
 {
@@ -38,14 +40,33 @@ namespace Tests
                 Assert.IsFalse(y.Result);
             }
         }
+
+        [Test]
+        public void TestDeleteMultiple()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Set(0, "del", "abcdef");
+                var x = conn.Remove(0, "del");
+                var y = conn.Remove(0, "del");
+                conn.WaitAll(x, y);
+                Assert.IsTrue(x.Result);
+                Assert.IsFalse(y.Result);
+            }
+        }
+
+
         [Test]
         public void TestExpireAgainstInvalidKey()
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(0, "expire");
-                var exp = conn.Expire(0, "expire", 100);
-                Assert.IsFalse(conn.Wait(exp));
+                conn.Set(0, "delA", "abcdef");
+                conn.Remove(0, "delB");
+                conn.Set(0, "delC", "abcdef");
+
+                var del = conn.Remove(0, new[] {"delA", "delB", "delC"});
+                Assert.AreEqual(2, conn.Wait(del));
             }
         }
 
@@ -151,7 +172,197 @@ namespace Tests
                 Assert.AreEqual("move-valueB", conn.Wait(in2));
             }
         }
+
+        [Test]
+        public void RemoveExpiry()
+        {
+            int errors = 0, expectedErrors;
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Set(1, "persist", "persist");
+                var persist1 = conn.Persist(1, "persist");
+                conn.Expire(1, "persist", 100);
+                var before = conn.TimeToLive(1, "persist");
+                var persist2 = conn.Persist(1, "persist");
+                var after = conn.TimeToLive(1, "persist");
+                
+                conn.Error += delegate
+                {
+                    Interlocked.Increment(ref errors);
+                };
+                Assert.GreaterOrEqual(conn.Wait(before), 90);
+                if (conn.Features.Persist)
+                {
+                    Assert.IsFalse(conn.Wait(persist1));   
+                    Assert.IsTrue(conn.Wait(persist2));
+                    Assert.AreEqual(-1, conn.Wait(after));
+                    expectedErrors = 0;
+                }
+                else
+                {
+                    try{
+                        conn.Wait(persist1);
+                        Assert.Fail();
+                    }
+                    catch (RedisException){}
+                    try
+                    {
+                        conn.Wait(persist2);
+                        Assert.Fail();
+                    }
+                    catch (RedisException) { }
+                    Assert.GreaterOrEqual(conn.Wait(after), 90);
+                    expectedErrors = 2;
+                }
+            }
+
+            Assert.AreEqual(expectedErrors, Interlocked.CompareExchange(ref errors,0,0));
+        }
+
+
+        [Test]
+        public void RandomKeys()
+        {
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                conn.FlushDb(7);
+                var key1 = conn.RandomKey(7);
+                conn.Set(7, "random1", "random1");
+                var key2 = conn.RandomKey(7);
+                for (int i = 2; i < 100; i++)
+                {
+                    string key = "random" + i;
+                    conn.Set(7, key, key);
+                }
+                var key3 = conn.RandomKey(7);
+
+                Assert.IsNull(conn.Wait(key1));
+                Assert.AreEqual("random1", conn.Wait(key2));
+                string s = conn.Wait(key3);
+
+                Assert.IsTrue(s.StartsWith("random"));
+                s = s.Substring(6);
+                int result = int.Parse(s);
+                Assert.GreaterOrEqual(result, 1);
+                Assert.Less(result, 100);
+            }
+
+        }
+
+        [Test]
+        public void RenameKeyWithOverwrite()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(1, "foo");
+                conn.Remove(1, "bar");
+
+                var check1 = conn.Rename(1, "foo", "bar"); // neither
+                var after1_foo = conn.GetString(1, "foo");
+                var after1_bar = conn.GetString(1, "bar");
+
+                conn.Set(1, "foo", "foo-value");
+
+                var check2 = conn.Rename(1, "foo", "bar"); // source only
+                var after2_foo = conn.GetString(1, "foo");
+                var after2_bar = conn.GetString(1, "bar");
+
+                var check3 = conn.Rename(1, "foo", "bar"); // dest only
+                var after3_foo = conn.GetString(1, "foo");
+                var after3_bar = conn.GetString(1, "bar");
+
+                conn.Set(1, "foo", "new-value");
+                var check4 = conn.Rename(1, "foo", "bar"); // both
+                var after4_foo = conn.GetString(1, "foo");
+                var after4_bar = conn.GetString(1, "bar");
+
+                try
+                {
+                    conn.Wait(check1);
+                    Assert.Fail();
+                }
+                catch (RedisException) { }
+                Assert.IsNull(conn.Wait(after1_foo));
+                Assert.IsNull(conn.Wait(after1_bar));
+
+                conn.Wait(check2);
+                Assert.IsNull(conn.Wait(after2_foo));
+                Assert.AreEqual("foo-value", conn.Wait(after2_bar));
+
+                try
+                {
+                    conn.Wait(check3);
+                    Assert.Fail();
+                }
+                catch (RedisException) { }
+                Assert.IsNull(conn.Wait(after3_foo));
+                Assert.AreEqual("foo-value", conn.Wait(after3_bar));
+
+                conn.Wait(check4);
+                Assert.IsNull(conn.Wait(after4_foo));
+                Assert.AreEqual("new-value", conn.Wait(after4_bar));
+
+            }
+        }
+
+        [Test]
+        public void RenameKeyWithoutOverwrite()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(1, "foo");
+                conn.Remove(1, "bar");
+
+                var check1 = conn.RenameIfNotExists(1, "foo", "bar"); // neither
+                var after1_foo = conn.GetString(1, "foo");
+                var after1_bar = conn.GetString(1, "bar");
+
+                conn.Set(1, "foo", "foo-value");
+
+                var check2 = conn.RenameIfNotExists(1, "foo", "bar"); // source only
+                var after2_foo = conn.GetString(1, "foo");
+                var after2_bar = conn.GetString(1, "bar");
+
+                var check3 = conn.RenameIfNotExists(1, "foo", "bar"); // dest only
+                var after3_foo = conn.GetString(1, "foo");
+                var after3_bar = conn.GetString(1, "bar");
+
+                conn.Set(1, "foo", "new-value");
+                var check4 = conn.RenameIfNotExists(1, "foo", "bar"); // both
+                var after4_foo = conn.GetString(1, "foo");
+                var after4_bar = conn.GetString(1, "bar");
+
+                try
+                {
+                    conn.Wait(check1);
+                    Assert.Fail();
+                }
+                catch (RedisException) { }
+                Assert.IsNull(conn.Wait(after1_foo));
+                Assert.IsNull(conn.Wait(after1_bar));
+
+                Assert.IsTrue(conn.Wait(check2));
+                Assert.IsNull(conn.Wait(after2_foo));
+                Assert.AreEqual("foo-value", conn.Wait(after2_bar));
+
+                try
+                {
+                    conn.Wait(check3);
+                    Assert.Fail();
+                }
+                catch (RedisException) { }
+                Assert.IsNull(conn.Wait(after3_foo));
+                Assert.AreEqual("foo-value", conn.Wait(after3_bar));
+
+                Assert.IsFalse(conn.Wait(check4));
+                Assert.AreEqual("new-value", conn.Wait(after4_foo));
+                Assert.AreEqual("foo-value", conn.Wait(after4_bar));
+
+            }
+        }
     }
 }
+
+
 
 

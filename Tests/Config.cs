@@ -13,24 +13,22 @@ namespace Tests
         const string host = "127.0.0.1";
         const int unsecuredPort = 6379, securedPort = 6380;
 
-        internal static RedisConnection GetUnsecuredConnection(bool open = true)
+        internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false)
         {
-            var conn = new RedisConnection(host, unsecuredPort, syncTimeout: 5000, ioTimeout: 5000);
-            conn.Error += (s, ex) =>
+            var conn = new RedisConnection(host, unsecuredPort, syncTimeout: 5000, ioTimeout: 5000, allowAdmin: allowAdmin);
+            conn.Error += (s, args) =>
             {
-                if (Debugger.IsAttached) Debugger.Break();
-                Debug.WriteLine(s + ": " + ex);
+                Trace.WriteLine(args.Exception.Message, args.Cause);
             };
             if(open) conn.Open();
             return conn;
         }
         internal static RedisConnection GetSecuredConnection(bool open = true)
         {
-            var conn = new RedisConnection(host, securedPort, password: "changeme", syncTimeout: 5000, ioTimeout: 5000);
-            conn.Error += (s, ex) =>
+            var conn = new RedisConnection(host, securedPort, password: "changeme", syncTimeout: 60000, ioTimeout: 5000);
+            conn.Error += (s, args) =>
             {
-                if (Debugger.IsAttached) Debugger.Break();
-                Debug.WriteLine(s + ": " + ex);
+                Trace.WriteLine(args.Exception.Message, args.Cause);
             };
             if (open) conn.Open();
             return conn;

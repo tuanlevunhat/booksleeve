@@ -278,6 +278,7 @@ namespace BookSleeve
                         if (result.IsError)
                         {
                             Interlocked.Increment(ref errorMessages);
+                            OnError("Redis server", result.Error(), false);
                         }
                         try
                         {
@@ -285,7 +286,7 @@ namespace BookSleeve
                         }
                         catch (Exception ex)
                         {
-                            OnError("Processing callbacks", ex);
+                            OnError("Processing callbacks", ex, false);
                         }
                         isEof = false;
                         NetworkStream tmp = redisStream;
@@ -345,7 +346,7 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
-                OnError("Completing message", ex);
+                OnError("Completing message", ex, false);
             }
         }
         private void Shutdown(string cause, Exception error)
@@ -357,7 +358,7 @@ namespace BookSleeve
             Close(error != null);
             Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
 
-            if (error != null) OnError(cause, error);
+            if (error != null) OnError(cause, error, true);
             ShuttingDown(error);
             Dispose();
             var handler = Closed;
@@ -576,20 +577,25 @@ namespace BookSleeve
                 }
             }
         }
-        public event Action<string, Exception> Error;
-        protected void OnError(string cause, Exception ex)
+        public event EventHandler<ErrorEventArgs> Error;
+        protected void OnError(object sender, ErrorEventArgs args)
         {
-#if DEBUG
-            Debug.WriteLine(ex);
-#endif
+            var handler = Error;
+            if (handler != null)
+            {
+                handler(sender, args);
+            }
+        }
+        protected void OnError(string cause, Exception ex, bool isFatal)
+        {
             var handler = Error;
             if (handler == null)
             {
-                Trace.WriteLine(ex, cause);
+                Trace.WriteLine(ex.Message, cause);
             }
             else
             {
-                handler(cause, ex);
+                handler(this, new ErrorEventArgs(ex, cause, isFatal));
             }
         }
         private void Outgoing()
@@ -654,7 +660,7 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
-                OnError("Outgoing queue", ex);
+                OnError("Outgoing queue", ex, true);
             }
 
         }
@@ -761,12 +767,24 @@ namespace BookSleeve
         /// </summary>
         /// <param name="task">The task to wait on</param>
         /// <exception cref="TimeoutException">If SyncTimeout milliseconds is exceeded.</exception>
+        /// <remarks>If an exception is throw, it is extracted from the AggregateException (unless multiple exceptions are found)</remarks>
         public void Wait(Task task)
         {
             if (task == null) throw new ArgumentNullException("task");
-            if (!task.Wait(syncTimeout))
+            try
             {
-                throw new TimeoutException();
+                if (!task.Wait(syncTimeout))
+                {
+                    throw new TimeoutException();
+                }
+            }
+            catch (AggregateException ex)
+            {
+                if (ex.InnerExceptions.Count == 1)
+                {
+                    throw ex.InnerExceptions[0];
+                }
+                throw;
             }
         }
         /// <summary>

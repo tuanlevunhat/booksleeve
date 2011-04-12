@@ -76,7 +76,7 @@ namespace BookSleeve
                 }
                 catch (Exception ex)
                 {
-                    OnError("Subscriber callback", ex);
+                    OnError("Subscriber callback", ex, false);
                 }
             }
         }

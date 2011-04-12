@@ -89,6 +89,7 @@ namespace BookSleeve
         {
             SetResult(result);            
             var snapshot = Interlocked.Exchange(ref task, null); // only run once
+            ChangeState(MessageState.Sent, MessageState.Complete);
             if (snapshot != null)
             {
                 // it is important that we specify the Default scheduler here, as this is
@@ -101,7 +102,7 @@ namespace BookSleeve
                 // we really really want sync here.
                 snapshot.RunSynchronously(TaskScheduler.Default);
             }
-            ChangeState(MessageState.Sent, MessageState.Complete);
+            
         }
 
         protected void WriteRaw(Stream stream, long value)
@@ -187,6 +188,7 @@ namespace BookSleeve
         public static Message Quit() { return new VanillaMessage(-1, quit, Ok); }
         public static Message FlushDb(int db) { return new VanillaMessage(db, flushdb, Ok); }
         public static Message FlushAll() { return new VanillaMessage(-1, flushall, Ok); }
+        public static Message RandomKey(int db) { return new VanillaMessage(db, randomkey); }
         private VanillaMessage(int db, byte[] command, byte[] expected) : base(db, command, expected) { this.mustSucceed = true; }
         private VanillaMessage(int db, byte[] command) : base(db, command) { }
         public override bool MustSucceed { get { return mustSucceed; } }
@@ -194,7 +196,8 @@ namespace BookSleeve
             quit = Encoding.ASCII.GetBytes("QUIT"),
             flushdb = Encoding.ASCII.GetBytes("FLUSHDB"),
             flushall = Encoding.ASCII.GetBytes("FLUSHALL"),
-            info = Encoding.ASCII.GetBytes("INFO");
+            info = Encoding.ASCII.GetBytes("INFO"),
+            randomkey = Encoding.ASCII.GetBytes("RANDOMKEY");
         public override void Write(Stream stream)
         {
             WriteCommand(stream, 0);
@@ -418,6 +421,10 @@ namespace BookSleeve
         {
             return new KeyMessage(db, rpop, key);
         }
+        internal static Message Persist(int db, string key)
+        {
+            return new KeyMessage(db, persist, key);
+        }
 
         private readonly static byte[]
             get = Encoding.ASCII.GetBytes("GET"),
@@ -432,6 +439,7 @@ namespace BookSleeve
             auth = Encoding.ASCII.GetBytes("AUTH"),
             keys = Encoding.ASCII.GetBytes("KEYS"),
             smembers = Encoding.ASCII.GetBytes("SMEMBERS"),
+            persist = Encoding.ASCII.GetBytes("PERSIST"),
             subscribe = Encoding.ASCII.GetBytes("SUBSCRIBE"),
             unsubscribe = Encoding.ASCII.GetBytes("UNSUBSCRIBE"),
             psubscribe = Encoding.ASCII.GetBytes("PSUBSCRIBE"),
@@ -498,6 +506,9 @@ namespace BookSleeve
         public static Message IsMemberOfSet(int db, string key, byte[] value) { return new KeyValueMessage(db, sismember, key, value, false); }
         public static Message PopFromListPushToList(int db, string from, string to) { return new KeyValueMessage(db, rpoplpush, from, to,false); }
 
+        public static Message Rename(int db, string from, string to) { return new KeyValueMessage(db, rename, from, to, true); }
+        public static Message RenameIfNotExists(int db, string from, string to) { return new KeyValueMessage(db, renamenx, from, to, false); }
+
         private KeyValueMessage(int db, byte[] command, string key, string value, bool ok)
             : this(db, command, key, value == null ? (byte[])null : Encoding.UTF8.GetBytes(value), ok) { }
         private KeyValueMessage(int db, byte[] command, string key, byte[] value, bool ok)
@@ -514,10 +525,12 @@ namespace BookSleeve
             sadd = Encoding.ASCII.GetBytes("SADD"),
             srem = Encoding.ASCII.GetBytes("SREM"),
             publish = Encoding.ASCII.GetBytes("PUBLISH"),
-            lpush  = Encoding.ASCII.GetBytes("LPUSH"),
-            rpush =  Encoding.ASCII.GetBytes("RPUSH"),
+            lpush = Encoding.ASCII.GetBytes("LPUSH"),
+            rpush = Encoding.ASCII.GetBytes("RPUSH"),
             sismember = Encoding.ASCII.GetBytes("SISMEMBER"),
-            rpoplpush = Encoding.ASCII.GetBytes("RPOPLPUSH");
+            rpoplpush = Encoding.ASCII.GetBytes("RPOPLPUSH"),
+            rename = Encoding.ASCII.GetBytes("RENAME"),
+            renamenx = Encoding.ASCII.GetBytes("RENAMENX");
         private readonly string key;
         private readonly byte[] value;
         public override void Write(Stream stream)

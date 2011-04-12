@@ -28,7 +28,7 @@ namespace BookSleeve
                 if (expected[i] != bytes[i]) return false;
             return true;
         }
-        protected virtual Exception Error() { return new InvalidOperationException("This operation is not supported by " + GetType().Name); }
+        public virtual Exception Error() { return new InvalidOperationException("This operation is not supported by " + GetType().Name); }
         public virtual long ValueInt64 { get { return int.Parse(ValueString); } }
         public bool ValueBoolean { get { return ValueInt64 != 0; } }
         public virtual string ValueString
@@ -76,7 +76,7 @@ namespace BookSleeve
             internal ErrorRedisResult(string message) { this.message = message; }
             private readonly string message;
             public override bool IsError { get { return true; } }
-            protected override Exception Error() { return new RedisException(message); }
+            public override Exception Error() { return new RedisException(message); }
             public override RedisResult[] ValueItems { get { throw Error(); } }
         }
         private class BytesRedisResult : RedisResult
@@ -97,7 +97,7 @@ namespace BookSleeve
             private readonly string message;
             public TimeoutRedisResult(string message) { this.message = message; }
             public override bool IsError { get { return true; } }
-            protected override Exception Error() { return new TimeoutException(message); }
+            public override Exception Error() { return new TimeoutException(message); }
             public override RedisResult[] ValueItems {get { throw Error(); }}
         }
 

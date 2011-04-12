@@ -291,6 +291,45 @@ namespace BookSleeve
             return ExecuteBoolean(KeyScoreMessage.Expire(db, key, seconds), queueJump);
         }
 
+        /// <summary>
+        /// Removes the expiry against a key
+        /// </summary>
+        /// <returns>True if the expiry was removed (it existed with expiry), else False</returns>
+        /// <remarks>Available with 2.1.2 and above only</remarks>
+        public Task<bool> Persist(int db, string key, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(KeyMessage.Persist(db, key), queueJump);
+        }
+
+        /// <summary>
+        /// Obtains a random key from the database, or null otherwise (empty database)
+        /// </summary>
+        public Task<string> RandomKey(int db, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteString(VanillaMessage.RandomKey(db), queueJump);
+        }
+
+        /// <summary>
+        /// Renames a key in the database, overwriting any existing value; the source key must exist and be different to the destination.
+        /// </summary>
+        public Task Rename(int db, string fromKey, string toKey, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteVoid(KeyValueMessage.Rename(db, fromKey, toKey), queueJump);
+        }
+
+
+        /// <summary>
+        /// Renames a key in the database, overwriting any existing value; the source key must exist and be different to the destination.
+        /// </summary>
+        public Task<bool> RenameIfNotExists(int db, string fromKey, string toKey, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(KeyValueMessage.RenameIfNotExists(db, fromKey, toKey), queueJump);
+        }
+
         public Task<double> IncrementSortedSet(int db, string key, byte[] value, double score, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
@@ -334,12 +373,17 @@ namespace BookSleeve
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(KeyMessage.CardinalityOfSortedSet(db, key), queueJump);
         }
-
+        /// <summary>
+        /// Removes a key from the database.
+        /// <returns>True if the key was successfully removed, false otherwise (i.e. it didn't exist)</returns>
         public Task<bool> Remove(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBoolean(KeyMessage.Del(db, key), queueJump);
         }
+        /// <summary>
+        /// Removes multiple keys from the database.
+        /// <returns>The number of keys successfully removed (i.e. that existed)</returns>
         public Task<long> Remove(int db, string[] keys, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
@@ -464,7 +508,10 @@ namespace BookSleeve
             return ExecuteBytes(KeyValueMessage.PopFromListPushToList(db, from, to), queueJump);
         }
 
-
+        /// <summary>
+        /// Moves a key between databases; the key must exist at the source and not exist at the destination.
+        /// </summary>
+        /// <returns>True if successful; false otherwise (didn't exist at source, or already existed at destination).</returns>
         public Task<bool> Move(int db, string key, int targetDb)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
