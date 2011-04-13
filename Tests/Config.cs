@@ -23,6 +23,17 @@ namespace Tests
             if(open) conn.Open();
             return conn;
         }
+
+        internal static RedisSubscriberConnection GetSubscriberConnection()
+        {
+            var conn = new RedisSubscriberConnection(host, unsecuredPort);
+            conn.Error += (s, args) =>
+            {
+                Trace.WriteLine(args.Exception.Message, args.Cause);
+            };
+            conn.Open();
+            return conn;
+        }
         internal static RedisConnection GetSecuredConnection(bool open = true)
         {
             var conn = new RedisConnection(host, securedPort, password: "changeme", syncTimeout: 60000, ioTimeout: 5000);

@@ -68,11 +68,11 @@ namespace BookSleeve
         private void RaiseEvent(Action<string, byte[]> handler, string key, RedisResult value)
         {
             if (handler == null) return;
-            foreach (Action<string, RedisResult> child in handler.GetInvocationList())
+            foreach (Action<string, byte[]> child in handler.GetInvocationList())
             {
                 try
                 {
-                    child(key, value);
+                    child(key, value.ValueBytes);
                 }
                 catch (Exception ex)
                 {
@@ -132,7 +132,7 @@ namespace BookSleeve
             }
         }
         private int subscriptionCount;
-
+        public int SubscriptionCount { get { return Interlocked.CompareExchange(ref subscriptionCount, 0, 0); } }
         void ValidateKey(string key, bool pattern)
         {
             if (string.IsNullOrEmpty(key)) throw new ArgumentOutOfRangeException("key", "Empty subscription key");
