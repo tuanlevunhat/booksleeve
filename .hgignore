@@ -7,3 +7,5 @@ Tests/obj/
 Async/bin/
 Async/obj/
 *.user
+packages/*
+*.nupkg

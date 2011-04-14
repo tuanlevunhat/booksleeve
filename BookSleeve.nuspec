@@ -7,9 +7,11 @@
     <owners>Marc Gravell</owners>
     <description>Asynchronous Redis client</description>
     <projectUrl>http://code.google.com/p/booksleeve/</projectUrl>
-    <licenseUrl>http://code.google.com/p/booksleeve/source/browse/license.txt</licenseUrl>
-    <iconUrl></iconUrl>
-    <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging Transactions</tags>
+    <licenseUrl>http://booksleeve.googlecode.com/hg/license.txt</licenseUrl>
+    <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
   </metadata>
+  <files>
+    <file src="BookSleeve\bin\Release\*.*" target="lib" />
+  </files>
 </package>

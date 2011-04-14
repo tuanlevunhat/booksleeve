@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Async", "Async\Async.csproj
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{51F00EC5-785B-4B68-BE7F-055269D9D2EA}"
 	ProjectSection(SolutionItems) = preProject
-		BookSleeve.nuget = BookSleeve.nuget
+		BookSleeve.nuspec = BookSleeve.nuspec
 		license.txt = license.txt
 	EndProjectSection
 EndProject
