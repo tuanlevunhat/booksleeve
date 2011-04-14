@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Runtime.Serialization;
 
 namespace BookSleeve
 {
@@ -148,10 +149,15 @@ namespace BookSleeve
         public override RedisResult[] ValueItems { get { return items; } }
         public MultiRedisResult(RedisResult[] items) { this.items = items; }
     }
+    [Serializable]
     public sealed class RedisException : Exception
     {
-        public RedisException(string message) : base(message) { }
+        public RedisException() {}
+        public RedisException(string message) : base(message)  { }
+        public RedisException(string message, Exception innerException) : base(message, innerException) { }
+        protected RedisException(SerializationInfo info, StreamingContext context)  : base(info, context) {}
     }
+
     internal enum MessageState
     {
         NotSent, Sent, Complete, Cancelled
