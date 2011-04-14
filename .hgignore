@@ -6,3 +6,4 @@ Tests/obj/
 *.suo
 Async/bin/
 Async/obj/
+*.user
