@@ -518,5 +518,35 @@ namespace BookSleeve
             if (targetDb < 0) throw new ArgumentOutOfRangeException("targetDb");
             return ExecuteBoolean(KeyScoreMessage.Move(db, key, targetDb));
         }
+
+        /// <summary>
+        /// Enumerate all keys in a hash.
+        /// </summary>
+        public Task<byte[][]> GetHash(int db, string key, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+
+            return ExecuteMultiBytes(KeyMessage.GetHash(db, key), queueJump);
+        }
+
+        /// <summary>
+        /// Gets a single field from a hash
+        /// </summary>
+        public Task<byte[]> GetFromHash(int db, string hashKey, string subKey, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+
+            return ExecuteBytes(MultiKeyMessage.GetFromHash(db, hashKey, subKey), queueJump);
+        }
+
+        /// <summary>
+        /// Increment a field on a hash by an amount (1 by default)
+        /// </summary>
+        public Task<long> IncrementHash(int db, string hashKey, string subKey, int by = 1, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+
+            return ExecuteInt64(MultiKeyValueMessage.IncrementHash(db, hashKey, subKey, by), queueJump);
+        }
     }
 }

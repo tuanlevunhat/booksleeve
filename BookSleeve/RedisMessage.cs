@@ -250,6 +250,10 @@ namespace BookSleeve
         {
             return new MultiKeyMessage(-1, punsubscribe, keys);
         }
+        public static Message GetFromHash(int db, string hash, string subKey)
+        {
+            return new MultiKeyMessage(db, hget, new string[] { hash, subKey });
+        }
         private MultiKeyMessage(int db, byte[] command, string[] keys)
             : base(db, command)
         {
@@ -272,7 +276,8 @@ namespace BookSleeve
             sinter = Encoding.ASCII.GetBytes("SINTER"),
             sunion = Encoding.ASCII.GetBytes("SUNION"),
             sinterstore = Encoding.ASCII.GetBytes("SINTERSTORE"),
-            sunionstore = Encoding.ASCII.GetBytes("SUNIONSTORE");
+            sunionstore = Encoding.ASCII.GetBytes("SUNIONSTORE"),
+            hget = Encoding.ASCII.GetBytes("HGET");
     }
     internal class RangeMessage : Message
     {
@@ -425,6 +430,10 @@ namespace BookSleeve
         {
             return new KeyMessage(db, persist, key);
         }
+        internal static Message GetHash(int db, string key)
+        {
+            return new KeyMessage(db, hgetall, key);
+        }
 
         private readonly static byte[]
             get = Encoding.ASCII.GetBytes("GET"),
@@ -445,7 +454,8 @@ namespace BookSleeve
             psubscribe = Encoding.ASCII.GetBytes("PSUBSCRIBE"),
             punsubscribe = Encoding.ASCII.GetBytes("PUNSUBSCRIBE"),
             lpop = Encoding.ASCII.GetBytes("LPOP"),
-            rpop = Encoding.ASCII.GetBytes("RPOP");
+            rpop = Encoding.ASCII.GetBytes("RPOP"),
+            hgetall = Encoding.ASCII.GetBytes("HGETALL");
     }
     internal class KeyScoreMessage : Message
     {
@@ -554,7 +564,7 @@ namespace BookSleeve
 
         public static Message SetWithExpiry(int db, string key, int seconds, string value) { return new KeyScoreValueMessage(db, setex, key, seconds, value, true); }
         public static Message SetWithExpiry(int db, string key, int seconds, byte[] value) { return new KeyScoreValueMessage(db, setex, key, seconds, value, true); }
-
+        
         private KeyScoreValueMessage(int db, byte[] command, string key, double score, string value, bool ok)
             : this(db, command, key, score, value == null ? (byte[])null : Encoding.UTF8.GetBytes(value), ok) { }
         private KeyScoreValueMessage(int db, byte[] command, string key, double score, byte[] value, bool ok)
@@ -577,6 +587,37 @@ namespace BookSleeve
             WriteCommand(stream, 3);
             WriteUnified(stream, key);
             WriteUnified(stream, score);
+            WriteUnified(stream, value);
+        }
+    }
+    internal class MultiKeyValueMessage : Message
+    {
+        public static Message IncrementHash(int db, string hashKey, string subKey, int by) 
+        {
+            return new MultiKeyValueMessage(db, hincrby, hashKey, subKey, by.ToString());
+        }
+
+        private MultiKeyValueMessage(int db, byte[] command, string key, string subKey, string value)
+            : this(db, command, key, subKey, value == null ? (byte[])null : Encoding.UTF8.GetBytes(value)) { }
+        private MultiKeyValueMessage(int db, byte[] command, string key, string subKey, byte[] value)
+            : base(db, command, null)
+        {
+            if (value == null) throw new ArgumentNullException("value");
+
+            this.key = key;
+            this.subKey = subKey;
+            this.value = value;
+        }
+        private readonly string key;
+        private readonly string subKey;
+        private readonly byte[] value;
+        private readonly static byte[]
+            hincrby = Encoding.ASCII.GetBytes("HINCRBY");
+        public override void Write(Stream stream)
+        {
+            WriteCommand(stream, 3);
+            WriteUnified(stream, key);
+            WriteUnified(stream, subKey);
             WriteUnified(stream, value);
         }
     }
