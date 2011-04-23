@@ -149,13 +149,26 @@ namespace BookSleeve
         public override RedisResult[] ValueItems { get { return items; } }
         public MultiRedisResult(RedisResult[] items) { this.items = items; }
     }
+    /// <summary>
+    /// An redis-related exception; this could represent a message from the server,
+    /// or a protocol error talking to the server.
+    /// </summary>
     [Serializable]
     public sealed class RedisException : Exception
     {
+        /// <summary>
+        /// Create a new RedisException
+        /// </summary>
         public RedisException() {}
+        /// <summary>
+        /// Create a new RedisException
+        /// </summary>
         public RedisException(string message) : base(message)  { }
+        /// <summary>
+        /// Create a new RedisException
+        /// </summary>
         public RedisException(string message, Exception innerException) : base(message, innerException) { }
-        protected RedisException(SerializationInfo info, StreamingContext context)  : base(info, context) {}
+        private RedisException(SerializationInfo info, StreamingContext context)  : base(info, context) {}
     }
 
     internal enum MessageState

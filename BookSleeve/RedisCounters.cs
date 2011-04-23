@@ -4,7 +4,9 @@ using System.Text;
 
 namespace BookSleeve
 {
-
+    /// <summary>
+    /// Summary statistics for the RedisConnection
+    /// </summary>
     public sealed class Counters
     {
         private readonly IDictionary<int, int> dbUsage;
@@ -24,15 +26,46 @@ namespace BookSleeve
             this.dbUsage = dbUsage;
             this.ping = ping;
         }
+        /// <summary>
+        /// The number of messages sent to the Redis server
+        /// </summary>
         public int MessagesSent { get { return messagesSent; } }
+        /// <summary>
+        /// The number of messages received from the Redis server
+        /// </summary>
         public int MessagesReceived { get { return messagesReceived; } }
+        /// <summary>
+        /// The number of queued messages that were withdrawn without being sent
+        /// </summary>
         public int MessagesCancelled { get { return messagesCancelled; } }
+        /// <summary>
+        /// The number of operations that timed out
+        /// </summary>
         public int Timeouts { get { return timeouts; } }
+        /// <summary>
+        /// The number of operations that were sent ahead of queued items
+        /// </summary>
         public int QueueJumpers { get { return queueJumpers; } }
+        /// <summary>
+        /// The number of messages waiting to be sent
+        /// </summary>
         public int UnsentQueue { get { return unsentQueue; } }
+        /// <summary>
+        /// The number of error messages received by the server
+        /// </summary>
         public int ErrorMessages { get { return errorMessages; } }
+        /// <summary>
+        /// The number of messages that have been sent and are waiting for a response
         public int SentQueue { get { return sentQueue; } }
+        /// <summary>
+        /// The current time (milliseconds) taken to send a Redis PING command and
+        /// receive a PONG reply
+        /// </summary>
         public int Ping { get { return ping; } }
+        /// <summary>
+        /// Obtain a string representation of the counters
+        /// </summary>
+        /// <returns></returns>
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder()

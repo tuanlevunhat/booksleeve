@@ -5,6 +5,12 @@ using System.Threading.Tasks;
 
 namespace BookSleeve
 {
+    /// <summary>
+    /// A thread-safe, multiplexed connection to a Redis server; each connection
+    /// should be cached and re-used (without synchronization) from multiple
+    /// callers for maximum efficiency. Usually only a single RedisConnection
+    /// is required
+    /// </summary>
     public sealed class RedisConnection : RedisConnectionBase
     {
         internal const bool DefaultAllowAdmin = false;
@@ -346,17 +352,40 @@ namespace BookSleeve
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBoolean(KeyValueMessage.RemoveFromSet(db, key, value), queueJump);
         }
+        /// <summary>
+        /// Prepend an item to a list
+        /// </summary>
+        /// <param name="db">The database to operate on</param>
+        /// <param name="key">The key of the list</param>
+        /// <param name="value">The item to add</param>
+        /// <param name="queueJump">Whether to overtake unsent messages</param>
+        /// <returns>The number of items now in the list</returns>
         public Task<long> LeftPush(int db, string key, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(KeyValueMessage.LeftPush(db, key, value), queueJump);
         }
+        /// <summary>
+        /// Append an item to a list
+        /// </summary>
+        /// <param name="db">The database to operate on</param>
+        /// <param name="key">The key of the list</param>
+        /// <param name="value">The item to add</param>
+        /// <param name="queueJump">Whether to overtake unsent messages</param>
+        /// <returns>The number of items now in the list</returns>
         public Task<long> RightPush(int db, string key, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(KeyValueMessage.RightPush(db, key, value), queueJump);
         }
 
+        /// <summary>
+        /// Query the number of items in a list
+        /// </summary>
+        /// <param name="db">The database to operate on</param>
+        /// <param name="key">The key of the list</param>
+        /// <param name="queueJump">Whether to overtake unsent messages</param>
+        /// <returns>The number of items in the list, or 0 if it does not exist</returns>
         public Task<long> ListLength(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
@@ -374,7 +403,7 @@ namespace BookSleeve
             return ExecuteInt64(KeyMessage.CardinalityOfSortedSet(db, key), queueJump);
         }
         /// <summary>
-        /// Removes a key from the database.
+        /// Removes a key from the database.</summary>
         /// <returns>True if the key was successfully removed, false otherwise (i.e. it didn't exist)</returns>
         public Task<bool> Remove(int db, string key, bool queueJump = false)
         {
@@ -414,11 +443,25 @@ namespace BookSleeve
             return ExecuteInt64(MultiKeyMessage.UnionAndStore(db, to, from), false);
         }
 
+        /// <summary>
+        /// Removes an item from the start of a list
+        /// </summary>
+        /// <param name="db">The database to operatate on</param>
+        /// <param name="key">The list to remove an item from</param>
+        /// <param name="queueJump">Whether to overtake unsent messages</param>
+        /// <returns>The contents of the item removed, or null if empty</returns>
         public Task<byte[]> LeftPop(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBytes(KeyMessage.LeftPop(db, key), queueJump);
         }
+        /// <summary>
+        /// Removes an item from the end of a list
+        /// </summary>
+        /// <param name="db">The database to operatate on</param>
+        /// <param name="key">The list to remove an item from</param>
+        /// <param name="queueJump">Whether to overtake unsent messages</param>
+        /// <returns>The contents of the item removed, or null if empty</returns>
         public Task<byte[]> RightPop(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
