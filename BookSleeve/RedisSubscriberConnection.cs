@@ -5,8 +5,16 @@ using System.Threading;
 
 namespace BookSleeve
 {
+    /// <summary>
+    /// Provides a Redis connection for listening for (and handling) the subscriber part of a pub/sub implementation.
+    /// Messages are sent using RedisConnection.Publish.
+    /// </summary>
     public sealed class RedisSubscriberConnection : RedisConnectionBase
     {
+        /// <summary>
+        /// This event is raised when a message is received on any subscribed channel; this is supplemental
+        /// to any direct callbacks specified.
+        /// </summary>
         public event Action<string, byte[]> MessageReceived;
 
         private readonly Dictionary<string, Action<string, byte[]>> subscriptions
@@ -80,6 +88,14 @@ namespace BookSleeve
                 }
             }
         }
+        /// <summary>
+        /// Create a new RedisSubscriberConnection instance
+        /// </summary>
+        /// <param name="host">The server to connect to (IP address or name)</param>
+        /// <param name="port">The port on the server to connect to; typically 3679</param>
+        /// <param name="ioTimeout">The timeout to use during IO operations; this can usually be left unlimited</param>
+        /// <param name="password">If the server is secured, the server password (null if not secured)</param>
+        /// <param name="maxUnsent">The maximum number of unsent messages to enqueue before new requests are blocking calls</param>
         public RedisSubscriberConnection(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue)
             : base(host,port, ioTimeout, password, maxUnsent)
         {
@@ -132,6 +148,10 @@ namespace BookSleeve
             }
         }
         private int subscriptionCount;
+        /// <summary>
+        /// The number of subscriptions currently help by the current connection (as reported by the server during the last
+        /// subsribe/unsubscribe operation)
+        /// </summary>
         public int SubscriptionCount { get { return Interlocked.CompareExchange(ref subscriptionCount, 0, 0); } }
         void ValidateKey(string key, bool pattern)
         {
@@ -157,47 +177,95 @@ namespace BookSleeve
                 }
             }            
         }
+        /// <summary>
+        /// Subscribe to a channel
+        /// </summary>
+        /// <param name="key">The channel name</param>
+        /// <param name="handler">A callback to invoke when messages are received on this channel;
+        /// note that the MessageReceived event will also be raised, so this callback can be null.</param>
+        /// <remarks>Channels are server-wide; they are not per-database</remarks>
         public void Subscribe(string key, Action<string, byte[]> handler = null)
         {
             ValidateKey(key, false);
             AddNamedSubscription(key, handler);
             EnqueueMessage(KeyMessage.Subscribe(key), false);
         }
+        /// <summary>
+        /// Subscribe to a set of channels
+        /// </summary>
+        /// <param name="keys">The channel names</param>
+        /// <param name="handler">A callback to invoke when messages are received on these channel;
+        /// note that the MessageReceived event will also be raised, so this callback can be null.</param>
+        /// <remarks>Channels are server-wide; they are not per-database</remarks>
         public void Subscribe(string[] keys, Action<string, byte[]> handler = null)
         {
             ValidateKeys(keys, false);
             AddNamedSubscriptions(keys, handler);
             EnqueueMessage((keys.Length == 1 ? KeyMessage.Subscribe(keys[0]) : MultiKeyMessage.Subscribe(keys)), false);
         }
+        /// <summary>
+        /// Subscribe to a set of pattern (using wildcards, for exmaple "Foo*")
+        /// </summary>
+        /// <param name="key">The pattern to subscribe</param>
+        /// <param name="handler">A callback to invoke when matching messages are received; this can be null
+        /// as the MessageReceived event will also be raised</param>
+        /// <remarks>Channels are server-wide, not per-database</remarks>        
         public void PatternSubscribe(string key, Action<string, byte[]> handler = null)
         {
             ValidateKey(key, true);
             AddNamedSubscription(key, handler);
             EnqueueMessage(KeyMessage.PatternSubscribe(key), false);
         }
+        /// <summary>
+        /// Subscribe to a set of patterns (using wildcards, for exmaple "Foo*")
+        /// </summary>
+        /// <param name="keys">The patterns to subscribe</param>
+        /// <param name="handler">A callback to invoke when matching messages are received; this can be null
+        /// as the MessageReceived event will also be raised</param>
+        /// <remarks>Channels are server-wide, not per-database</remarks>
         public void PatternSubscribe(string[] keys, Action<string, byte[]> handler = null)
         {
             ValidateKeys(keys, true);
             AddNamedSubscriptions(keys, handler);
             EnqueueMessage((keys.Length == 1 ? KeyMessage.PatternSubscribe(keys[0]) : MultiKeyMessage.PatternSubscribe(keys)), false);
         }
+        /// <summary>
+        /// Unsubscribe from a channel
+        /// </summary>
+        /// <param name="key">The channel name</param>
+        /// <remarks>Channels are server-wide; they are not per-database</remarks>
         public void Unsubscribe(string key)
         {
             ValidateKey(key, false);
             RemoveNamedSubscription(key);
             EnqueueMessage(KeyMessage.Unsubscribe(key), false);
         }
+        /// <summary>
+        /// Unsubscribe from a set of channels
+        /// </summary>
+        /// <param name="keys">The channel names</param>
+        /// <remarks>Channels are server-wide; they are not per-database</remarks>
         public void Unsubscribe(string[] keys)
         {
             ValidateKeys(keys, false);
             RemoveNamedSubscriptions(keys);
             EnqueueMessage((keys.Length == 1 ? KeyMessage.Unsubscribe(keys[0]) : MultiKeyMessage.Unsubscribe(keys)), false);
         }
+        /// <summary>
+        /// Unsubscribe from a pattern (which must match a pattern previously subscribed)
+        /// </summary>
+        /// <param name="key">The pattern to unsubscribe</param>
+        /// <remarks>Channels are server-wide, not per-database</remarks>
         public void PatternUnsubscribe(string key)
         {
             ValidateKey(key, true);
             EnqueueMessage(KeyMessage.PatternUnsubscribe(key), false);
         }
+        /// <summary>
+        /// Unsubscribe from a set of patterns (which must match patterns previously subscribed)
+        /// </summary>
+        /// <param name="keys">The patterns to unsubscribe</param>
+        /// <remarks>Channels are server-wide, not per-database</remarks>
         public void PatternUnsubscribe(string[] keys)
         {
             ValidateKeys(keys, true);
