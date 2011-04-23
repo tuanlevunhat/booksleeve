@@ -411,7 +411,7 @@ namespace BookSleeve
             return ExecuteBoolean(KeyMessage.Del(db, key), queueJump);
         }
         /// <summary>
-        /// Removes multiple keys from the database.
+        /// Removes multiple keys from the database.</summary>
         /// <returns>The number of keys successfully removed (i.e. that existed)</returns>
         public Task<long> Remove(int db, string[] keys, bool queueJump = false)
         {

@@ -55,7 +55,7 @@ namespace BookSleeve
         /// </summary>
         public int ErrorMessages { get { return errorMessages; } }
         /// <summary>
-        /// The number of messages that have been sent and are waiting for a response
+        /// The number of messages that have been sent and are waiting for a response</summary>
         public int SentQueue { get { return sentQueue; } }
         /// <summary>
         /// The current time (milliseconds) taken to send a Redis PING command and
