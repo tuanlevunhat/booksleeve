@@ -4,12 +4,22 @@ using BookSleeve;
 using NUnit.Framework;
 using System.Threading;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Tests
 {
     [TestFixture(Description="Validates that the test environment is configured and responding")]
     public class Config
     {
+        static Config()
+        {
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                Trace.WriteLine(args.Exception,"UnobservedTaskException");
+                args.SetObserved();
+            };
+        }
+
         const string host = "127.0.0.1";
         const int unsecuredPort = 6379, securedPort = 6380;
 
