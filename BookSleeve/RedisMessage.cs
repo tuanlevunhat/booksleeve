@@ -9,15 +9,6 @@ namespace BookSleeve
 {
     internal abstract class Message
     {
-        private RedisResult result;
-        public RedisResult Result { get { return result; } }
-        internal void SetResult(RedisResult result)
-        {
-            if (Interlocked.CompareExchange(ref this.result, result, null) != null)
-            {
-                throw new InvalidOperationException("A result is already assigned");
-            }
-        }
         private int messageState;
         internal bool ChangeState(MessageState from, MessageState to)
         {
@@ -59,12 +50,12 @@ namespace BookSleeve
             this.expected = expected;
             this.command = command;
         }
-        private Task task;
-        internal void SetTask(Task task)
+        private MessageResult messageResult;
+        internal void SetMessageResult(MessageResult messageResult)
         {
-            if (Interlocked.CompareExchange(ref this.task, task, null) != null)
+            if (Interlocked.CompareExchange(ref this.messageResult, messageResult, null) != null)
             {
-                throw new InvalidOperationException("A task is already assigned");
+                throw new InvalidOperationException("A message-result is already assigned");
             }
         }
         protected void WriteCommand(Stream stream, int argCount)
@@ -86,21 +77,12 @@ namespace BookSleeve
         }
         public abstract void Write(Stream stream);
         internal virtual void Complete(RedisResult result)
-        {
-            SetResult(result);            
-            var snapshot = Interlocked.Exchange(ref task, null); // only run once
+        {       
+            var snapshot = Interlocked.Exchange(ref messageResult, null); // only run once
             ChangeState(MessageState.Sent, MessageState.Complete);
             if (snapshot != null)
             {
-                // it is important that we specify the Default scheduler here, as this is
-                // the thread-pool scheduler which supports inline (aka sync) usage
-                // (at least, as long as the task hasn't started, which it hasn't since
-                // we never ask any scheduler to start it); if we *don't* specify
-                // a scheduler, the Current scheduler is used; which *could* be the
-                // Default, but which could also be anything else, which might not
-                // support inline (sync) usage. Since the real work has already been done,
-                // we really really want sync here.
-                snapshot.RunSynchronously(TaskScheduler.Default);
+                snapshot.Complete(result);
             }
             
         }

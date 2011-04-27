@@ -672,79 +672,76 @@ namespace BookSleeve
         private readonly MemoryStream bodyBuffer = new MemoryStream();
 
 
-
-
-        static readonly Func<object, bool> readBoolean = msg => (((Message)msg).Result).ValueBoolean;
         internal Task<bool> ExecuteBoolean(Message message, bool queueJump = false)
         {
-            Task<bool> task = new Task<bool>(readBoolean, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultBoolean();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, long> readInt64 = msg => (((Message)msg).Result).ValueInt64;
+
         internal Task<long> ExecuteInt64(Message message, bool queueJump = false)
         {
-            Task<long> task = new Task<long>(readInt64, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultInt64();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Action<object> readVoid = msg => (((Message)msg).Result).Assert();
+
         internal Task ExecuteVoid(Message message, bool queueJump = false)
         {
-            Task task = new Task(readVoid, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultVoid();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, double> readDouble = msg => (((Message)msg).Result).ValueDouble;
+
         internal Task<double> ExecuteDouble(Message message, bool queueJump = false)
         {
-            Task<double> task = new Task<double>(readDouble, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultDouble();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, byte[]> readBytes = msg => (((Message)msg).Result).ValueBytes;
+
         internal Task<byte[]> ExecuteBytes(Message message, bool queueJump = false)
         {
-            Task<byte[]> task = new Task<byte[]>(readBytes, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultBytes();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, string> readString = msg => (((Message)msg).Result).ValueString;
+
         internal Task<string> ExecuteString(Message message, bool queueJump = false)
         {
-            Task<string> task = new Task<string>(readString, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultString();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, byte[][]> readMultiBytes = msg => (((Message)msg).Result).ValueItemsBytes();
+
         internal Task<byte[][]> ExecuteMultiBytes(Message message, bool queueJump = false)
         {
-            Task<byte[][]> task = new Task<byte[][]>(readMultiBytes, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultMultiBytes();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, string[]> readMultiString = msg => (((Message)msg).Result).ValueItemsString();
+
         internal Task<string[]> ExecuteMultiString(Message message, bool queueJump = false)
         {
-            Task<string[]> task = new Task<string[]>(readMultiString, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultMultiString();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
-        static readonly Func<object, KeyValuePair<byte[], double>[]> readPairs = msg => (((Message)msg).Result).ExtractPairs();
+
         internal Task<KeyValuePair<byte[], double>[]> ExecutePairs(Message message, bool queueJump = false)
         {
-            Task<KeyValuePair<byte[], double>[]> task = new Task<KeyValuePair<byte[], double>[]>(readPairs, message);
-            message.SetTask(task);
+            var msgResult = new MessageResultPairs();
+            message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
-            return task;
+            return msgResult.Task;
         }
         internal void EnqueueMessage(Message message, bool queueJump = false)
         {

@@ -34,10 +34,12 @@ namespace Async
             // just drop it on the floor
         }
     }
+
     class CustomAwaiter
     {
         public static void Execute()
         {
+#pragma warning disable 0618
             Future<int>[] futures = new Future<int>[10];
             MonitorPool pool = new MonitorPool(futures.Length);
             const int loop = 500000;
@@ -62,7 +64,7 @@ namespace Async
             watch.Stop();
 
             Console.WriteLine("Future (uncontested): " + watch.ElapsedMilliseconds);
-
+#pragma warning restore 0618
             Task<int>[] tasks = new Task<int>[futures.Length];
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
             GC.WaitForPendingFinalizers();
@@ -86,7 +88,29 @@ namespace Async
             watch.Stop();
 
             Console.WriteLine("Task (uncontested): " + watch.ElapsedMilliseconds);
+            TaskCompletionSource<int>[] sources = new TaskCompletionSource<int>[futures.Length];
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+            GC.WaitForPendingFinalizers();
+            watch = Stopwatch.StartNew();
+            for (int j = 0; j < loop; j++)
+            {
+                for (int i = 0; i < futures.Length; i++)
+                {
+                    sources[i] = new TaskCompletionSource<int>();
+                }
+                for (int i = 0; i < futures.Length; i++)
+                {
+                    sources[i].SetResult(i+1);
+                }
+                for (int i = 0; i < futures.Length; i++)
+                {
+                    if (sources[i].Task.Result != i + 1) throw new InvalidOperationException();
+                }
+            }
+            watch.Stop();
 
+            Console.WriteLine("Source (uncontested): " + watch.ElapsedMilliseconds);
+#pragma warning disable 0618
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
             GC.WaitForPendingFinalizers();
             watch = Stopwatch.StartNew();
@@ -113,7 +137,7 @@ namespace Async
                 }
             }
             watch.Stop();
-
+#pragma warning restore 0618
             Console.WriteLine("Future (contested): " + watch.ElapsedMilliseconds);
 
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
@@ -140,13 +164,41 @@ namespace Async
             watch.Stop();
 
             Console.WriteLine("Task (contested): " + watch.ElapsedMilliseconds);
+
+
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+            GC.WaitForPendingFinalizers();
+            watch = Stopwatch.StartNew();
+            for (int j = 0; j < loop; j++)
+            {
+                for (int i = 0; i < futures.Length; i++)
+                {
+                    sources[i] = new TaskCompletionSource<int>();
+                }
+                ThreadPool.QueueUserWorkItem(delegate
+                {
+                    for (int i = 0; i < futures.Length; i++)
+                    {
+                        sources[i].SetResult(i+1);
+                    }
+                });
+                for (int i = 0; i < futures.Length; i++)
+                {
+                    if (sources[i].Task.Result != i + 1) throw new InvalidOperationException();
+                }
+            }
+            watch.Stop();
+
+            Console.WriteLine("Source (contested): " + watch.ElapsedMilliseconds);
         }
 
 
         static void Main2()
         {
             var typed = new Future<int>();
+#pragma warning disable 0618
             Future untyped = typed;
+#pragma warning restore 0618
             DoSomet(typed);
             DoSomet(untyped);
             ThreadPool.QueueUserWorkItem(delegate
@@ -161,8 +213,10 @@ namespace Async
             Console.WriteLine("sync: " + i);
             Console.ReadLine();
         }
+#pragma warning disable 0618
         static async void DoSomet(Future obj)
         {
+
             await obj;
             Console.WriteLine("async");
         }
@@ -171,6 +225,7 @@ namespace Async
             var i = await obj;
             Console.WriteLine("async: " + i);
         }
+#pragma warning restore 0618
     }
 
     public interface IFutureAwaiter
@@ -216,6 +271,7 @@ namespace Async
     /// Both synchronous (blocking) operations and asynchronous (continuation) operations are supported.
     /// </summary>
     /// <remarks>All members on this class are thread-safe.</remarks>
+    [Obsolete("DO NOT USE THIS; TaskCompletionSource<T> is preferred")]
     public class Future : IFutureAwaiter
     {
         /// <summary>
@@ -391,9 +447,11 @@ namespace Async
     /// Both synchronous (blocking) operations and asynchronous (continuation) operations are supported.
     /// </summary>
     /// <remarks>All members on this class are thread-safe.</remarks>
+    [Obsolete("DO NOT USE THIS; TaskCompletionSource<T> is preferred")]
+#pragma warning disable 0618
     public sealed class Future<T> : Future, IFutureAwaiter<T>
     {
-
+#pragma warning restore 0618
         /// <summary>
         /// Create a new Future object
         /// </summary>
