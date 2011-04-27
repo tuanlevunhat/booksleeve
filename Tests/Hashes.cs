@@ -13,6 +13,7 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
+                conn.Remove(5, "hash-test");
                 for (int i = 1; i < 1000; i++)
                 {
                     Assert.AreEqual(i, conn.IncrementHash(5, "hash-test", "a", 1).Result);
@@ -26,8 +27,9 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                var key = "hash test";
-
+                
+                const string key = "hash test";
+                conn.Remove(6, key);
                 var shouldMatch = new Dictionary<Guid, int>();
                 var random = new Random();
 
