@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace BookSleeve
 {
-    internal abstract class MessageResult
+    internal interface IMessageResult
     {
-        public abstract void Complete(RedisResult result);
+        void Complete(RedisResult result);
     }
-    internal sealed class MessageResultDouble : MessageResult
+    internal abstract class MessageResult<T> : IMessageResult
     {
-        private readonly TaskCompletionSource<double> source = new TaskCompletionSource<double>();
-        public Task<double> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
+        private readonly TaskCompletionSource<T> source = new TaskCompletionSource<T>();
+        public Task<T> Task { get { return source.Task; } }
+        public void Complete(RedisResult result)
         {
             if (result.IsError)
             {
@@ -22,10 +22,10 @@ namespace BookSleeve
             }
             else
             {
-                double value;
+                T value;
                 try
                 {
-                    value = result.ValueDouble;
+                    value = GetValue(result);
                 }
                 catch (Exception ex)
                 {
@@ -35,220 +35,43 @@ namespace BookSleeve
                 source.SetResult(value);
             }
         }
+        protected abstract T GetValue(RedisResult result);
     }
-    internal sealed class MessageResultInt64 : MessageResult
+    internal sealed class MessageResultDouble : MessageResult<double>
     {
-        private readonly TaskCompletionSource<long> source = new TaskCompletionSource<long>();
-        public Task<long> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                long value;
-                try
-                {
-                    value = result.ValueInt64;
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override double  GetValue(RedisResult result) { return result.ValueDouble; }
     }
-    internal sealed class MessageResultBoolean : MessageResult
+    internal sealed class MessageResultInt64 : MessageResult<long>
     {
-        private readonly TaskCompletionSource<bool> source = new TaskCompletionSource<bool>();
-        public Task<bool> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                bool value;
-                try
-                {
-                    value = result.ValueBoolean;
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override long GetValue(RedisResult result) { return result.ValueInt64; }
     }
-
-    internal sealed class MessageResultString : MessageResult
+    internal sealed class MessageResultBoolean : MessageResult<bool>
     {
-        private readonly TaskCompletionSource<string> source = new TaskCompletionSource<string>();
-        public Task<string> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                string value;
-                try
-                {
-                    value = result.ValueString;
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override bool GetValue(RedisResult result) { return result.ValueBoolean; }
     }
-
-    internal sealed class MessageResultMultiString : MessageResult
+    internal sealed class MessageResultString : MessageResult<string>
     {
-        private readonly TaskCompletionSource<string[]> source = new TaskCompletionSource<string[]>();
-        public Task<string[]> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                string[] value;
-                try
-                {
-                    value = result.ValueItemsString();
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override string GetValue(RedisResult result) { return result.ValueString; }
     }
-
-    internal sealed class MessageResultBytes : MessageResult
+    internal sealed class MessageResultMultiString : MessageResult<string[]>
     {
-        private readonly TaskCompletionSource<byte[]> source = new TaskCompletionSource<byte[]>();
-        public Task<byte[]> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                byte[] value;
-                try
-                {
-                    value = result.ValueBytes;
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override string[] GetValue(RedisResult result) { return result.ValueItemsString(); }
     }
-
-    internal sealed class MessageResultMultiBytes : MessageResult
+    internal sealed class MessageResultBytes : MessageResult<byte[]>
     {
-        private readonly TaskCompletionSource<byte[][]> source = new TaskCompletionSource<byte[][]>();
-        public Task<byte[][]> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                byte[][] value;
-                try
-                {
-                    value = result.ValueItemsBytes();
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override byte[] GetValue(RedisResult result) { return result.ValueBytes; }
     }
-
-    internal sealed class MessageResultPairs : MessageResult
+    internal sealed class MessageResultMultiBytes : MessageResult<byte[][]>
     {
-        private readonly TaskCompletionSource<KeyValuePair<byte[], double>[]> source = new TaskCompletionSource<KeyValuePair<byte[], double>[]>();
-        public Task<KeyValuePair<byte[], double>[]> Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                KeyValuePair<byte[], double>[] value;
-                try
-                {
-                    value = result.ExtractPairs();
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(value);
-            }
-        }
+        protected override byte[][] GetValue(RedisResult result) { return result.ValueItemsBytes(); }
     }
-    internal sealed class MessageResultVoid : MessageResult
+    internal sealed class MessageResultPairs : MessageResult<KeyValuePair<byte[], double>[]>
     {
-        private readonly TaskCompletionSource<bool> source = new TaskCompletionSource<bool>();
-        public Task Task { get { return source.Task; } }
-        public override void Complete(RedisResult result)
-        {
-            if (result.IsError)
-            {
-                source.SetException(result.Error());
-            }
-            else
-            {
-                try
-                {
-                    result.Assert();
-                }
-                catch (Exception ex)
-                {
-                    source.SetException(ex);
-                    return;
-                }
-                source.SetResult(true);
-            }
-        }
+        protected override KeyValuePair<byte[], double>[] GetValue(RedisResult result) { return result.ExtractPairs(); }
     }
-
-
-    
+    internal sealed class MessageResultVoid : MessageResult<bool>
+    {
+        public new Task Task { get { return base.Task; } }
+        protected override bool GetValue(RedisResult result) { result.Assert(); return true; }
+    }    
 }

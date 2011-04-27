@@ -50,8 +50,8 @@ namespace BookSleeve
             this.expected = expected;
             this.command = command;
         }
-        private MessageResult messageResult;
-        internal void SetMessageResult(MessageResult messageResult)
+        private IMessageResult messageResult;
+        internal void SetMessageResult(IMessageResult messageResult)
         {
             if (Interlocked.CompareExchange(ref this.messageResult, messageResult, null) != null)
             {
