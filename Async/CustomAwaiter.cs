@@ -195,8 +195,8 @@ namespace Async
 
         static void Main2()
         {
-            var typed = new Future<int>();
 #pragma warning disable 0618
+            var typed = new Future<int>();
             Future untyped = typed;
 #pragma warning restore 0618
             DoSomet(typed);
