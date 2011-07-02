@@ -1,7 +1,7 @@
-﻿using NUnit.Framework;
+﻿using System;
 using System.Collections.Generic;
-using System;
 using System.Text;
+using NUnit.Framework;
 
 namespace Tests
 {
@@ -42,8 +42,9 @@ namespace Tests
 
                     var x = conn.IncrementHash(6, key, guid.ToString(), value).Result; // Kill Async
                 }
-
+#pragma warning disable 618
                 var inRedisRaw = conn.GetHash(6, key).Result;
+#pragma warning restore 618
                 var inRedis = new Dictionary<Guid, int>();
 
                 for (var i = 0; i < inRedisRaw.Length; i += 2)
@@ -92,5 +93,241 @@ namespace Tests
                 }
             }
         }
+
+        [Test]
+        public void TestSet() // http://redis.io/commands/hset
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var val0 = conn.GetFromHashString(9, "hashkey", "field");
+                var set0 = conn.SetHash(9, "hashkey", "field", "value1");
+                var val1 = conn.GetFromHashString(9, "hashkey", "field");
+                var set1 = conn.SetHash(9, "hashkey", "field", "value2");
+                var val2 = conn.GetFromHashString(9, "hashkey", "field");
+
+                Assert.AreEqual(null, val0.Result);
+                Assert.AreEqual(true, set0.Result);
+                Assert.AreEqual("value1", val1.Result);
+                Assert.AreEqual(false, set1.Result);
+                Assert.AreEqual("value2", val2.Result);
+                
+            }
+        }
+        [Test]
+        public void TestSetNotExists() // http://redis.io/commands/hsetnx
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var val0 = conn.GetFromHashString(9, "hashkey", "field");
+                var set0 = conn.SetHashIfNotExists(9, "hashkey", "field", "value1");
+                var val1 = conn.GetFromHashString(9, "hashkey", "field");
+                var set1 = conn.SetHashIfNotExists(9, "hashkey", "field", "value2");
+                var val2 = conn.GetFromHashString(9, "hashkey", "field");
+
+                Assert.AreEqual(null, val0.Result);
+                Assert.AreEqual(true, set0.Result);
+                Assert.AreEqual("value1", val1.Result);
+                Assert.AreEqual(false, set1.Result);
+                Assert.AreEqual("value1", val2.Result);
+
+            }
+        }
+        [Test]
+        public void TestDelSingle() // http://redis.io/commands/hdel
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+
+                conn.Remove(9, "hashkey");
+                var del0 = conn.RemoveHash(9, "hashkey", "field");
+
+                conn.SetHash(9, "hashkey", "field", "value");
+
+                var del1 = conn.RemoveHash(9, "hashkey", "field");
+                var del2 = conn.RemoveHash(9, "hashkey", "field");
+
+                Assert.AreEqual(false, del0.Result);
+                Assert.AreEqual(true, del1.Result);
+                Assert.AreEqual(false, del2.Result);
+                
+            }
+        }
+        [Test]
+        public void TestDelMulti() // http://redis.io/commands/hdel
+        {
+            throw new NotImplementedException();
+        }
+        [Test]
+        public void TestExists() // http://redis.io/commands/hexists
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+
+                conn.Remove(9, "hashkey");
+                var ex0 = conn.ContainsHash(9, "hashkey", "field");
+                conn.SetHash(9, "hashkey", "field", "value");
+                var ex1 = conn.ContainsHash(9, "hashkey", "field");
+                conn.RemoveHash(9, "hashkey", "field");
+                var ex2 = conn.ContainsHash(9, "hashkey", "field");
+                
+                Assert.AreEqual(false, ex0.Result);
+                Assert.AreEqual(true, ex1.Result);
+                Assert.AreEqual(false, ex0.Result);
+
+            }
+        }
+
+        [Test]
+        public void TestHashKeys() // http://redis.io/commands/hkeys
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var keys0 = conn.GetHashKeys(9, "hashkey");
+
+                conn.SetHash(9, "hashkey", "foo", "abc");
+                conn.SetHash(9, "hashkey", "bar", "def");
+
+                var keys1 = conn.GetHashKeys(9, "hashkey");
+
+                Assert.AreEqual(0, keys0.Result.Length);
+
+                var arr = keys1.Result;
+                Assert.AreEqual(2, arr.Length);
+                Assert.AreEqual("foo", arr[0]);
+                Assert.AreEqual("bar", arr[1]);
+
+            }
+        }
+
+        [Test]
+        public void TestHashValues() // http://redis.io/commands/hvals
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var keys0 = conn.GetHashValues(9, "hashkey");
+
+                conn.SetHash(9, "hashkey", "foo", "abc");
+                conn.SetHash(9, "hashkey", "bar", "def");
+
+                var keys1 = conn.GetHashValues(9, "hashkey");
+
+                Assert.AreEqual(0, keys0.Result.Length);
+
+                var arr = keys1.Result;
+                Assert.AreEqual(2, arr.Length);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(arr[0]));
+                Assert.AreEqual("def", Encoding.UTF8.GetString(arr[1]));
+
+            }
+        }
+
+        [Test]
+        public void TestHashLength() // http://redis.io/commands/hlen
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var len0 = conn.GetHashLength(9, "hashkey");
+
+                conn.SetHash(9, "hashkey", "foo", "abc");
+                conn.SetHash(9, "hashkey", "bar", "def");
+
+                var len1 = conn.GetHashLength(9, "hashkey");
+
+                Assert.AreEqual(0, len0.Result);
+                Assert.AreEqual(2, len1.Result);
+
+            }
+        }
+
+        [Test]
+        public void TestGetMulti() // http://redis.io/commands/hmget
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                string[] fields = { "foo", "bar", "blop" };
+                var result0 = conn.GetFromHashString(9, "hashkey", fields);
+
+                conn.SetHash(9, "hashkey", "foo", "abc");
+                conn.SetHash(9, "hashkey", "bar", "def");
+
+                var result1 = conn.GetFromHashString(9, "hashkey", fields);
+
+                var arr0 = result0.Result;
+                var arr1 = result1.Result;
+
+                Assert.AreEqual(3, arr0.Length);
+                Assert.IsNull(arr0[0]);
+                Assert.IsNull(arr0[1]);
+                Assert.IsNull(arr0[2]);
+
+                Assert.AreEqual(3, arr0.Length);
+                Assert.AreEqual("abc", arr1[0]);
+                Assert.AreEqual("def", arr1[1]);
+                Assert.IsNull(arr1[2]);
+                
+
+
+            }
+        }
+
+        [Test]
+        public void TestGetPairs() // http://redis.io/commands/hgetall
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var result0 = conn.GetHashPairs(9, "hashkey");
+
+                conn.SetHash(9, "hashkey", "foo", "abc");
+                conn.SetHash(9, "hashkey", "bar", "def");
+
+                var result1 = conn.GetHashPairs(9, "hashkey");
+
+                Assert.AreEqual(0, result0.Result.Count);
+                var result = result1.Result;
+                Assert.AreEqual(2, result.Count);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(result["foo"]));
+                Assert.AreEqual("def", Encoding.UTF8.GetString(result["bar"]));
+            }
+        }
+
+        [Test]
+        public void TestSetPairs() // http://redis.io/commands/hmset
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(9, "hashkey");
+
+                var result0 = conn.GetHashPairs(9, "hashkey");
+
+                var data = new Dictionary<string, byte[]> {
+                    {"foo", Encoding.UTF8.GetBytes("abc")},
+                    {"bar", Encoding.UTF8.GetBytes("def")}
+                };
+                conn.SetHash(9, "hashkey", data);
+
+                var result1 = conn.GetHashPairs(9, "hashkey");
+
+                Assert.AreEqual(0, result0.Result.Count);
+                var result = result1.Result;
+                Assert.AreEqual(2, result.Count);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(result["foo"]));
+                Assert.AreEqual("def", Encoding.UTF8.GetString(result["bar"]));
+            }
+        }
+
     }
 }

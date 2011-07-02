@@ -565,6 +565,7 @@ namespace BookSleeve
         /// <summary>
         /// Enumerate all keys in a hash.
         /// </summary>
+        [Obsolete("This method is being deprecated; please use GetHashPairs")]
         public Task<byte[][]> GetHash(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
@@ -573,23 +574,154 @@ namespace BookSleeve
         }
 
         /// <summary>
-        /// Gets a single field from a hash
+        /// Returns all fields and values of the hash stored at key.
         /// </summary>
-        public Task<byte[]> GetFromHash(int db, string hashKey, string subKey, bool queueJump = false)
+        /// <returns>list of fields and their values stored in the hash, or an empty list when key does not exist.</returns>
+        public Task<Dictionary<string,byte[]>> GetHashPairs(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
 
-            return ExecuteBytes(MultiKeyMessage.GetFromHash(db, hashKey, subKey), queueJump);
+            return ExecuteHashPairs(KeyMessage.GetHash(db, key), queueJump);
         }
 
         /// <summary>
         /// Increment a field on a hash by an amount (1 by default)
         /// </summary>
-        public Task<long> IncrementHash(int db, string hashKey, string subKey, int by = 1, bool queueJump = false)
+        public Task<long> IncrementHash(int db, string key, string field, int value = 1, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
 
-            return ExecuteInt64(MultiKeyValueMessage.IncrementHash(db, hashKey, subKey, by), queueJump);
+            return ExecuteInt64(MultiKeyValueMessage.IncrementHash(db, key, field, value), queueJump);
+        }
+
+        /// <summary>
+        /// Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created. If field already exists in the hash, it is overwritten.
+        /// </summary>
+        /// /// <returns>1 if field is a new field in the hash and value was set. 0 if field already exists in the hash and the value was updated.</returns>
+        public Task<bool> SetHash(int db, string key, string field, string value, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyValueMessage.SetHash(db, key, field, value), queueJump);
+        }
+
+        /// <summary>
+        /// Sets the specified fields to their respective values in the hash stored at key. This command overwrites any existing fields in the hash. If key does not exist, a new key holding a hash is created.
+        /// </summary>
+        public Task SetHash(int db, string key, Dictionary<string,byte[]> values, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteVoid(KeyMultiValueMessage.SetHashMulti(db, key, values), queueJump);
+        }
+
+        /// <summary>
+        /// Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created. If field already exists in the hash, it is overwritten.
+        /// </summary>
+        /// <returns>1 if field is a new field in the hash and value was set. 0 if field already exists in the hash and the value was updated.</returns>
+        public Task<bool> SetHash(int db, string key, string field, byte[] value, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyValueMessage.SetHash(db, key, field, value), queueJump);
+        }
+        /// <summary>
+        /// Sets field in the hash stored at key to value, only if field does not yet exist. If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
+        /// </summary>
+        /// <returns>1 if field is a new field in the hash and value was set. 0 if field already exists in the hash and no operation was performed.</returns>
+        public Task<bool> SetHashIfNotExists(int db, string key, string field, string value, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyValueMessage.SetHashIfNotExists(db, key, field, value), queueJump);
+        }
+        /// <summary>
+        /// Sets field in the hash stored at key to value, only if field does not yet exist. If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
+        /// </summary>
+        /// <returns>1 if field is a new field in the hash and value was set. 0 if field already exists in the hash and no operation was performed.</returns>
+        public Task<bool> SetHashIfNotExists(int db, string key, string field, byte[] value, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyValueMessage.SetHashIfNotExists(db, key, field, value), queueJump);
+        }
+        /// <summary>
+        /// Returns the value associated with field in the hash stored at key.
+        /// </summary>
+        /// <returns>the value associated with field, or nil when field is not present in the hash or key does not exist.</returns>
+        public Task<string> GetFromHashString(int db, string key, string field, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteString(MultiKeyMessage.GetFromHash(db, key, field), queueJump);
+        }
+        /// <summary>
+        /// Returns the value associated with field in the hash stored at key.
+        /// </summary>
+        /// <returns>the value associated with field, or nil when field is not present in the hash or key does not exist.</returns>
+        public Task<byte[]> GetFromHash(int db, string key, string field, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBytes(MultiKeyMessage.GetFromHash(db, key, field), queueJump);
+        }
+        /// <summary>
+        /// Returns the values associated with the specified fields in the hash stored at key. For every field that does not exist in the hash, a nil value is returned.
+        /// </summary>
+        /// <returns>list of values associated with the given fields, in the same order as they are requested.</returns>
+        public Task<string[]> GetFromHashString(int db, string key, string[] fields, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteMultiString(MultiKeyMessage.GetFromHashMulti(db, key, fields), queueJump);
+        }
+        /// <summary>
+        /// Returns the values associated with the specified fields in the hash stored at key. For every field that does not exist in the hash, a nil value is returned.
+        /// </summary>
+        /// <returns>list of values associated with the given fields, in the same order as they are requested.</returns>
+        public Task<byte[][]> GetFromHash(int db, string key, string[] fields, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteMultiBytes(MultiKeyMessage.GetFromHashMulti(db, key, fields), queueJump);
+        }
+
+        /// <summary>
+        /// Removes the specified fields from the hash stored at key. Non-existing fields are ignored. Non-existing keys are treated as empty hashes and this command returns 0.
+        /// </summary>
+        public Task<bool> RemoveHash(int db, string key, string field, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyMessage.RemoveHash(db, key, field), queueJump);
+        }
+
+        /// <summary>
+        /// Returns if field is an existing field in the hash stored at key.
+        /// </summary>
+        /// <returns>1 if the hash contains field. 0 if the hash does not contain field, or key does not exist.</returns>
+        public Task<bool> ContainsHash(int db, string key, string field, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(MultiKeyMessage.ContainsHash(db, key, field), queueJump);
+        }
+
+        /// <summary>
+        /// Returns all field names in the hash stored at key.
+        /// </summary>
+        /// <returns>list of fields in the hash, or an empty list when key does not exist.</returns>
+        public Task<string[]> GetHashKeys(int db, string key, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteMultiString(KeyMessage.HashKeys(db, key), queueJump);
+        }
+        /// <summary>
+        /// Returns all values in the hash stored at key.
+        /// </summary>
+        /// <returns> list of values in the hash, or an empty list when key does not exist.</returns>
+        public Task<byte[][]> GetHashValues(int db, string key, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteMultiBytes(KeyMessage.HashValues(db, key), queueJump);
+        }
+        /// <summary>
+        /// Returns the number of fields contained in the hash stored at key.
+        /// </summary>
+        /// <returns>number of fields in the hash, or 0 when key does not exist.</returns>
+        public Task<long> GetHashLength(int db, string key, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteInt64(KeyMessage.HashLength(db, key), queueJump);
         }
     }
 }

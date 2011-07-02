@@ -743,6 +743,13 @@ namespace BookSleeve
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
+        internal Task<Dictionary<string,byte[]>> ExecuteHashPairs(Message message, bool queueJump = false)
+        {
+            var msgResult = new MessageResultHashPairs();
+            message.SetMessageResult(msgResult);
+            EnqueueMessage(message, queueJump);
+            return msgResult.Task;
+        }
         internal void EnqueueMessage(Message message, bool queueJump = false)
         {
             unsent.Enqueue(message, queueJump);

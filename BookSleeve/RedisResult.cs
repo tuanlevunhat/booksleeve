@@ -142,6 +142,20 @@ namespace BookSleeve
             }
             return pairs;
         }
+        public Dictionary<string, byte[]> ExtractHashPairs()
+        {
+            var items = this.ValueItems;
+            int count = items.Length / 2;
+            var dict = new Dictionary<string, byte[]>(count);
+            int index = 0;
+            for (int i = 0; i < count; i++)
+            {
+                var itemKey = items[index++].ValueString;
+                var itemValue = items[index++].ValueBytes;
+                dict.Add(itemKey, itemValue);
+            }
+            return dict;
+        }
     }
     internal class MultiRedisResult : RedisResult
     {
