@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace BookSleeve
 {
@@ -185,6 +185,39 @@ namespace BookSleeve
             WriteCommand(stream, 0);
         }
     }
+    internal class KeyMultiValueMessage : Message
+    {
+        private readonly string key;
+        private readonly byte[][] values;
+        public KeyMultiValueMessage(int db, byte[] command, string key, byte[][] values)
+            : base(db, command)
+        {
+            this.key = key;
+            this.values = values;
+        }
+        public static Message SetHashMulti(int db, string key, Dictionary<string, byte[]> values)
+        {
+            byte[][] keyAndFields = new byte[values.Count * 2][];
+            int index = 0;
+            foreach (var pair in values)
+            {
+                keyAndFields[index++] = Encoding.UTF8.GetBytes(pair.Key);
+                keyAndFields[index++] = pair.Value;
+            }
+            return new KeyMultiValueMessage(db, hmset, key, keyAndFields);
+        }
+        public override void Write(Stream stream)
+        {
+            WriteCommand(stream, values.Length + 1);
+            WriteUnified(stream, key);
+            for (int i = 0; i < values.Length; i++)
+            {
+                WriteUnified(stream, values[i]);
+            }
+        }
+        private static readonly byte[]
+            hmset = Encoding.ASCII.GetBytes("HMSET");
+    }
     internal class MultiKeyMessage : Message
     {
         private readonly string[] keys;
@@ -232,10 +265,25 @@ namespace BookSleeve
         {
             return new MultiKeyMessage(-1, punsubscribe, keys);
         }
-        public static Message GetFromHash(int db, string hash, string subKey)
+        public static Message GetFromHash(int db, string key, string field)
         {
-            return new MultiKeyMessage(db, hget, new string[] { hash, subKey });
+            return new MultiKeyMessage(db, hget, new string[] { key, field });
         }
+        public static Message GetFromHashMulti(int db, string key, string[] fields)
+        {
+            string[] keyAndFields = new string[fields.Length + 1];
+            keyAndFields[0] = key;
+            fields.CopyTo(keyAndFields, 1);
+            return new MultiKeyMessage(db, hmget, keyAndFields);
+        }
+        public static Message RemoveHash(int db, string key, string field) {
+            return new MultiKeyMessage(db, hdel, new string[] {key, field});
+        }
+        public static Message ContainsHash(int db, string key, string field)
+        {
+            return new MultiKeyMessage(db, hexists, new string[] { key, field });
+        }
+
         private MultiKeyMessage(int db, byte[] command, string[] keys)
             : base(db, command)
         {
@@ -259,7 +307,10 @@ namespace BookSleeve
             sunion = Encoding.ASCII.GetBytes("SUNION"),
             sinterstore = Encoding.ASCII.GetBytes("SINTERSTORE"),
             sunionstore = Encoding.ASCII.GetBytes("SUNIONSTORE"),
-            hget = Encoding.ASCII.GetBytes("HGET");
+            hget = Encoding.ASCII.GetBytes("HGET"),
+            hmget = Encoding.ASCII.GetBytes("HMGET"),
+            hdel = Encoding.ASCII.GetBytes("HDEL"),
+            hexists = Encoding.ASCII.GetBytes("HEXISTS");
     }
     internal class RangeMessage : Message
     {
@@ -416,7 +467,18 @@ namespace BookSleeve
         {
             return new KeyMessage(db, hgetall, key);
         }
-
+        internal static Message HashKeys(int db, string key)
+        {
+            return new KeyMessage(db, hkeys, key);
+        }
+        internal static Message HashValues(int db, string key)
+        {
+            return new KeyMessage(db, hvals, key);
+        }
+        internal static Message HashLength(int db, string key)
+        {
+            return new KeyMessage(db, hlen, key);
+        }
         private readonly static byte[]
             get = Encoding.ASCII.GetBytes("GET"),
             ttl = Encoding.ASCII.GetBytes("TTL"),
@@ -437,7 +499,10 @@ namespace BookSleeve
             punsubscribe = Encoding.ASCII.GetBytes("PUNSUBSCRIBE"),
             lpop = Encoding.ASCII.GetBytes("LPOP"),
             rpop = Encoding.ASCII.GetBytes("RPOP"),
-            hgetall = Encoding.ASCII.GetBytes("HGETALL");
+            hgetall = Encoding.ASCII.GetBytes("HGETALL"),
+            hkeys = Encoding.ASCII.GetBytes("HKEYS"),
+            hvals = Encoding.ASCII.GetBytes("HVALS"),
+            hlen = Encoding.ASCII.GetBytes("HLEN");
     }
     internal class KeyScoreMessage : Message
     {
@@ -574,32 +639,49 @@ namespace BookSleeve
     }
     internal class MultiKeyValueMessage : Message
     {
-        public static Message IncrementHash(int db, string hashKey, string subKey, int by) 
+        public static Message IncrementHash(int db, string key, string field, int value) 
         {
-            return new MultiKeyValueMessage(db, hincrby, hashKey, subKey, by.ToString());
+            return new MultiKeyValueMessage(db, hincrby, key, field, value.ToString());
         }
-
-        private MultiKeyValueMessage(int db, byte[] command, string key, string subKey, string value)
-            : this(db, command, key, subKey, value == null ? (byte[])null : Encoding.UTF8.GetBytes(value)) { }
-        private MultiKeyValueMessage(int db, byte[] command, string key, string subKey, byte[] value)
+        public static Message SetHash(int db, string key, string field, byte[] value)
+        {
+            return new MultiKeyValueMessage(db, hset, key, field, value);
+        }
+        public static Message SetHash(int db, string key, string field, string value)
+        {
+            return new MultiKeyValueMessage(db, hset, key, field, Encoding.UTF8.GetBytes(value));
+        }
+        public static Message SetHashIfNotExists(int db, string key, string field, byte[] value)
+        {
+            return new MultiKeyValueMessage(db, hsetnx, key, field, value);
+        }
+        public static Message SetHashIfNotExists(int db, string key, string field, string value)
+        {
+            return new MultiKeyValueMessage(db, hsetnx, key, field, Encoding.UTF8.GetBytes(value));
+        }
+        private MultiKeyValueMessage(int db, byte[] command, string key, string field, string value)
+            : this(db, command, key, field, value == null ? (byte[])null : Encoding.UTF8.GetBytes(value)) { }
+        private MultiKeyValueMessage(int db, byte[] command, string key, string field, byte[] value)
             : base(db, command, null)
         {
             if (value == null) throw new ArgumentNullException("value");
 
             this.key = key;
-            this.subKey = subKey;
+            this.field = field;
             this.value = value;
         }
         private readonly string key;
-        private readonly string subKey;
+        private readonly string field;
         private readonly byte[] value;
         private readonly static byte[]
-            hincrby = Encoding.ASCII.GetBytes("HINCRBY");
+            hincrby = Encoding.ASCII.GetBytes("HINCRBY"),
+            hset = Encoding.ASCII.GetBytes("HSET"),
+            hsetnx = Encoding.ASCII.GetBytes("HSETNX");
         public override void Write(Stream stream)
         {
             WriteCommand(stream, 3);
             WriteUnified(stream, key);
-            WriteUnified(stream, subKey);
+            WriteUnified(stream, field);
             WriteUnified(stream, value);
         }
     }
