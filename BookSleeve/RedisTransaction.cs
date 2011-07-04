@@ -34,6 +34,11 @@ namespace BookSleeve
         {
             throw new NotSupportedException("Nested transactions are not supported");
         }
+        public override void Dispose()
+        {
+            base.Dispose();
+            Discard();
+        }
         /// <summary>
         /// Called before opening a connection
         /// </summary>

@@ -34,7 +34,7 @@ namespace BookSleeve
         /// <summary>
         /// Does HDEL support varadic usage?
         /// </summary>
-        public bool HashVaradicDelete { get { return version >= v2_2_0; } }
+        public bool HashVaradicDelete { get { return version > v2_2_0; } }
 
         /// <summary>
         /// Create a string representation of the available features
