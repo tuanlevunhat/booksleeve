@@ -156,17 +156,77 @@ namespace Tests
                 
             }
         }
-        [Test, Ignore("Need multi/exec to provide < 2.2 support before implementing; 2.2 can use varadic")]
+        [Test]
         public void TestDelMulti() // http://redis.io/commands/hdel
         {
-            throw new NotImplementedException();
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.SetHash(3, "TestDelMulti", "key1", "val1");
+                conn.SetHash(3, "TestDelMulti", "key2", "val2");
+                conn.SetHash(3, "TestDelMulti", "key3", "val3");
+
+                var s1 = conn.ContainsHash(3, "TestDelMulti", "key1");
+                var s2 = conn.ContainsHash(3, "TestDelMulti", "key2");
+                var s3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+
+                var removed = conn.RemoveHash(3, "TestDelMulti", new[] { "key1", "key3" });
+
+                var d1 = conn.ContainsHash(3, "TestDelMulti", "key1");
+                var d2 = conn.ContainsHash(3, "TestDelMulti", "key2");
+                var d3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+
+                Assert.IsTrue(conn.Wait(s1));
+                Assert.IsTrue(conn.Wait(s2));
+                Assert.IsTrue(conn.Wait(s3));
+
+                Assert.AreEqual(2, conn.Wait(removed));
+
+                Assert.IsFalse(conn.Wait(d1));
+                Assert.IsTrue(conn.Wait(d2));
+                Assert.IsFalse(conn.Wait(d3));
+            }
+        }
+        [Test]
+        public void TestDelMultiInsideTransaction() // http://redis.io/commands/hdel
+        {
+            using (var outer = Config.GetUnsecuredConnection())
+            {
+                using (var conn = outer.CreateTransaction())
+                {
+                    conn.SetHash(3, "TestDelMulti", "key1", "val1");
+                    conn.SetHash(3, "TestDelMulti", "key2", "val2");
+                    conn.SetHash(3, "TestDelMulti", "key3", "val3");
+
+                    var s1 = conn.ContainsHash(3, "TestDelMulti", "key1");
+                    var s2 = conn.ContainsHash(3, "TestDelMulti", "key2");
+                    var s3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+
+                    var removed = conn.RemoveHash(3, "TestDelMulti", new[] { "key1", "key3" });
+
+                    var d1 = conn.ContainsHash(3, "TestDelMulti", "key1");
+                    var d2 = conn.ContainsHash(3, "TestDelMulti", "key2");
+                    var d3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+
+                    conn.Execute();
+
+                    Assert.IsTrue(conn.Wait(s1));
+                    Assert.IsTrue(conn.Wait(s2));
+                    Assert.IsTrue(conn.Wait(s3));
+
+                    Assert.AreEqual(2, conn.Wait(removed));
+
+                    Assert.IsFalse(conn.Wait(d1));
+                    Assert.IsTrue(conn.Wait(d2));
+                    Assert.IsFalse(conn.Wait(d3));
+                }
+
+            }
         }
         [Test]
         public void TestExists() // http://redis.io/commands/hexists
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-
                 conn.Remove(9, "hashkey");
                 var ex0 = conn.ContainsHash(9, "hashkey", "field");
                 conn.SetHash(9, "hashkey", "field", "value");

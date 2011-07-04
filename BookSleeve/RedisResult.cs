@@ -45,6 +45,7 @@ namespace BookSleeve
         public virtual byte[] ValueBytes { get { throw Error(); } }
         public virtual RedisResult[] ValueItems { get { return null; } }
         public virtual bool IsError { get { return false; } }
+        public virtual bool IsCancellation { get { return false; } }
         public virtual double ValueDouble { get { return double.Parse(ValueString, CultureInfo.InvariantCulture); } }
 
         private class Int64RedisResult : RedisResult
@@ -88,10 +89,33 @@ namespace BookSleeve
         }
         public static readonly RedisResult Pass = new PassRedisResult(),
             TimeoutNotSent = new TimeoutRedisResult("Timeout; the messsage was not sent"),
-            TimeoutSent = new TimeoutRedisResult("Timeout; the messsage was sent and may still have effect");
+            TimeoutSent = new TimeoutRedisResult("Timeout; the messsage was sent and may still have effect"),
+            Cancelled = new CancellationRedisResult();
+
         private class PassRedisResult : RedisResult
         {
             internal PassRedisResult() { }
+        }
+        private class CancellationRedisResult : RedisResult
+        {
+            public override bool IsCancellation
+            {
+                get
+                {
+                    return true;
+                }
+            }
+            public override bool IsError
+            {
+                get
+                {
+                    return true;
+                }
+            }
+            public override Exception Error()
+            {
+                return new InvalidOperationException("The message was cancelled");
+            }
         }
         private class TimeoutRedisResult : RedisResult
         {

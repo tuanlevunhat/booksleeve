@@ -281,6 +281,13 @@ namespace BookSleeve
         public static Message RemoveHash(int db, string key, string field) {
             return new MultiKeyMessage(db, hdel, new string[] {key, field});
         }
+        public static Message RemoveHash(int db, string key, string[] fields)
+        {
+            var keys = new string[fields.Length + 1];
+            keys[0] = key;
+            fields.CopyTo(keys, 1);
+            return new MultiKeyMessage(db, hdel, keys);
+        }
         public static Message ContainsHash(int db, string key, string field)
         {
             return new MultiKeyMessage(db, hexists, new string[] { key, field });
@@ -740,24 +747,35 @@ namespace BookSleeve
 
         void IMessageResult.Complete(RedisResult result)
         {
-            try
+            if(result.IsCancellation)
             {
-                if (queued == null) throw new InvalidOperationException("Nothing was queued (null)!");
-                var items = result.ValueItems;
-                if (items.Length != queued.Length) throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
-
-                for (int i = 0; i < items.Length; i++)
-                {
-                    RedisResult reply = items[i];
-                    var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
-                    parent.ProcessCallbacks(ctx, reply);
-                }
-                completion.SetResult(true);
+                completion.SetCanceled();
             }
-            catch (Exception ex)
+            else if (result.IsError)
             {
-                completion.SetException(ex);
-                throw;
+                completion.SetException(result.Error());
+            }
+            else
+            {
+                try
+                {
+                    if (queued == null) throw new InvalidOperationException("Nothing was queued (null)!");
+                    var items = result.ValueItems;
+                    if (items.Length != queued.Length) throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
+
+                    for (int i = 0; i < items.Length; i++)
+                    {
+                        RedisResult reply = items[i];
+                        var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
+                        parent.ProcessCallbacks(ctx, reply);
+                    }
+                    completion.SetResult(true);
+                }
+                catch (Exception ex)
+                {
+                    completion.SetException(ex);
+                    throw;
+                }
             }
         }
     }

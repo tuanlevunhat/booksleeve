@@ -76,16 +76,6 @@ namespace BookSleeve
                 return result;
             }
         }
-        public void Clear()
-        {
-            lock (stdPriority)
-            {
-                highPriority.Clear();
-                stdPriority.Clear();
-                // wake up any blocked enqueue
-                Monitor.PulseAll(stdPriority);
-            }
-        }
         public bool TryDequeue(bool noWait, out T value, out bool isHigh)
         {
             lock (stdPriority)

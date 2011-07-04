@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace Tests
 {
@@ -31,6 +32,26 @@ namespace Tests
                     conn.Wait(s2);
                     conn.Wait(exec);
                 }
+
+            }
+        }
+
+        [Test]
+        public void TestRollback()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var tran = conn.CreateTransaction())
+            {
+                var task = tran.Set(4, "abc", "def");
+                tran.Discard();
+
+                Assert.IsTrue(task.IsCanceled, "should be cancelled");
+                try
+                {
+                    conn.Wait(task);
+                }
+                catch (TaskCanceledException)
+                { }// ok, else boom!
 
             }
         }
