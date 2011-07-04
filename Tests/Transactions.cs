@@ -55,6 +55,46 @@ namespace Tests
 
             }
         }
+
+        [Test]
+        public void TestDispose()
+        {
+            Task task;
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                using (var tran = conn.CreateTransaction())
+                {
+                    task = tran.Set(4, "abc", "def");
+                }
+                Assert.IsTrue(task.IsCanceled, "should be cancelled");
+                try
+                {
+                    conn.Wait(task);
+                }
+                catch (TaskCanceledException)
+                { }// ok, else boom!
+            }
+        }
+
+        [Test]
+        public void BlogDemo()
+        {
+            int db = 8;
+            using(var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Remove(db, "foo"); // just to reset
+                using(var tran = conn.CreateTransaction())
+                {   // deliberately ignoring INCRBY here
+                    tran.Increment(db, "foo");
+                    tran.Increment(db, "foo");
+                    var val = tran.GetString(db, "foo");
+
+                    tran.Execute(); // this *still* returns a Task
+
+                    Assert.AreEqual("2", conn.Wait(val));
+                }
+            }
+        }
     }
 }
 
