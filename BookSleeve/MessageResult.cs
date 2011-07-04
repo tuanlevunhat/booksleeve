@@ -10,6 +10,7 @@ namespace BookSleeve
     {
         void Complete(RedisResult result);
     }
+
     internal abstract class MessageResult<T> : IMessageResult
     {
         private readonly TaskCompletionSource<T> source = new TaskCompletionSource<T>();
@@ -77,5 +78,5 @@ namespace BookSleeve
     {
         public new Task Task { get { return base.Task; } }
         protected override bool GetValue(RedisResult result) { result.Assert(); return true; }
-    }    
+    }
 }

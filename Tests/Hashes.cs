@@ -156,7 +156,7 @@ namespace Tests
                 
             }
         }
-        [Test]
+        [Test, Ignore("Need multi/exec to provide < 2.2 support before implementing; 2.2 can use varadic")]
         public void TestDelMulti() // http://redis.io/commands/hdel
         {
             throw new NotImplementedException();

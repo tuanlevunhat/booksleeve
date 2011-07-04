@@ -100,6 +100,7 @@ namespace BookSleeve
             Error = null;         
         }
         protected virtual void OnOpened() { }
+
         public Task Open()
         {
             if (Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.Shiny) != (int)ConnectionState.Shiny)
@@ -621,28 +622,7 @@ namespace BookSleeve
                         continue;
                     }
                     if (isHigh) Interlocked.Increment(ref queueJumpers);
-                    
-                    if (next.Db >= 0)
-                    {
-                        if (db != next.Db)
-                        {
-                            var changeDb = new SelectMessage(db = next.Db);
-                            RecordSent(changeDb);
-                            changeDb.Write(redisStream);
-                            Interlocked.Increment(ref messagesSent);
-                        }
-                        LogUsage(db);
-                    }
-                    if (next is SelectMessage)
-                    {
-                        // dealt with above; no need to send SELECT, SELECT
-                    }
-                    else
-                    {
-                        RecordSent(next);
-                        next.Write(redisStream);
-                        Interlocked.Increment(ref messagesSent);
-                    }
+                    WriteMessage(ref db, next, null);
                     redisStream.Flush();
                     
                 }
@@ -663,6 +643,55 @@ namespace BookSleeve
                 OnError("Outgoing queue", ex, true);
             }
 
+        }
+
+        private void WriteMessage(ref int db, Message next, IList<QueuedMessage> queued)
+        {
+
+            if (next.Db >= 0)
+            {
+                if (db != next.Db)
+                {
+                    Message changeDb = new SelectMessage(db = next.Db);
+                    if (queued != null)
+                    {
+                        queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
+                    }
+                    RecordSent(changeDb);
+                    changeDb.Write(redisStream);
+                    Interlocked.Increment(ref messagesSent);
+                }
+                LogUsage(db);
+            }
+            if (next is SelectMessage)
+            {
+                // dealt with above; no need to send SELECT, SELECT
+            }
+            else
+            {
+                var tmp = next;
+                if(queued != null)
+                {
+                    queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
+                }
+                RecordSent(tmp);
+                tmp.Write(redisStream);                
+                Interlocked.Increment(ref messagesSent);
+                
+                 if (next is MultiMessage)
+                 {
+                    var mm = (MultiMessage)next;
+                    var pending = mm.GetPendingMessages();
+                    List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
+                    for (int i = 0; i < pending.Length; i++)
+                    {
+                        var q = new QueuedMessage(pending[i]);
+                        WriteMessage(ref db, q, newlyQueued);
+                    }
+                    newlyQueued.TrimExcess();
+                    WriteMessage(ref db, mm.Execute(newlyQueued), queued);
+                 }
+            }
         }
         internal virtual void RecordSent(Message message, bool drainFirst = false) { }
         public enum ConnectionState
@@ -750,10 +779,13 @@ namespace BookSleeve
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
+        
         internal void EnqueueMessage(Message message, bool queueJump = false)
         {
             unsent.Enqueue(message, queueJump);
         }
+        internal void ClearQueue() { unsent.Clear(); }
+        internal Message[] DequeueAll() { return unsent.DequeueAll(); }
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
         /// Once a task is completed, the result is returned.

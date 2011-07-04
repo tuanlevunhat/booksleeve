@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BookSleeve
 {
@@ -24,6 +25,7 @@ namespace BookSleeve
 
         private readonly byte[] expected;
         public byte[] Expected { get { return expected; } }
+        public byte[] Command { get { return command; } }
         public Message(int db, byte[] command)
         {
             this.db = db;
@@ -710,7 +712,67 @@ namespace BookSleeve
         }
 
     }
+    internal class ExecMessage : Message, IMessageResult
+    {
+        public ExecMessage()
+            : base(-1, exec)
+        { SetMessageResult(this); }
+        private readonly TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
+        private readonly static byte[]
+            exec = Encoding.ASCII.GetBytes("EXEC");
+        public override void Write(Stream stream)
+        {
+            WriteCommand(stream, 0);
+        }
+        public Task Completion { get { return completion.Task; } }
+        private List<QueuedMessage> queued;
+        internal void SetQueued(List<QueuedMessage> queued)
+        {
+            if (queued == null) throw new ArgumentNullException("queued");
+            if (this.queued != null) throw new InvalidOperationException();
+            this.queued = queued;
+        }
 
+        void IMessageResult.Complete(RedisResult result)
+        {
+            var items = result.ValueItems;
+        }
+    }
+    internal class QueuedMessage : Message
+    {
+        private readonly Message message;
+        public QueuedMessage(Message message) : base(message.Db, message.Command, queued)
+        {
+            this.message = message;
+        }
+        public override void Write(Stream stream)
+        {
+            message.Write(stream);
+        }
+        private readonly static byte[]
+            queued = Encoding.ASCII.GetBytes("QUEUED");
+    }
+    internal class MultiMessage : Message
+    {
+        public MultiMessage(Message[] messages) : base(-1, multi, Ok )
+        {
+            this.messages = messages;
+        }
+        private Message[] messages;
+        public Message[] GetPendingMessages() { return messages; }
+        public override void Write(Stream stream)
+        {
+            WriteCommand(stream, 0);
+        }
+        private readonly ExecMessage exec = new ExecMessage();
+        public Message Execute(List<QueuedMessage> queued) {
+            exec.SetQueued(queued);
+            return exec;
+        }
+        public Task Completion { get { return exec.Completion; } }
+        private readonly static byte[]
+            multi = Encoding.ASCII.GetBytes("MULTI");
+    }
     internal class SlaveMessage : Message
     {
         private readonly string host, port;
