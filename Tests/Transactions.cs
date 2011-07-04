@@ -13,12 +13,12 @@ namespace Tests
                 conn.Remove(1, "tran");
                 conn.Remove(2, "tran");
 
-                using (var tran = conn.Multi())
+                using (var tran = conn.CreateTransaction())
                 {
                     var s1 = tran.Set(1, "tran", "abc");
                     var s2 = tran.Set(2, "tran", "def");
-                    var g1 = tran.Get(1, "tran");
-                    var g2 = tran.Get(2, "tran");
+                    var g1 = tran.GetString(1, "tran");
+                    var g2 = tran.GetString(2, "tran");
 
                     var outsideTran = conn.GetString(1, "tran");
 

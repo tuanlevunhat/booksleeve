@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using System.ComponentModel;
 
 namespace BookSleeve
 {
@@ -14,22 +15,30 @@ namespace BookSleeve
     public class RedisConnection : RedisConnectionBase
     {
         internal const bool DefaultAllowAdmin = false;
+        /// <summary>
+        /// Creates a new RedisConnection to a designated server
+        /// </summary>
         public RedisConnection(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue, bool allowAdmin = DefaultAllowAdmin, int syncTimeout = DefaultSyncTimeout)
             : base(host, port, ioTimeout, password, maxUnsent, syncTimeout)
         {
             this.allowAdmin = allowAdmin;
             this.sent = new Queue<Message>();
         }
-        
+        /// <summary>
+        /// Creates a child RedisConnection, such as for a RedisTransaction
+        /// </summary>
         protected RedisConnection(RedisConnection parent) : base(
             parent.Host, parent.Port, parent.IOTimeout, parent.Password, int.MaxValue, parent.SyncTimeout)
         {
             this.allowAdmin = parent.allowAdmin;
             this.sent = new Queue<Message>();
         }
-        public RedisMultiConnection Multi()
+        /// <summary>
+        /// Allows multiple commands to be buffered and sent to redis as a single atomic unit
+        /// </summary>
+        public virtual RedisTransaction CreateTransaction()
         {
-            return new RedisMultiConnection(this);
+            return new RedisTransaction(this);
         }
         private RedisSubscriberConnection subscriberChannel;
 
@@ -40,6 +49,9 @@ namespace BookSleeve
             conn.Open();
             return conn;
         }
+        /// <summary>
+        /// Creates a pub/sub connection to the same redis server
+        /// </summary>
         public RedisSubscriberConnection GetOpenSubscriberChannel()
         {
             // use (atomic) reference test for a lazy quick answer
@@ -71,7 +83,9 @@ namespace BookSleeve
                 }
             }
         }
-
+        /// <summary>
+        /// Releases any resources associated with the connection
+        /// </summary>
         public override void Dispose()
         {
             var subscribers = subscriberChannel;
@@ -88,6 +102,11 @@ namespace BookSleeve
                 message = sent.Dequeue();
                 if (count == 1) Monitor.Pulse(sent); // in case the outbound stream is closing and needs to know we're up-to-date
             }
+            return ProcessReply(ref result, message);
+        }
+
+        internal object ProcessReply(ref RedisResult result, Message message)
+        {
             byte[] expected;
             if (!result.IsError && (expected = message.Expected) != null)
             {
@@ -106,6 +125,9 @@ namespace BookSleeve
         {
             CompleteMessage((Message)ctx, result);
         }
+        /// <summary>
+        /// Invoked when the server is terminating
+        /// </summary>
         protected override void ShuttingDown(Exception error)
         {
             base.ShuttingDown(error);
@@ -130,6 +152,9 @@ namespace BookSleeve
         }
         private readonly Queue<Message> sent;
         private readonly bool allowAdmin;
+        /// <summary>
+        /// Query usage metrics for this connection
+        /// </summary>
         public Counters GetCounters()
         {
             int messagesSent, messagesReceived, queueJumpers, messagesCancelled, unsent, errorMessages, timeouts;
@@ -159,6 +184,9 @@ namespace BookSleeve
                 sent.Enqueue(message);
             }
         }
+        /// <summary>
+        /// Called after opening a connection
+        /// </summary>
         protected override void OnOpened()
         {
             base.OnOpened();
@@ -186,8 +214,14 @@ namespace BookSleeve
             return ExecuteBoolean(KeyMessage.Exists(db, key), queueJump);
         }
 
-
+        [Obsolete("Please use GetKeys instead", false)]
+        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<string[]> GetKeysSync(int db, string pattern, bool queueJump = false)
+        {
+            return GetKeys(db, pattern, queueJump);
+        }
+
+        public Task<string[]> GetKeys(int db, string pattern, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteMultiString(KeyMessage.Keys(db, pattern), queueJump);
@@ -580,7 +614,8 @@ namespace BookSleeve
         /// <summary>
         /// Enumerate all keys in a hash.
         /// </summary>
-        [Obsolete("This method is being deprecated; please use GetHashPairs")]
+        [Obsolete("This method is being deprecated; please use GetHashPairs", false)]
+        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<byte[][]> GetHash(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
