@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace BookSleeve
 {
+    /// <summary>
+    /// Base class for a redis-connection; provides core redis services
+    /// </summary>
     public abstract class RedisConnectionBase : IDisposable
     {
         private Socket socket;
@@ -17,14 +20,34 @@ namespace BookSleeve
         private readonly BlockingQueue<Message> unsent;
         private readonly int port, ioTimeout, syncTimeout;
         private readonly string host, password;
+        /// <summary>
+        /// The amount of time to wait for any individual command to return a result when using Wait
+        /// </summary>
         public int SyncTimeout { get { return syncTimeout; } }
+        /// <summary>
+        /// The host for the redis server
+        /// </summary>
         public string Host { get { return host; } }
+        /// <summary>
+        /// The password used to authenticate with the redis server
+        /// </summary>
         protected string Password { get { return password; } }
+        /// <summary>
+        /// The port for the redis server
+        /// </summary>
         public int Port { get { return port; } }
+        /// <summary>
+        /// The IO timeout to use when communicating with the redis server
+        /// </summary>
         protected int IOTimeout { get { return ioTimeout; } }
         private RedisFeatures features;
+        /// <summary>
+        /// Features available to the redis server
+        /// </summary>
         public RedisFeatures Features { get { return features; } }
-
+        /// <summary>
+        /// The version of the connected redis server
+        /// </summary>
         public Version ServerVersion
         {
             get
@@ -37,7 +60,9 @@ namespace BookSleeve
                 features = new RedisFeatures(value);
             }
         }
-
+        /// <summary>
+        /// Obtains fresh statistics on the usage of the connection
+        /// </summary>
         protected void GetCounterValues(out int messagesSent, out int messagesReceived,
             out int queueJumpers, out int messagesCancelled, out int unsent, out int errorMessages, out int timeouts)
         {
@@ -50,10 +75,16 @@ namespace BookSleeve
             timeouts = Interlocked.CompareExchange(ref this.timeouts, 0, 0);
             unsent = this.unsent.GetCount();
         }
+        /// <summary>
+        /// Issues a basic ping/pong pair against the server, returning the latency
+        /// </summary>
         protected Task<long> Ping(bool queueJump = true)
         {
             return ExecuteInt64(new PingMessage(), queueJump);
         }
+        /// <summary>
+        /// The default time to wait for individual commands to complete when using Wait
+        /// </summary>
         protected const int DefaultSyncTimeout = 10000;
         // dont' really want external subclasses
         internal RedisConnectionBase(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue, int syncTimeout = DefaultSyncTimeout)
@@ -83,11 +114,16 @@ namespace BookSleeve
         }
 
         private int state;
+        /// <summary>
+        /// The current state of the connection
+        /// </summary>
         public ConnectionState State
         {
             get { return (ConnectionState)state; }
         }
-
+        /// <summary>
+        /// Releases any resources associated with the connection
+        /// </summary>
         public virtual void Dispose()
         {
             abort = true;
@@ -99,14 +135,24 @@ namespace BookSleeve
             redisStream = null;
             Error = null;         
         }
+        /// <summary>
+        /// Called after opening a connection
+        /// </summary>
         protected virtual void OnOpened() { }
-
+        /// <summary>
+        /// Called before opening a connection
+        /// </summary>
+        protected virtual void OnOpening() { }
+        /// <summary>
+        /// Attempts to open the connection to the remote server
+        /// </summary>
         public Task Open()
         {
             if (Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.Shiny) != (int)ConnectionState.Shiny)
                 throw new InvalidOperationException(); // not shiny
             try
             {
+                OnOpening();
                 socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 socket.NoDelay = true;
                 socket.SendTimeout = ioTimeout;
@@ -366,6 +412,9 @@ namespace BookSleeve
             if (handler != null) handler(this, EventArgs.Empty);
 
         }
+        /// <summary>
+        /// Invoked when the server is terminating
+        /// </summary>
         protected virtual void ShuttingDown(Exception error) { }
         private static readonly byte[] empty = new byte[0];
         private int Read(byte[] scratch, int offset, int maxBytes)
@@ -685,8 +734,7 @@ namespace BookSleeve
                     List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
                     for (int i = 0; i < pending.Length; i++)
                     {
-                        var q = new QueuedMessage(pending[i]);
-                        WriteMessage(ref db, q, newlyQueued);
+                        WriteMessage(ref db, pending[i], newlyQueued);
                     }
                     newlyQueued.TrimExcess();
                     WriteMessage(ref db, mm.Execute(newlyQueued), queued);

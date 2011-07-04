@@ -46,7 +46,7 @@
     <Compile Include="RedisCounters.cs" />
     <Compile Include="RedisFeatures.cs" />
     <Compile Include="RedisMessage.cs" />
-    <Compile Include="RedisMultiConnection.cs" />
+    <Compile Include="RedisTransaction.cs" />
     <Compile Include="RedisResult.cs" />
     <Compile Include="RedisSubscriberConnection.cs" />
     <Compile Include="BlockingQueue.cs" />

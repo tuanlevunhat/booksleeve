@@ -714,9 +714,14 @@ namespace BookSleeve
     }
     internal class ExecMessage : Message, IMessageResult
     {
-        public ExecMessage()
+        private RedisConnection parent;
+        public ExecMessage(RedisConnection parent)
             : base(-1, exec)
-        { SetMessageResult(this); }
+        {
+            if (parent == null) throw new ArgumentNullException("parent");
+            SetMessageResult(this);
+            this.parent = parent;
+        }
         private readonly TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
         private readonly static byte[]
             exec = Encoding.ASCII.GetBytes("EXEC");
@@ -725,37 +730,63 @@ namespace BookSleeve
             WriteCommand(stream, 0);
         }
         public Task Completion { get { return completion.Task; } }
-        private List<QueuedMessage> queued;
+        private QueuedMessage[] queued;
         internal void SetQueued(List<QueuedMessage> queued)
         {
             if (queued == null) throw new ArgumentNullException("queued");
             if (this.queued != null) throw new InvalidOperationException();
-            this.queued = queued;
+            this.queued = queued.ToArray();
         }
 
         void IMessageResult.Complete(RedisResult result)
         {
-            var items = result.ValueItems;
+            try
+            {
+                if (queued == null) throw new InvalidOperationException("Nothing was queued (null)!");
+                var items = result.ValueItems;
+                if (items.Length != queued.Length) throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
+
+                for (int i = 0; i < items.Length; i++)
+                {
+                    RedisResult reply = items[i];
+                    var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
+                    parent.ProcessCallbacks(ctx, reply);
+                }
+                completion.SetResult(true);
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+                throw;
+            }
         }
     }
     internal class QueuedMessage : Message
     {
-        private readonly Message message;
-        public QueuedMessage(Message message) : base(message.Db, message.Command, queued)
+        private readonly Message innnerMessage;
+        public override bool MustSucceed
         {
-            this.message = message;
+            get { return true; }
+        }
+        public Message InnerMessage { get { return innnerMessage; } }
+        public QueuedMessage(Message innnerMessage)
+            : base(innnerMessage.Db, innnerMessage.Command, queued)
+        {
+            if (innnerMessage == null) throw new ArgumentNullException("innnerMessage");
+            this.innnerMessage = innnerMessage;
         }
         public override void Write(Stream stream)
         {
-            message.Write(stream);
+            innnerMessage.Write(stream);
         }
         private readonly static byte[]
             queued = Encoding.ASCII.GetBytes("QUEUED");
     }
     internal class MultiMessage : Message
     {
-        public MultiMessage(Message[] messages) : base(-1, multi, Ok )
+        public MultiMessage(RedisConnection parent, Message[] messages) : base(-1, multi, Ok )
         {
+            exec = new ExecMessage(parent);
             this.messages = messages;
         }
         private Message[] messages;
@@ -764,7 +795,7 @@ namespace BookSleeve
         {
             WriteCommand(stream, 0);
         }
-        private readonly ExecMessage exec = new ExecMessage();
+        private readonly ExecMessage exec;
         public Message Execute(List<QueuedMessage> queued) {
             exec.SetQueued(queued);
             return exec;
