@@ -9,6 +9,15 @@ namespace BookSleeve
     /// </summary>
     public sealed class RedisTransaction : RedisConnection
     {
+        /// <summary>
+        /// Features available to the redis server
+        /// </summary>
+        public override RedisFeatures Features { get { return parent.Features; } }
+        /// <summary>
+        /// The version of the connected redis server
+        /// </summary>
+        public override Version ServerVersion { get { return parent.ServerVersion; } }
+
         private RedisConnection parent;
         internal RedisTransaction(RedisConnection parent) : base(parent)
         {
@@ -53,7 +62,7 @@ namespace BookSleeve
         /// </summary>
         public void Discard()
         {
-            ClearQueue();
+            CancelUnsent();
         }
     }
 }

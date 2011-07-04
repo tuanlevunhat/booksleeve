@@ -44,18 +44,18 @@ namespace BookSleeve
         /// <summary>
         /// Features available to the redis server
         /// </summary>
-        public RedisFeatures Features { get { return features; } }
+        public virtual RedisFeatures Features { get { return features; } }
         /// <summary>
         /// The version of the connected redis server
         /// </summary>
-        public Version ServerVersion
+        public virtual Version ServerVersion
         {
             get
             {
                 var tmp = features;
                 return tmp == null ? null : tmp.Version;
             }
-            set
+            private set
             {
                 features = new RedisFeatures(value);
             }
@@ -358,6 +358,7 @@ namespace BookSleeve
             }        
         }
         internal abstract object ProcessReply(ref RedisResult result);
+        internal abstract object ProcessReply(ref RedisResult result, Message message);
         internal abstract void ProcessCallbacks(object ctx, RedisResult result);
 
         private RedisResult ReadSingleResult()
@@ -832,7 +833,15 @@ namespace BookSleeve
         {
             unsent.Enqueue(message, queueJump);
         }
-        internal void ClearQueue() { unsent.Clear(); }
+        internal void CancelUnsent() {
+            var all = unsent.DequeueAll();
+            for (int i = 0; i < all.Length; i++)
+            {
+                RedisResult result = RedisResult.Cancelled;
+                object ctx = ProcessReply(ref result, all[i]);
+                ProcessCallbacks(ctx, result);
+            }
+        }
         internal Message[] DequeueAll() { return unsent.DequeueAll(); }
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.

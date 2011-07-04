@@ -109,6 +109,10 @@ namespace BookSleeve
             punsubscribe = Encoding.ASCII.GetBytes("punsubscribe");
         internal override object ProcessReply(ref RedisResult result)
         {
+            return ProcessReply(ref result, null);
+        }
+        internal override object ProcessReply(ref RedisResult result, Message message)
+        {
             return null;
         }
         private void OnMessageReceived(string subscriptionKey, string messageKey, RedisResult value)

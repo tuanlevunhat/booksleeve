@@ -17,7 +17,11 @@ namespace BookSleeve
         public Task<T> Task { get { return source.Task; } }
         public void Complete(RedisResult result)
         {
-            if (result.IsError)
+            if (result.IsCancellation)
+            {
+                source.SetCanceled();
+            }
+            else if (result.IsError)
             {
                 source.SetException(result.Error());
             }

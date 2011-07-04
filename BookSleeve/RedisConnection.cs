@@ -105,7 +105,7 @@ namespace BookSleeve
             return ProcessReply(ref result, message);
         }
 
-        internal object ProcessReply(ref RedisResult result, Message message)
+        internal override object ProcessReply(ref RedisResult result, Message message)
         {
             byte[] expected;
             if (!result.IsError && (expected = message.Expected) != null)
@@ -728,12 +728,64 @@ namespace BookSleeve
         }
 
         /// <summary>
-        /// Removes the specified fields from the hash stored at key. Non-existing fields are ignored. Non-existing keys are treated as empty hashes and this command returns 0.
+        /// Removes the specified field from the hash stored at key. Non-existing fields are ignored. Non-existing keys are treated as empty hashes and this command returns 0.
         /// </summary>
         public Task<bool> RemoveHash(int db, string key, string field, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBoolean(MultiKeyMessage.RemoveHash(db, key, field), queueJump);
+        }
+        /// <summary>
+        /// Removes the specified fields from the hash stored at key. Non-existing fields are ignored. Non-existing keys are treated as empty hashes and this command returns 0.
+        /// </summary>
+        public Task<long> RemoveHash(int db, string key, string[] fields, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+
+            RedisFeatures features;
+            if (fields.Length > 1 && ((features = Features) == null || !features.HashVaradicDelete))
+            {
+                RedisTransaction tran = this as RedisTransaction;
+                bool execute = false;
+                if (tran == null)
+                {
+                    tran = CreateTransaction();
+                    execute = true;
+                }
+                Task<bool>[] tasks = new Task<bool>[fields.Length];
+
+                for (int i = 0; i < fields.Length; i++)
+                {
+                    tasks[i] = tran.RemoveHash(db, key, fields[i], queueJump);
+                }
+                TaskCompletionSource<long> final = new TaskCompletionSource<long>();
+                tasks[fields.Length - 1].ContinueWith(t =>
+                {
+                    if (t.IsFaulted) final.SetException(t.Exception);
+                    try
+                    {
+                        long count = 0;
+                        for (int i = 0; i < tasks.Length; i++)
+                        {
+                            if (tran.Wait(tasks[i]))
+                            {
+                                count++;
+                            }
+                        }
+                        final.SetResult(count);
+                    }
+                    catch (Exception ex)
+                    {
+                        final.SetException(ex);
+                    }
+                });
+                if (execute) tran.Execute(queueJump);
+                return final.Task;
+            }
+            else
+            {
+                return ExecuteInt64(MultiKeyMessage.RemoveHash(db, key, fields), queueJump);
+            }            
         }
 
         /// <summary>
