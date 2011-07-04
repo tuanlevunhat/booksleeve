@@ -11,7 +11,7 @@ namespace BookSleeve
     /// callers for maximum efficiency. Usually only a single RedisConnection
     /// is required
     /// </summary>
-    public sealed class RedisConnection : RedisConnectionBase
+    public class RedisConnection : RedisConnectionBase
     {
         internal const bool DefaultAllowAdmin = false;
         public RedisConnection(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue, bool allowAdmin = DefaultAllowAdmin, int syncTimeout = DefaultSyncTimeout)
@@ -20,7 +20,17 @@ namespace BookSleeve
             this.allowAdmin = allowAdmin;
             this.sent = new Queue<Message>();
         }
-
+        
+        protected RedisConnection(RedisConnection parent) : base(
+            parent.Host, parent.Port, parent.IOTimeout, parent.Password, int.MaxValue, parent.SyncTimeout)
+        {
+            this.allowAdmin = parent.allowAdmin;
+            this.sent = new Queue<Message>();
+        }
+        public RedisMultiConnection Multi()
+        {
+            return new RedisMultiConnection(this);
+        }
         private RedisSubscriberConnection subscriberChannel;
 
         private RedisSubscriberConnection SubscriberFactory()
@@ -232,6 +242,11 @@ namespace BookSleeve
             return ExecuteVoid(KeyValueMessage.Set(db, key, value), queueJump);
         }
         public Task<bool> SetIfNotExists(int db, string key, byte[] value, bool queueJump = false)
+        {
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(KeyValueMessage.SetIfNotExists(db, key, value), queueJump);
+        }
+        public Task<bool> SetIfNotExists(int db, string key, string value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBoolean(KeyValueMessage.SetIfNotExists(db, key, value), queueJump);

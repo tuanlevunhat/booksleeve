@@ -62,6 +62,30 @@ namespace BookSleeve
                 }
             }
         }
+        public T[] DequeueAll()
+        {
+            lock (stdPriority)
+            {
+                T[] result = new T[highPriority.Count + stdPriority.Count];
+                highPriority.CopyTo(result, 0);
+                stdPriority.CopyTo(result, highPriority.Count);
+                highPriority.Clear();
+                stdPriority.Clear();
+                // wake up any blocked enqueue
+                Monitor.PulseAll(stdPriority);
+                return result;
+            }
+        }
+        public void Clear()
+        {
+            lock (stdPriority)
+            {
+                highPriority.Clear();
+                stdPriority.Clear();
+                // wake up any blocked enqueue
+                Monitor.PulseAll(stdPriority);
+            }
+        }
         public bool TryDequeue(bool noWait, out T value, out bool isHigh)
         {
             lock (stdPriority)

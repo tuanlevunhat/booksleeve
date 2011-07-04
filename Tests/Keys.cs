@@ -179,6 +179,11 @@ namespace Tests
             int errors = 0, expectedErrors;
             using (var conn = Config.GetUnsecuredConnection())
             {
+                conn.Error += delegate
+                {
+                    Interlocked.Increment(ref errors);
+                };
+                conn.Remove(1, "persist");
                 conn.Set(1, "persist", "persist");
                 var persist1 = conn.Persist(1, "persist");
                 conn.Expire(1, "persist", 100);
@@ -186,10 +191,7 @@ namespace Tests
                 var persist2 = conn.Persist(1, "persist");
                 var after = conn.TimeToLive(1, "persist");
                 
-                conn.Error += delegate
-                {
-                    Interlocked.Increment(ref errors);
-                };
+
                 Assert.GreaterOrEqual(conn.Wait(before), 90);
                 if (conn.Features.Persist)
                 {
