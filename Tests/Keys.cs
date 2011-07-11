@@ -1,6 +1,6 @@
-﻿using NUnit.Framework;
+﻿using System.Threading;
 using BookSleeve;
-using System.Threading;
+using NUnit.Framework;
 
 namespace Tests
 {
@@ -18,7 +18,7 @@ namespace Tests
             {
                 conn.Set(0, "del", "abcdef");
                 var x = conn.GetString(0, "del");
-                var del = conn.Remove(0, "del");
+                var del = conn.Keys.Remove(0, "del");
                 var y = conn.GetString(0, "del");
                 conn.WaitAll(x, del, y);
                 Assert.AreEqual("abcdef", x.Result);
@@ -33,8 +33,8 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(0, "exists", "abcdef");
-                var x = conn.Remove(0, "exists");
-                var y = conn.Remove(0, "exists");
+                var x = conn.Keys.Remove(0, "exists");
+                var y = conn.Keys.Remove(0, "exists");
                 conn.WaitAll(x, y);
                 Assert.IsTrue(x.Result);
                 Assert.IsFalse(y.Result);
@@ -47,8 +47,8 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(0, "del", "abcdef");
-                var x = conn.Remove(0, "del");
-                var y = conn.Remove(0, "del");
+                var x = conn.Keys.Remove(0, "del");
+                var y = conn.Keys.Remove(0, "del");
                 conn.WaitAll(x, y);
                 Assert.IsTrue(x.Result);
                 Assert.IsFalse(y.Result);
@@ -62,10 +62,10 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(0, "delA", "abcdef");
-                conn.Remove(0, "delB");
+                conn.Keys.Remove(0, "delB");
                 conn.Set(0, "delC", "abcdef");
 
-                var del = conn.Remove(0, new[] {"delA", "delB", "delC"});
+                var del = conn.Keys.Remove(0, new[] {"delA", "delB", "delC"});
                 Assert.AreEqual(2, conn.Wait(del));
             }
         }
@@ -76,9 +76,9 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(0, "exists", "abcdef");
-                var x = conn.ContainsKey(0, "exists");
-                conn.Remove(0, "exists");
-                var y = conn.ContainsKey(0, "exists");
+                var x = conn.Keys.Exists(0, "exists");
+                conn.Keys.Remove(0, "exists");
+                var y = conn.Keys.Exists(0, "exists");
                 conn.WaitAll(x, y);
                 Assert.IsTrue(x.Result);
                 Assert.IsFalse (y.Result);
@@ -91,11 +91,11 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(0, "expire", "abcdef");
-                var x = conn.TimeToLive(0, "expire");
-                var exp1 = conn.Expire(0, "expire", 100);
-                var y = conn.TimeToLive(0, "expire");
-                var exp2 = conn.Expire(0, "expire", 150);
-                var z = conn.TimeToLive(0, "expire");
+                var x = conn.Keys.TimeToLive(0, "expire");
+                var exp1 = conn.Keys.Expire(0, "expire", 100);
+                var y = conn.Keys.TimeToLive(0, "expire");
+                var exp2 = conn.Keys.Expire(0, "expire", 150);
+                var z = conn.Keys.TimeToLive(0, "expire");
 
                 conn.WaitAll(x, exp1, y, exp2, z);
                 
@@ -125,9 +125,9 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 conn.Set(1, "move", "move-value");
-                conn.Remove(2, "move");
+                conn.Keys.Remove(2, "move");
 
-                var succ = conn.Move(1, "move", 2);
+                var succ = conn.Keys.Move(1, "move", 2);
                 var in1 = conn.GetString(1, "move");
                 var in2 = conn.GetString(2, "move");
 
@@ -142,10 +142,10 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(1, "move");
+                conn.Keys.Remove(1, "move");
                 conn.Set(2, "move", "move-value");
                 
-                var succ = conn.Move(1, "move", 2);
+                var succ = conn.Keys.Move(1, "move", 2);
                 var in1 = conn.GetString(1, "move");
                 var in2 = conn.GetString(2, "move");
 
@@ -163,7 +163,7 @@ namespace Tests
                 conn.Set(1, "move", "move-valueA");
                 conn.Set(2, "move", "move-valueB");
 
-                var succ = conn.Move(1, "move", 2);
+                var succ = conn.Keys.Move(1, "move", 2);
                 var in1 = conn.GetString(1, "move");
                 var in2 = conn.GetString(2, "move");
 
@@ -183,13 +183,13 @@ namespace Tests
                 {
                     Interlocked.Increment(ref errors);
                 };
-                conn.Remove(1, "persist");
+                conn.Keys.Remove(1, "persist");
                 conn.Set(1, "persist", "persist");
-                var persist1 = conn.Persist(1, "persist");
-                conn.Expire(1, "persist", 100);
-                var before = conn.TimeToLive(1, "persist");
-                var persist2 = conn.Persist(1, "persist");
-                var after = conn.TimeToLive(1, "persist");
+                var persist1 = conn.Keys.Persist(1, "persist");
+                conn.Keys.Expire(1, "persist", 100);
+                var before = conn.Keys.TimeToLive(1, "persist");
+                var persist2 = conn.Keys.Persist(1, "persist");
+                var after = conn.Keys.TimeToLive(1, "persist");
                 
 
                 Assert.GreaterOrEqual(conn.Wait(before), 90);
@@ -228,15 +228,15 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
             {
                 conn.FlushDb(7);
-                var key1 = conn.RandomKey(7);
+                var key1 = conn.Keys.Random(7);
                 conn.Set(7, "random1", "random1");
-                var key2 = conn.RandomKey(7);
+                var key2 = conn.Keys.Random(7);
                 for (int i = 2; i < 100; i++)
                 {
                     string key = "random" + i;
                     conn.Set(7, key, key);
                 }
-                var key3 = conn.RandomKey(7);
+                var key3 = conn.Keys.Random(7);
 
                 Assert.IsNull(conn.Wait(key1));
                 Assert.AreEqual("random1", conn.Wait(key2));
@@ -252,29 +252,57 @@ namespace Tests
         }
 
         [Test]
+        public void ItemType()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(4, new[]{"type-none", "type-list", "type-string",
+                    "type-set", "type-zset", "type-hash"});
+                conn.Set(4, "type-string", "blah");
+                conn.Lists.AddLast(4, "type-list", "blah");
+                conn.AddToSet(4, "type-set", "blah");
+                conn.AddToSortedSet(4, "type-zset", "blah", 123);
+                conn.Hashes.Set(4, "type-hash", "foo", "blah");
+
+                var x0 = conn.Keys.Type(4, "type-none");
+                var x1 = conn.Keys.Type(4, "type-list");
+                var x2 = conn.Keys.Type(4, "type-string");
+                var x3 = conn.Keys.Type(4, "type-set");
+                var x4 = conn.Keys.Type(4, "type-zset");
+                var x5 = conn.Keys.Type(4, "type-hash");
+
+                Assert.AreEqual(RedisConnection.ItemTypes.None, conn.Wait(x0));
+                Assert.AreEqual(RedisConnection.ItemTypes.List, conn.Wait(x1));
+                Assert.AreEqual(RedisConnection.ItemTypes.String, conn.Wait(x2));
+                Assert.AreEqual(RedisConnection.ItemTypes.Set, conn.Wait(x3));
+                Assert.AreEqual(RedisConnection.ItemTypes.SortedSet, conn.Wait(x4));
+                Assert.AreEqual(RedisConnection.ItemTypes.Hash, conn.Wait(x5));
+            }
+        }
+        [Test]
         public void RenameKeyWithOverwrite()
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(1, "foo");
-                conn.Remove(1, "bar");
+                conn.Keys.Remove(1, "foo");
+                conn.Keys.Remove(1, "bar");
 
-                var check1 = conn.Rename(1, "foo", "bar"); // neither
+                var check1 = conn.Keys.Rename(1, "foo", "bar"); // neither
                 var after1_foo = conn.GetString(1, "foo");
                 var after1_bar = conn.GetString(1, "bar");
 
                 conn.Set(1, "foo", "foo-value");
 
-                var check2 = conn.Rename(1, "foo", "bar"); // source only
+                var check2 = conn.Keys.Rename(1, "foo", "bar"); // source only
                 var after2_foo = conn.GetString(1, "foo");
                 var after2_bar = conn.GetString(1, "bar");
 
-                var check3 = conn.Rename(1, "foo", "bar"); // dest only
+                var check3 = conn.Keys.Rename(1, "foo", "bar"); // dest only
                 var after3_foo = conn.GetString(1, "foo");
                 var after3_bar = conn.GetString(1, "bar");
 
                 conn.Set(1, "foo", "new-value");
-                var check4 = conn.Rename(1, "foo", "bar"); // both
+                var check4 = conn.Keys.Rename(1, "foo", "bar"); // both
                 var after4_foo = conn.GetString(1, "foo");
                 var after4_bar = conn.GetString(1, "bar");
 
@@ -312,25 +340,25 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(1, "foo");
-                conn.Remove(1, "bar");
+                conn.Keys.Remove(1, "foo");
+                conn.Keys.Remove(1, "bar");
 
-                var check1 = conn.RenameIfNotExists(1, "foo", "bar"); // neither
+                var check1 = conn.Keys.RenameIfNotExists(1, "foo", "bar"); // neither
                 var after1_foo = conn.GetString(1, "foo");
                 var after1_bar = conn.GetString(1, "bar");
 
                 conn.Set(1, "foo", "foo-value");
 
-                var check2 = conn.RenameIfNotExists(1, "foo", "bar"); // source only
+                var check2 = conn.Keys.RenameIfNotExists(1, "foo", "bar"); // source only
                 var after2_foo = conn.GetString(1, "foo");
                 var after2_bar = conn.GetString(1, "bar");
 
-                var check3 = conn.RenameIfNotExists(1, "foo", "bar"); // dest only
+                var check3 = conn.Keys.RenameIfNotExists(1, "foo", "bar"); // dest only
                 var after3_foo = conn.GetString(1, "foo");
                 var after3_bar = conn.GetString(1, "bar");
 
                 conn.Set(1, "foo", "new-value");
-                var check4 = conn.RenameIfNotExists(1, "foo", "bar"); // both
+                var check4 = conn.Keys.RenameIfNotExists(1, "foo", "bar"); // both
                 var after4_foo = conn.GetString(1, "foo");
                 var after4_bar = conn.GetString(1, "bar");
 

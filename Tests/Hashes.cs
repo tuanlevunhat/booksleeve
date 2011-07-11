@@ -13,11 +13,11 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(5, "hash-test");
+                conn.Keys.Remove(5, "hash-test");
                 for (int i = 1; i < 1000; i++)
                 {
-                    Assert.AreEqual(i, conn.IncrementHash(5, "hash-test", "a", 1).Result);
-                    Assert.AreEqual(-1 * i, conn.IncrementHash(5, "hash-test", "b", -1).Result);
+                    Assert.AreEqual(i, conn.Hashes.Increment(5, "hash-test", "a", 1).Result);
+                    Assert.AreEqual(-1 * i, conn.Hashes.Increment(5, "hash-test", "b", -1).Result);
                 }
             }
         }
@@ -29,7 +29,7 @@ namespace Tests
             {
                 
                 const string key = "hash test";
-                conn.Remove(6, key);
+                conn.Keys.Remove(6, key);
                 var shouldMatch = new Dictionary<Guid, int>();
                 var random = new Random();
 
@@ -40,7 +40,7 @@ namespace Tests
 
                     shouldMatch[guid] = value;
 
-                    var x = conn.IncrementHash(6, key, guid.ToString(), value).Result; // Kill Async
+                    var x = conn.Hashes.Increment(6, key, guid.ToString(), value).Result; // Kill Async
                 }
 #pragma warning disable 618
                 var inRedisRaw = conn.GetHash(6, key).Result;
@@ -81,12 +81,12 @@ namespace Tests
 
                     shouldMatch[guid] = value;
 
-                    var x = conn.IncrementHash(7, key, guid.ToString(), value).Result; // Kill Async
+                    var x = conn.Hashes.Increment(7, key, guid.ToString(), value).Result; // Kill Async
                 }
 
                 foreach (var k in shouldMatch.Keys)
                 {
-                    var inRedis = conn.GetFromHash(7, key, k.ToString()).Result;
+                    var inRedis = conn.Hashes.Get(7, key, k.ToString()).Result;
                     var num = int.Parse(Encoding.ASCII.GetString(inRedis));
 
                     Assert.AreEqual(shouldMatch[k], num);
@@ -99,13 +99,13 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var val0 = conn.GetFromHashString(9, "hashkey", "field");
-                var set0 = conn.SetHash(9, "hashkey", "field", "value1");
-                var val1 = conn.GetFromHashString(9, "hashkey", "field");
-                var set1 = conn.SetHash(9, "hashkey", "field", "value2");
-                var val2 = conn.GetFromHashString(9, "hashkey", "field");
+                var val0 = conn.Hashes.GetString(9, "hashkey", "field");
+                var set0 = conn.Hashes.Set(9, "hashkey", "field", "value1");
+                var val1 = conn.Hashes.GetString(9, "hashkey", "field");
+                var set1 = conn.Hashes.Set(9, "hashkey", "field", "value2");
+                var val2 = conn.Hashes.GetString(9, "hashkey", "field");
 
                 Assert.AreEqual(null, val0.Result);
                 Assert.AreEqual(true, set0.Result);
@@ -120,13 +120,13 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var val0 = conn.GetFromHashString(9, "hashkey", "field");
-                var set0 = conn.SetHashIfNotExists(9, "hashkey", "field", "value1");
-                var val1 = conn.GetFromHashString(9, "hashkey", "field");
-                var set1 = conn.SetHashIfNotExists(9, "hashkey", "field", "value2");
-                var val2 = conn.GetFromHashString(9, "hashkey", "field");
+                var val0 = conn.Hashes.GetString(9, "hashkey", "field");
+                var set0 = conn.Hashes.SetIfNotExists(9, "hashkey", "field", "value1");
+                var val1 = conn.Hashes.GetString(9, "hashkey", "field");
+                var set1 = conn.Hashes.SetIfNotExists(9, "hashkey", "field", "value2");
+                var val2 = conn.Hashes.GetString(9, "hashkey", "field");
 
                 Assert.AreEqual(null, val0.Result);
                 Assert.AreEqual(true, set0.Result);
@@ -142,13 +142,13 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
 
-                conn.Remove(9, "hashkey");
-                var del0 = conn.RemoveHash(9, "hashkey", "field");
+                conn.Keys.Remove(9, "hashkey");
+                var del0 = conn.Hashes.Remove(9, "hashkey", "field");
 
-                conn.SetHash(9, "hashkey", "field", "value");
+                conn.Hashes.Set(9, "hashkey", "field", "value");
 
-                var del1 = conn.RemoveHash(9, "hashkey", "field");
-                var del2 = conn.RemoveHash(9, "hashkey", "field");
+                var del1 = conn.Hashes.Remove(9, "hashkey", "field");
+                var del2 = conn.Hashes.Remove(9, "hashkey", "field");
 
                 Assert.AreEqual(false, del0.Result);
                 Assert.AreEqual(true, del1.Result);
@@ -161,19 +161,19 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.SetHash(3, "TestDelMulti", "key1", "val1");
-                conn.SetHash(3, "TestDelMulti", "key2", "val2");
-                conn.SetHash(3, "TestDelMulti", "key3", "val3");
+                conn.Hashes.Set(3, "TestDelMulti", "key1", "val1");
+                conn.Hashes.Set(3, "TestDelMulti", "key2", "val2");
+                conn.Hashes.Set(3, "TestDelMulti", "key3", "val3");
 
-                var s1 = conn.ContainsHash(3, "TestDelMulti", "key1");
-                var s2 = conn.ContainsHash(3, "TestDelMulti", "key2");
-                var s3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+                var s1 = conn.Hashes.Exists(3, "TestDelMulti", "key1");
+                var s2 = conn.Hashes.Exists(3, "TestDelMulti", "key2");
+                var s3 = conn.Hashes.Exists(3, "TestDelMulti", "key3");
 
-                var removed = conn.RemoveHash(3, "TestDelMulti", new[] { "key1", "key3" });
+                var removed = conn.Hashes.Remove(3, "TestDelMulti", new[] { "key1", "key3" });
 
-                var d1 = conn.ContainsHash(3, "TestDelMulti", "key1");
-                var d2 = conn.ContainsHash(3, "TestDelMulti", "key2");
-                var d3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+                var d1 = conn.Hashes.Exists(3, "TestDelMulti", "key1");
+                var d2 = conn.Hashes.Exists(3, "TestDelMulti", "key2");
+                var d3 = conn.Hashes.Exists(3, "TestDelMulti", "key3");
 
                 Assert.IsTrue(conn.Wait(s1));
                 Assert.IsTrue(conn.Wait(s2));
@@ -193,19 +193,19 @@ namespace Tests
             {
                 using (var conn = outer.CreateTransaction())
                 {
-                    conn.SetHash(3, "TestDelMulti", "key1", "val1");
-                    conn.SetHash(3, "TestDelMulti", "key2", "val2");
-                    conn.SetHash(3, "TestDelMulti", "key3", "val3");
+                    conn.Hashes.Set(3, "TestDelMulti", "key1", "val1");
+                    conn.Hashes.Set(3, "TestDelMulti", "key2", "val2");
+                    conn.Hashes.Set(3, "TestDelMulti", "key3", "val3");
 
-                    var s1 = conn.ContainsHash(3, "TestDelMulti", "key1");
-                    var s2 = conn.ContainsHash(3, "TestDelMulti", "key2");
-                    var s3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+                    var s1 = conn.Hashes.Exists(3, "TestDelMulti", "key1");
+                    var s2 = conn.Hashes.Exists(3, "TestDelMulti", "key2");
+                    var s3 = conn.Hashes.Exists(3, "TestDelMulti", "key3");
 
-                    var removed = conn.RemoveHash(3, "TestDelMulti", new[] { "key1", "key3" });
+                    var removed = conn.Hashes.Remove(3, "TestDelMulti", new[] { "key1", "key3" });
 
-                    var d1 = conn.ContainsHash(3, "TestDelMulti", "key1");
-                    var d2 = conn.ContainsHash(3, "TestDelMulti", "key2");
-                    var d3 = conn.ContainsHash(3, "TestDelMulti", "key3");
+                    var d1 = conn.Hashes.Exists(3, "TestDelMulti", "key1");
+                    var d2 = conn.Hashes.Exists(3, "TestDelMulti", "key2");
+                    var d3 = conn.Hashes.Exists(3, "TestDelMulti", "key3");
 
                     conn.Execute();
 
@@ -227,12 +227,12 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
-                var ex0 = conn.ContainsHash(9, "hashkey", "field");
-                conn.SetHash(9, "hashkey", "field", "value");
-                var ex1 = conn.ContainsHash(9, "hashkey", "field");
-                conn.RemoveHash(9, "hashkey", "field");
-                var ex2 = conn.ContainsHash(9, "hashkey", "field");
+                conn.Keys.Remove(9, "hashkey");
+                var ex0 = conn.Hashes.Exists(9, "hashkey", "field");
+                conn.Hashes.Set(9, "hashkey", "field", "value");
+                var ex1 = conn.Hashes.Exists(9, "hashkey", "field");
+                conn.Hashes.Remove(9, "hashkey", "field");
+                var ex2 = conn.Hashes.Exists(9, "hashkey", "field");
                 
                 Assert.AreEqual(false, ex0.Result);
                 Assert.AreEqual(true, ex1.Result);
@@ -246,14 +246,14 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var keys0 = conn.GetHashKeys(9, "hashkey");
+                var keys0 = conn.Hashes.GetKeys(9, "hashkey");
 
-                conn.SetHash(9, "hashkey", "foo", "abc");
-                conn.SetHash(9, "hashkey", "bar", "def");
+                conn.Hashes.Set(9, "hashkey", "foo", "abc");
+                conn.Hashes.Set(9, "hashkey", "bar", "def");
 
-                var keys1 = conn.GetHashKeys(9, "hashkey");
+                var keys1 = conn.Hashes.GetKeys(9, "hashkey");
 
                 Assert.AreEqual(0, keys0.Result.Length);
 
@@ -270,14 +270,14 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var keys0 = conn.GetHashValues(9, "hashkey");
+                var keys0 = conn.Hashes.GetValues(9, "hashkey");
 
-                conn.SetHash(9, "hashkey", "foo", "abc");
-                conn.SetHash(9, "hashkey", "bar", "def");
+                conn.Hashes.Set(9, "hashkey", "foo", "abc");
+                conn.Hashes.Set(9, "hashkey", "bar", "def");
 
-                var keys1 = conn.GetHashValues(9, "hashkey");
+                var keys1 = conn.Hashes.GetValues(9, "hashkey");
 
                 Assert.AreEqual(0, keys0.Result.Length);
 
@@ -294,14 +294,14 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var len0 = conn.GetHashLength(9, "hashkey");
+                var len0 = conn.Hashes.GetLength(9, "hashkey");
 
-                conn.SetHash(9, "hashkey", "foo", "abc");
-                conn.SetHash(9, "hashkey", "bar", "def");
+                conn.Hashes.Set(9, "hashkey", "foo", "abc");
+                conn.Hashes.Set(9, "hashkey", "bar", "def");
 
-                var len1 = conn.GetHashLength(9, "hashkey");
+                var len1 = conn.Hashes.GetLength(9, "hashkey");
 
                 Assert.AreEqual(0, len0.Result);
                 Assert.AreEqual(2, len1.Result);
@@ -314,15 +314,15 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
                 string[] fields = { "foo", "bar", "blop" };
-                var result0 = conn.GetFromHashString(9, "hashkey", fields);
+                var result0 = conn.Hashes.GetString(9, "hashkey", fields);
 
-                conn.SetHash(9, "hashkey", "foo", "abc");
-                conn.SetHash(9, "hashkey", "bar", "def");
+                conn.Hashes.Set(9, "hashkey", "foo", "abc");
+                conn.Hashes.Set(9, "hashkey", "bar", "def");
 
-                var result1 = conn.GetFromHashString(9, "hashkey", fields);
+                var result1 = conn.Hashes.GetString(9, "hashkey", fields);
 
                 var arr0 = result0.Result;
                 var arr1 = result1.Result;
@@ -347,14 +347,14 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var result0 = conn.GetHashPairs(9, "hashkey");
+                var result0 = conn.Hashes.GetAll(9, "hashkey");
 
-                conn.SetHash(9, "hashkey", "foo", "abc");
-                conn.SetHash(9, "hashkey", "bar", "def");
+                conn.Hashes.Set(9, "hashkey", "foo", "abc");
+                conn.Hashes.Set(9, "hashkey", "bar", "def");
 
-                var result1 = conn.GetHashPairs(9, "hashkey");
+                var result1 = conn.Hashes.GetAll(9, "hashkey");
 
                 Assert.AreEqual(0, result0.Result.Count);
                 var result = result1.Result;
@@ -369,17 +369,17 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(9, "hashkey");
+                conn.Keys.Remove(9, "hashkey");
 
-                var result0 = conn.GetHashPairs(9, "hashkey");
+                var result0 = conn.Hashes.GetAll(9, "hashkey");
 
                 var data = new Dictionary<string, byte[]> {
                     {"foo", Encoding.UTF8.GetBytes("abc")},
                     {"bar", Encoding.UTF8.GetBytes("def")}
                 };
-                conn.SetHash(9, "hashkey", data);
+                conn.Hashes.Set(9, "hashkey", data);
 
-                var result1 = conn.GetHashPairs(9, "hashkey");
+                var result1 = conn.Hashes.GetAll(9, "hashkey");
 
                 Assert.AreEqual(0, result0.Result.Count);
                 var result = result1.Result;

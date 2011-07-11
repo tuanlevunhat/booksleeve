@@ -1,5 +1,5 @@
-﻿using NUnit.Framework;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using NUnit.Framework;
 
 namespace Tests
 {
@@ -11,8 +11,8 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(1, "tran");
-                conn.Remove(2, "tran");
+                conn.Keys.Remove(1, "tran");
+                conn.Keys.Remove(2, "tran");
 
                 using (var tran = conn.CreateTransaction())
                 {
@@ -82,7 +82,7 @@ namespace Tests
             int db = 8;
             using(var conn = Config.GetUnsecuredConnection())
             {
-                conn.Remove(db, "foo"); // just to reset
+                conn.Keys.Remove(db, "foo"); // just to reset
                 using(var tran = conn.CreateTransaction())
                 {   // deliberately ignoring INCRBY here
                     tran.Increment(db, "foo");

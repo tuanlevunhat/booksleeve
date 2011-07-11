@@ -399,6 +399,10 @@ namespace BookSleeve
         {
             return new KeyMessage(db, keys, pattern);
         }
+        internal static Message Type(int db, string key)
+        {
+            return new KeyMessage(db, type, key);
+        }
         internal static Message SetMembers(int db, string key)
         {
             return new KeyMessage(db, smembers, key);
@@ -500,6 +504,7 @@ namespace BookSleeve
             decr = Encoding.ASCII.GetBytes("DECR"),
             auth = Encoding.ASCII.GetBytes("AUTH"),
             keys = Encoding.ASCII.GetBytes("KEYS"),
+            type = Encoding.ASCII.GetBytes("TYPE"),
             smembers = Encoding.ASCII.GetBytes("SMEMBERS"),
             persist = Encoding.ASCII.GetBytes("PERSIST"),
             subscribe = Encoding.ASCII.GetBytes("SUBSCRIBE"),
@@ -529,6 +534,10 @@ namespace BookSleeve
         {
             return new KeyScoreMessage(db, move, key, targetDb);
         }
+        public static Message GetFromList(int db, string key, int index)
+        {
+            return new KeyScoreMessage(db, lindex, key, index);
+        }
         private KeyScoreMessage(int db, byte[] cmd, string key, int score)
             : base(db, cmd)
         {
@@ -537,7 +546,8 @@ namespace BookSleeve
         }
         private readonly static byte[]
             expire = Encoding.ASCII.GetBytes("EXPIRE"),
-            move = Encoding.ASCII.GetBytes("MOVE");
+            move = Encoding.ASCII.GetBytes("MOVE"),
+            lindex = Encoding.ASCII.GetBytes("LINDEX");
         private readonly string key;
         private readonly int score;
         public override string ToString()
@@ -558,10 +568,10 @@ namespace BookSleeve
         public static Message SetIfNotExists(int db, string key, byte[] value) { return new KeyValueMessage(db, setnx, key, value, false); }
         public static Message Append(int db, string key, string value) { return new KeyValueMessage(db, append, key, value, false); }
         public static Message Append(int db, string key, byte[] value) { return new KeyValueMessage(db, append, key, value, false); }
-        public static Message LeftPush(int db, string key, string value) { return new KeyValueMessage(db, lpush, key, value, false); }
-        public static Message LeftPush(int db, string key, byte[] value) { return new KeyValueMessage(db, lpush, key, value, false); }
-        public static Message RightPush(int db, string key, string value) { return new KeyValueMessage(db, rpush, key, value, false); }
-        public static Message RightPush(int db, string key, byte[] value) { return new KeyValueMessage(db, rpush, key, value, false); }
+        public static Message LeftPush(int db, string key, string value, bool createIfMissing) { return new KeyValueMessage(db, createIfMissing ? lpush : lpushx, key, value, false); }
+        public static Message LeftPush(int db, string key, byte[] value, bool createIfMissing) { return new KeyValueMessage(db, createIfMissing ? lpush : lpushx, key, value, false); }
+        public static Message RightPush(int db, string key, string value, bool createIfMissing) { return new KeyValueMessage(db, createIfMissing ? rpush : rpushx, key, value, false); }
+        public static Message RightPush(int db, string key, byte[] value, bool createIfMissing) { return new KeyValueMessage(db, createIfMissing ? rpush : rpushx, key, value, false); }
         public static Message AddToSet(int db, string key, string value) { return new KeyValueMessage(db, sadd, key, value, false); }
         public static Message AddToSet(int db, string key, byte[] value) { return new KeyValueMessage(db, sadd, key, value, false); }
         public static Message RemoveFromSet(int db, string key, string value) { return new KeyValueMessage(db, srem, key, value, false); }
@@ -593,6 +603,8 @@ namespace BookSleeve
             publish = Encoding.ASCII.GetBytes("PUBLISH"),
             lpush = Encoding.ASCII.GetBytes("LPUSH"),
             rpush = Encoding.ASCII.GetBytes("RPUSH"),
+            lpushx = Encoding.ASCII.GetBytes("LPUSHX"),
+            rpushx = Encoding.ASCII.GetBytes("RPUSHX"),
             sismember = Encoding.ASCII.GetBytes("SISMEMBER"),
             rpoplpush = Encoding.ASCII.GetBytes("RPOPLPUSH"),
             rename = Encoding.ASCII.GetBytes("RENAME"),

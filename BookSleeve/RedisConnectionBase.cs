@@ -129,10 +129,13 @@ namespace BookSleeve
             abort = true;
             try { if (redisStream != null) redisStream.Dispose(); }
             catch { }
+            try { if (outBuffer != null) outBuffer.Dispose(); }
+            catch { }
             try { if (socket != null) socket.Close(); }
             catch { }
             socket = null;
             redisStream = null;
+            outBuffer = null;
             Error = null;         
         }
         /// <summary>
@@ -157,8 +160,9 @@ namespace BookSleeve
                 socket.NoDelay = true;
                 socket.SendTimeout = ioTimeout;
                 socket.Connect(host, port);
-
+                
                 redisStream = new NetworkStream(socket);
+                outBuffer = new BufferedStream(redisStream, 512); // buffer up operations
                 redisStream.ReadTimeout = redisStream.WriteTimeout = ioTimeout;
 
 
@@ -649,6 +653,7 @@ namespace BookSleeve
                 handler(this, new ErrorEventArgs(ex, cause, isFatal));
             }
         }
+        private Stream outBuffer;
         private void Outgoing()
         {
             try
@@ -657,8 +662,8 @@ namespace BookSleeve
                 int db = 0;
                 Message next;
                 Trace.WriteLine("Redis send-pump is starting");
-                bool isHigh;
-                while (unsent.TryDequeue(false, out next, out isHigh))
+                bool isHigh, shouldFlush;
+                while (unsent.TryDequeue(false, out next, out isHigh, out shouldFlush))
                 {
                     if (abort)
                     {
@@ -673,6 +678,7 @@ namespace BookSleeve
                     }
                     if (isHigh) Interlocked.Increment(ref queueJumpers);
                     WriteMessage(ref db, next, null);
+                    if(shouldFlush) outBuffer.Flush();
                     redisStream.Flush();
                     
                 }
@@ -682,7 +688,8 @@ namespace BookSleeve
                     var quit = VanillaMessage.Quit();
 
                     RecordSent(quit, !abort);
-                    quit.Write(redisStream);
+                    quit.Write(outBuffer);
+                    outBuffer.Flush();
                     redisStream.Flush();
                     Interlocked.Increment(ref messagesSent);
                 }
@@ -708,7 +715,7 @@ namespace BookSleeve
                         queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
                     }
                     RecordSent(changeDb);
-                    changeDb.Write(redisStream);
+                    changeDb.Write(outBuffer);
                     Interlocked.Increment(ref messagesSent);
                 }
                 LogUsage(db);
@@ -725,7 +732,7 @@ namespace BookSleeve
                     queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
                 }
                 RecordSent(tmp);
-                tmp.Write(redisStream);                
+                tmp.Write(outBuffer);
                 Interlocked.Increment(ref messagesSent);
                 
                  if (next is MultiMessage)
