@@ -22,7 +22,8 @@ namespace BookSleeve
             this.version = version;
         }
 
-        private static readonly Version v2_1_2 = new Version("2.1.2"), v2_1_3 = new Version("2.1.3"), v2_2_0 = new Version("2.2.0");
+        private static readonly Version v2_1_1 = new Version("2.1.1"), v2_1_2 = new Version("2.1.2"),
+            v2_1_3 = new Version("2.1.3"), v2_2_0 = new Version("2.2.0");
         /// <summary>
         /// Is the PERSIST operation supported?
         /// </summary>
@@ -35,7 +36,10 @@ namespace BookSleeve
         /// Does HDEL support varadic usage?
         /// </summary>
         public bool HashVaradicDelete { get { return version > v2_2_0; } }
-
+        /// <summary>
+        /// Is RPUSHX and LPUSHX available?
+        /// </summary>
+        public bool PushIfNotExists { get { return version >= v2_1_1; } }
         /// <summary>
         /// Create a string representation of the available features
         /// </summary>

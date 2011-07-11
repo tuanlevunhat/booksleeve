@@ -38,7 +38,25 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ISortedSetCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ISetCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
+    <Compile Include="IKeyCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
+    <Compile Include="IHashCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
+    <Compile Include="IStringCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
     <Compile Include="EventArgs.cs" />
+    <Compile Include="IListCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
     <Compile Include="MessageResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RedisConnection.cs" />

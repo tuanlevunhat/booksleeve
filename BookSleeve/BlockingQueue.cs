@@ -76,7 +76,7 @@ namespace BookSleeve
                 return result;
             }
         }
-        public bool TryDequeue(bool noWait, out T value, out bool isHigh)
+        public bool TryDequeue(bool noWait, out T value, out bool isHigh, out bool shouldFlush)
         {
             lock (stdPriority)
             {
@@ -86,18 +86,32 @@ namespace BookSleeve
                     {
                         value = default(T);
                         isHigh = false;
+                        shouldFlush = true;
                         return false;
                     }
                     Monitor.Wait(stdPriority);
                 }
-                isHigh = highPriority.Count != 0;
-                value = isHigh ? highPriority.Dequeue() : stdPriority.Dequeue();
-                if ((!isHigh && stdPriority.Count == maxSize - 1) || (stdPriority.Count == 0 && highPriority.Count == 0))
+                int loCount = stdPriority.Count, hiCount = highPriority.Count;
+                isHigh = hiCount > 0;
+                if (isHigh)
+                {
+                    value = highPriority.Dequeue();
+                    hiCount--;
+                    shouldFlush = hiCount == 0;
+                }
+                else
+                {
+                    value = stdPriority.Dequeue();
+                    loCount--;
+                    shouldFlush = loCount == 0;
+                }
+
+                if ((!isHigh && loCount == maxSize - 1) || (loCount == 0 && hiCount == 0))
                 {
                     // wake up any blocked enqueue
                     Monitor.PulseAll(stdPriority);
                 }
-                if (isHigh && stdPriority.Count == 0) isHigh = false;//can't be high if it didn't overtake
+                if (isHigh && loCount == 0) isHigh = false;//can't be high if it didn't overtake
                 return true;
             }
         }

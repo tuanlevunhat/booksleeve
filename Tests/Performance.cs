@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using NUnit.Framework;
 using System.Diagnostics;
+using System.Text;
 using System.Threading.Tasks;
+using NUnit.Framework;
 
 namespace Tests
 {
@@ -19,7 +17,7 @@ namespace Tests
             {
                 // do these outside the timings, just to ensure the core methods are JITted etc
                 for (int db = 0; db < 5; db++ )
-                    conn.Remove(db, "perftest");
+                    conn.Keys.Remove(db, "perftest");
 
                 var timer = Stopwatch.StartNew();
                 for (int i = 0; i < 100; i++)
