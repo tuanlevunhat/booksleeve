@@ -260,7 +260,7 @@ namespace Tests
                     "type-set", "type-zset", "type-hash"});
                 conn.Set(4, "type-string", "blah");
                 conn.Lists.AddLast(4, "type-list", "blah");
-                conn.AddToSet(4, "type-set", "blah");
+                conn.Sets.Add(4, "type-set", "blah");
                 conn.AddToSortedSet(4, "type-zset", "blah", 123);
                 conn.Hashes.Set(4, "type-hash", "foo", "blah");
 

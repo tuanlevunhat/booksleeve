@@ -239,14 +239,6 @@ namespace BookSleeve
             return ExecuteString(KeyMessage.Get(db, key), false);
         }
 
-
-
-        public Task<byte[][]> GetMembersOfSet(int db, string key, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(KeyMessage.SetMembers(db, key), queueJump);
-        }
-
         public Task<long> Increment(int db, string key, bool queueJump = false)
         {
             return ExecuteInt64(GetDelta(db, key, 1), queueJump);
@@ -310,27 +302,9 @@ namespace BookSleeve
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteBytes(KeyValueMessage.Append(db, key, value), queueJump);
         }
-        public Task<bool> AddToSet(int db, string key, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.AddToSet(db, key, value), queueJump);
-        }
-        public Task<bool> AddToSet(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.AddToSet(db, key, value), queueJump);
-        }
 
-        public Task<bool> IsMemberOfSet(int db, string key, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.IsMemberOfSet(db, key, value), queueJump);
-        }
-        public Task<bool> IsMemberOfSet(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.IsMemberOfSet(db, key, value), queueJump);
-        }
+
+
 
 
         public Task<bool> AddToSortedSet(int db, string key, string value, double score, bool queueJump = false)
@@ -368,48 +342,12 @@ namespace BookSleeve
             return ExecuteDouble(KeyScoreValueMessage.IncrementSortedSet(db, key, score, value), queueJump);
         }
 
-        public Task<bool> RemoveFromSet(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.RemoveFromSet(db, key, value), queueJump);
-        }
-
-        public Task<long> CardinalityOfSet(int db, string key, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(KeyMessage.CardinalityOfSet(db, key), queueJump);
-        }
-
         public Task<long> CardinalityOfSortedSet(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(KeyMessage.CardinalityOfSortedSet(db, key), queueJump);
         }
 
-
-        public Task<byte[][]> Intersect(int db, string[] keys, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.Intersect(db, keys), queueJump);
-        }
-
-        public Task<byte[][]> Union(int db, string[] keys, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.Union(db, keys), queueJump);
-        }
-
-        public Task<long> IntersectAndStore(int db, string to, string[] from, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(MultiKeyMessage.IntersectAndStore(db, to, from), queueJump);
-        }
-
-        public Task<long> UnionAndStore(int db, string to, string[] from, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(MultiKeyMessage.UnionAndStore(db, to, from), false);
-        }
 
         public Task<long> Publish(string key, string value, bool queueJump = false)
         {
