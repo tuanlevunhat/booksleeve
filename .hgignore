@@ -9,3 +9,5 @@ Async/obj/
 *.user
 *.nupkg
 packages/NuGet.CommandLine.*
+BookSleeve.sln.docstates
+_ReSharper.*

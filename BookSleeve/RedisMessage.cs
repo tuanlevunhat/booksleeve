@@ -235,6 +235,10 @@ namespace BookSleeve
         {
             return new MultiKeyMessage(db, sunion, keys);
         }
+        public static Message Difference(int db, string[] keys)
+        {
+            return new MultiKeyMessage(db, sdiff, keys);
+        }
         static string[] Combine(string head, string[] tail)
         {
             if (tail == null || tail.Length == 0) return new[] { head };
@@ -246,6 +250,10 @@ namespace BookSleeve
         public static Message IntersectAndStore(int db, string to, string[] from)
         {
             return new MultiKeyMessage(db, sinterstore, Combine(to, from));
+        }
+        public static Message DifferenceAndStore(int db, string to, string[] from)
+        {
+            return new MultiKeyMessage(db, sdiffstore, Combine(to, from));
         }
         public static Message UnionAndStore(int db, string to, string[] from)
         {
@@ -314,8 +322,10 @@ namespace BookSleeve
             punsubscribe = Encoding.ASCII.GetBytes("PUNSUBSCRIBE"),
             sinter = Encoding.ASCII.GetBytes("SINTER"),
             sunion = Encoding.ASCII.GetBytes("SUNION"),
+            sdiff = Encoding.ASCII.GetBytes("SDIFF"),
             sinterstore = Encoding.ASCII.GetBytes("SINTERSTORE"),
             sunionstore = Encoding.ASCII.GetBytes("SUNIONSTORE"),
+            sdiffstore = Encoding.ASCII.GetBytes("SDIFFSTORE"),
             hget = Encoding.ASCII.GetBytes("HGET"),
             hmget = Encoding.ASCII.GetBytes("HMGET"),
             hdel = Encoding.ASCII.GetBytes("HDEL"),
