@@ -261,7 +261,7 @@ namespace Tests
                 conn.Set(4, "type-string", "blah");
                 conn.Lists.AddLast(4, "type-list", "blah");
                 conn.Sets.Add(4, "type-set", "blah");
-                conn.AddToSortedSet(4, "type-zset", "blah", 123);
+                conn.SortedSets.Add(4, "type-zset", "blah", 123);
                 conn.Hashes.Set(4, "type-hash", "foo", "blah");
 
                 var x0 = conn.Keys.Type(4, "type-none");

@@ -17,7 +17,7 @@ namespace BookSleeve
         private Socket socket;
         private NetworkStream redisStream;
 
-        private readonly BlockingQueue<Message> unsent;
+        private readonly BlockingQueue<RedisMessage> unsent;
         private readonly int port, ioTimeout, syncTimeout;
         private readonly string host, password;
         /// <summary>
@@ -78,7 +78,7 @@ namespace BookSleeve
         /// <summary>
         /// Issues a basic ping/pong pair against the server, returning the latency
         /// </summary>
-        protected Task<long> Ping(bool queueJump = true)
+        protected Task<long> Ping(bool queueJump)
         {
             return ExecuteInt64(new PingMessage(), queueJump);
         }
@@ -91,7 +91,7 @@ namespace BookSleeve
         {
             if(syncTimeout <= 0) throw new ArgumentOutOfRangeException("syncTimeout");
             this.syncTimeout = syncTimeout;
-            this.unsent = new BlockingQueue<Message>(maxUnsent);
+            this.unsent = new BlockingQueue<RedisMessage>(maxUnsent);
             this.host = host;
             this.port = port;
             this.ioTimeout = ioTimeout;
@@ -172,7 +172,7 @@ namespace BookSleeve
                 thread.Name = "Redis:outgoing";
                 thread.Start();
 
-                if (!string.IsNullOrEmpty(password)) EnqueueMessage(KeyMessage.Auth(password), true);
+                if (!string.IsNullOrEmpty(password)) EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.AUTH, password).ExpectOk().Critical(), true);
                 var info = GetInfo();
 
                 ReadMoreAsync();
@@ -206,7 +206,7 @@ namespace BookSleeve
         }
         public Task<string> GetInfo(bool queueJump = false)
         {
-            return ExecuteString(VanillaMessage.Info(), queueJump);
+            return ExecuteString(RedisMessage.Create(-1, RedisLiteral.INFO), queueJump);
         }
         static Dictionary<string, string> ParseInfo(string result)
         {
@@ -362,7 +362,7 @@ namespace BookSleeve
             }        
         }
         internal abstract object ProcessReply(ref RedisResult result);
-        internal abstract object ProcessReply(ref RedisResult result, Message message);
+        internal abstract object ProcessReply(ref RedisResult result, RedisMessage message);
         internal abstract void ProcessCallbacks(object ctx, RedisResult result);
 
         private RedisResult ReadSingleResult()
@@ -390,7 +390,7 @@ namespace BookSleeve
                     throw new RedisException("Not expecting header: &x" + b.ToString("x2"));
             }
         }
-        internal void CompleteMessage(Message message, RedisResult result)
+        internal void CompleteMessage(RedisMessage message, RedisResult result)
         {
             try
             {
@@ -660,7 +660,7 @@ namespace BookSleeve
             {
                 OnOpened();
                 int db = 0;
-                Message next;
+                RedisMessage next;
                 Trace.WriteLine("Redis send-pump is starting");
                 bool isHigh, shouldFlush;
                 while (unsent.TryDequeue(false, out next, out isHigh, out shouldFlush))
@@ -685,7 +685,7 @@ namespace BookSleeve
                 Interlocked.CompareExchange(ref state, (int)ConnectionState.Closing, (int)ConnectionState.Open);
                 if (redisStream != null)
                 {
-                    var quit = VanillaMessage.Quit();
+                    var quit = RedisMessage.Create(-1, RedisLiteral.QUIT).ExpectOk().Critical();
 
                     RecordSent(quit, !abort);
                     quit.Write(outBuffer);
@@ -702,14 +702,15 @@ namespace BookSleeve
 
         }
 
-        private void WriteMessage(ref int db, Message next, IList<QueuedMessage> queued)
+        private void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
         {
 
             if (next.Db >= 0)
             {
                 if (db != next.Db)
                 {
-                    Message changeDb = new SelectMessage(db = next.Db);
+                    db = next.Db;
+                    RedisMessage changeDb = RedisMessage.Create(db, RedisLiteral.SELECT, db).ExpectOk().Critical();
                     if (queued != null)
                     {
                         queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
@@ -720,7 +721,7 @@ namespace BookSleeve
                 }
                 LogUsage(db);
             }
-            if (next is SelectMessage)
+            if (next.Command == RedisLiteral.SELECT)
             {
                 // dealt with above; no need to send SELECT, SELECT
             }
@@ -749,7 +750,7 @@ namespace BookSleeve
                  }
             }
         }
-        internal virtual void RecordSent(Message message, bool drainFirst = false) { }
+        internal virtual void RecordSent(RedisMessage message, bool drainFirst = false) { }
         public enum ConnectionState
         {
             Shiny, Opening, Open, Closing, Closed
@@ -757,7 +758,7 @@ namespace BookSleeve
         private readonly MemoryStream bodyBuffer = new MemoryStream();
 
 
-        internal Task<bool> ExecuteBoolean(Message message, bool queueJump = false)
+        internal Task<bool> ExecuteBoolean(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultBoolean();
             message.SetMessageResult(msgResult);
@@ -765,7 +766,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<long> ExecuteInt64(Message message, bool queueJump = false)
+        internal Task<long> ExecuteInt64(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultInt64();
             message.SetMessageResult(msgResult);
@@ -773,7 +774,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task ExecuteVoid(Message message, bool queueJump = false)
+        internal Task ExecuteVoid(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultVoid();
             message.SetMessageResult(msgResult);
@@ -781,7 +782,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<double> ExecuteDouble(Message message, bool queueJump = false)
+        internal Task<double> ExecuteDouble(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultDouble();
             message.SetMessageResult(msgResult);
@@ -789,7 +790,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<byte[]> ExecuteBytes(Message message, bool queueJump = false)
+        internal Task<byte[]> ExecuteBytes(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultBytes();
             message.SetMessageResult(msgResult);
@@ -797,7 +798,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<string> ExecuteString(Message message, bool queueJump = false)
+        internal Task<string> ExecuteString(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultString();
             message.SetMessageResult(msgResult);
@@ -805,7 +806,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<byte[][]> ExecuteMultiBytes(Message message, bool queueJump = false)
+        internal Task<byte[][]> ExecuteMultiBytes(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultMultiBytes();
             message.SetMessageResult(msgResult);
@@ -813,7 +814,7 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<string[]> ExecuteMultiString(Message message, bool queueJump = false)
+        internal Task<string[]> ExecuteMultiString(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultMultiString();
             message.SetMessageResult(msgResult);
@@ -821,22 +822,22 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<KeyValuePair<byte[], double>[]> ExecutePairs(Message message, bool queueJump = false)
+        internal Task<KeyValuePair<byte[], double>[]> ExecutePairs(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultPairs();
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
-        internal Task<Dictionary<string,byte[]>> ExecuteHashPairs(Message message, bool queueJump = false)
+        internal Task<Dictionary<string, byte[]>> ExecuteHashPairs(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultHashPairs();
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
-        
-        internal void EnqueueMessage(Message message, bool queueJump = false)
+
+        internal void EnqueueMessage(RedisMessage message, bool queueJump)
         {
             unsent.Enqueue(message, queueJump);
         }
@@ -849,7 +850,7 @@ namespace BookSleeve
                 ProcessCallbacks(ctx, result);
             }
         }
-        internal Message[] DequeueAll() { return unsent.DequeueAll(); }
+        internal RedisMessage[] DequeueAll() { return unsent.DequeueAll(); }
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
         /// Once a task is completed, the result is returned.

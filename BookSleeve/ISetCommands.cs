@@ -218,13 +218,13 @@ namespace BookSleeve
         Task<bool> ISetCommands.Add(int db, string key, string value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.AddToSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SADD, key, value), queueJump);
         }
 
         Task<bool> ISetCommands.Add(int db, string key, byte[] value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.AddToSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SADD, key, value), queueJump);
         }
 
         Task<long> ISetCommands.Add(int db, string key, string[] values, bool queueJump)
@@ -248,7 +248,7 @@ namespace BookSleeve
         Task<long> ISetCommands.GetLength(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(KeyMessage.CardinalityOfSet(db, key), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.SCARD, key), queueJump);
         }
         /// <summary>
         /// Intersect multiple sets
@@ -286,55 +286,55 @@ namespace BookSleeve
         Task<string[]> ISetCommands.DifferenceString(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(MultiKeyMessage.Difference(db, keys), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.SDIFF, keys), queueJump);
         }
 
         Task<byte[][]> ISetCommands.Difference(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.Difference(db, keys), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.SDIFF, keys), queueJump);
         }
 
         Task<long> ISetCommands.DifferenceAndStore(int db, string destination, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(MultiKeyMessage.DifferenceAndStore(db, destination, keys), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.SDIFFSTORE, destination, keys), queueJump);
         }
 
         Task<string[]> ISetCommands.IntersectString(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(MultiKeyMessage.Intersect(db, keys), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.SINTER, keys), queueJump);
         }
 
         Task<byte[][]> ISetCommands.Intersect(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.Intersect(db, keys), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.SINTER, keys), queueJump);
         }
 
         Task<long> ISetCommands.IntersectAndStore(int db, string destination, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(MultiKeyMessage.IntersectAndStore(db, destination, keys), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.SINTERSTORE, destination, keys), queueJump);
         }
 
         Task<string[]> ISetCommands.UnionString(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(MultiKeyMessage.Union(db, keys), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.SUNION, keys), queueJump);
         }
 
         Task<byte[][]> ISetCommands.Union(int db, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.Union(db, keys), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.SUNION, keys), queueJump);
         }
 
         Task<long> ISetCommands.UnionAndStore(int db, string destination, string[] keys, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(MultiKeyMessage.UnionAndStore(db, destination, keys), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.SUNIONSTORE, destination, keys), queueJump);
         }
 
         /// <summary>
@@ -356,18 +356,18 @@ namespace BookSleeve
         Task<bool> ISetCommands.Contains(int db, string key, string value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.IsMemberOfSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SISMEMBER, key, value), queueJump);
         }
         Task<bool> ISetCommands.Contains(int db, string key, byte[] value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.IsMemberOfSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SISMEMBER, key, value), queueJump);
         }
 
         Task<string[]> ISetCommands.GetAllString(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(KeyMessage.SetMembers(db, key), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.SMEMBERS, key), queueJump);
         }
         /// <summary>
         /// Gets all members of a set
@@ -380,37 +380,43 @@ namespace BookSleeve
         Task<byte[][]> ISetCommands.GetAll(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(KeyMessage.SetMembers(db, key), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.SMEMBERS, key), queueJump);
         }
 
         Task<bool> ISetCommands.Move(int db, string source, string destination, string value, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SMOVE, source, destination, value), queueJump);
         }
 
         Task<bool> ISetCommands.Move(int db, string source, string destination, byte[] value, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SMOVE, source, destination, value), queueJump);
         }
 
         Task<string> ISetCommands.RemoveRandomString(int db, string key, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.SPOP, key), queueJump);
         }
 
         Task<byte[]> ISetCommands.RemoveRandom(int db, string key, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.SPOP, key), queueJump);
         }
 
         Task<string> ISetCommands.GetRandomString(int db, string key, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key), queueJump);
         }
 
         Task<byte[]> ISetCommands.GetRandom(int db, string key, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key), queueJump);
         }
 
         /// <summary>
@@ -424,13 +430,13 @@ namespace BookSleeve
         Task<bool> ISetCommands.Remove(int db, string key, string value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.RemoveFromSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SREM, key, value), queueJump);
         }
 
         Task<bool> ISetCommands.Remove(int db, string key, byte[] value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.RemoveFromSet(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SREM, key, value), queueJump);
         }
     }
 }

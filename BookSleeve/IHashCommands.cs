@@ -132,7 +132,7 @@ namespace BookSleeve
         public Task<byte[][]> GetHash(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(KeyMessage.GetHash(db, key), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HGETALL, key), queueJump);
         }
 
         /// <summary>
@@ -148,7 +148,7 @@ namespace BookSleeve
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
 
-            return ExecuteHashPairs(KeyMessage.GetHash(db, key), queueJump);
+            return ExecuteHashPairs(RedisMessage.Create(db, RedisLiteral.HGETALL, key), queueJump);
         }
 
         /// <summary>
@@ -163,7 +163,7 @@ namespace BookSleeve
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
 
-            return ExecuteInt64(MultiKeyValueMessage.IncrementHash(db, key, field, value), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HINCRBY, key, field, value), queueJump);
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.Set(int db, string key, string field, string value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyValueMessage.SetHash(db, key, field, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSET, key, field, value), queueJump);
         }
         /// <summary>
         /// Sets the specified fields to their respective values in the hash stored at key. This command overwrites any existing fields in the hash. If key does not exist, a new key holding a hash is created.
@@ -191,7 +191,15 @@ namespace BookSleeve
         Task IHashCommands.Set(int db, string key, Dictionary<string, byte[]> values, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyMultiValueMessage.SetHashMulti(db, key, values), queueJump);
+            var keyAndFields = new RedisMessage.RedisParameter[(values.Count * 2) + 1];
+            int index = 0;
+            keyAndFields[index++] = key;
+            foreach (var pair in values)
+            {
+                keyAndFields[index++] = pair.Key;
+                keyAndFields[index++] = pair.Value;
+            }
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.HMSET, keyAndFields), queueJump);
         }
         /// <summary>
         /// Sets field in the hash stored at key to value. If key does not exist, a new key holding a hash is created. If field already exists in the hash, it is overwritten.
@@ -205,7 +213,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.Set(int db, string key, string field, byte[] value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyValueMessage.SetHash(db, key, field, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSET, key, field, value), queueJump);
         }
         /// <summary>
         /// Sets field in the hash stored at key to value, only if field does not yet exist. If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
@@ -219,7 +227,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.SetIfNotExists(int db, string key, string field, string value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyValueMessage.SetHashIfNotExists(db, key, field, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSETNX, key, field, value), queueJump);
         }
         /// <summary>
         /// Sets field in the hash stored at key to value, only if field does not yet exist. If key does not exist, a new key holding a hash is created. If field already exists, this operation has no effect.
@@ -233,7 +241,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.SetIfNotExists(int db, string key, string field, byte[] value, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyValueMessage.SetHashIfNotExists(db, key, field, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSETNX, key, field, value), queueJump);
         }
         /// <summary>
         /// Returns the value associated with field in the hash stored at key.
@@ -247,7 +255,7 @@ namespace BookSleeve
         Task<string> IHashCommands.GetString(int db, string key, string field, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(MultiKeyMessage.GetFromHash(db, key, field), queueJump);
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
         }
         /// <summary>
         /// Returns the value associated with field in the hash stored at key.
@@ -261,7 +269,7 @@ namespace BookSleeve
         Task<byte[]> IHashCommands.Get(int db, string key, string field, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBytes(MultiKeyMessage.GetFromHash(db, key, field), queueJump);
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
         }
 
         /// <summary>
@@ -276,7 +284,7 @@ namespace BookSleeve
         Task<string[]> IHashCommands.GetString(int db, string key, string[] fields, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(MultiKeyMessage.GetFromHashMulti(db, key, fields), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.HMGET, key, fields), queueJump);
         }
         /// <summary>
         /// Returns the values associated with the specified fields in the hash stored at key. For every field that does not exist in the hash, a nil value is returned.
@@ -290,7 +298,7 @@ namespace BookSleeve
         Task<byte[][]> IHashCommands.Get(int db, string key, string[] fields, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(MultiKeyMessage.GetFromHashMulti(db, key, fields), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HMGET, key, fields), queueJump);
         }
 
         /// <summary>
@@ -304,7 +312,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.Remove(int db, string key, string field, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyMessage.RemoveHash(db, key, field), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HDEL, key, field), queueJump);
         }
         /// <summary>
         /// Removes the specified fields from the hash stored at key. Non-existing fields are ignored. Non-existing keys are treated as empty hashes and this command returns 0.
@@ -361,7 +369,7 @@ namespace BookSleeve
             }
             else
             {
-                return ExecuteInt64(MultiKeyMessage.RemoveHash(db, key, fields), queueJump);
+                return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HDEL, key, fields), queueJump);
             }
         }
 
@@ -377,7 +385,7 @@ namespace BookSleeve
         Task<bool> IHashCommands.Exists(int db, string key, string field, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(MultiKeyMessage.ContainsHash(db, key, field), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HEXISTS, key, field), queueJump);
         }
 
         /// <summary>
@@ -392,7 +400,7 @@ namespace BookSleeve
         Task<string[]> IHashCommands.GetKeys(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(KeyMessage.HashKeys(db, key), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.HKEYS, key), queueJump);
         }
 
         /// <summary>
@@ -407,7 +415,7 @@ namespace BookSleeve
         Task<byte[][]> IHashCommands.GetValues(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiBytes(KeyMessage.HashValues(db, key), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HVALS, key), queueJump);
         }
         /// <summary>
         /// Returns the number of fields contained in the hash stored at key.
@@ -421,7 +429,7 @@ namespace BookSleeve
         Task<long> IHashCommands.GetLength(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(KeyMessage.HashLength(db, key), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HLEN, key), queueJump);
         }
 
 

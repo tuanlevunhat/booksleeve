@@ -57,7 +57,7 @@ namespace BookSleeve
             : base(host, port, ioTimeout, password, maxUnsent, syncTimeout)
         {
             this.allowAdmin = allowAdmin;
-            this.sent = new Queue<Message>();
+            this.sent = new Queue<RedisMessage>();
         }
         /// <summary>
         /// Creates a child RedisConnection, such as for a RedisTransaction
@@ -66,7 +66,7 @@ namespace BookSleeve
             parent.Host, parent.Port, parent.IOTimeout, parent.Password, int.MaxValue, parent.SyncTimeout)
         {
             this.allowAdmin = parent.allowAdmin;
-            this.sent = new Queue<Message>();
+            this.sent = new Queue<RedisMessage>();
         }
         /// <summary>
         /// Allows multiple commands to be buffered and sent to redis as a single atomic unit
@@ -129,7 +129,7 @@ namespace BookSleeve
         }
         internal override object ProcessReply(ref RedisResult result)
         {
-            Message message;
+            RedisMessage message;
             lock (sent)
             {
                 int count = sent.Count;
@@ -140,7 +140,7 @@ namespace BookSleeve
             return ProcessReply(ref result, message);
         }
 
-        internal override object ProcessReply(ref RedisResult result, Message message)
+        internal override object ProcessReply(ref RedisResult result, RedisMessage message)
         {
             byte[] expected;
             if (!result.IsError && (expected = message.Expected) != null)
@@ -158,7 +158,7 @@ namespace BookSleeve
         }
         internal override void ProcessCallbacks(object ctx, RedisResult result)
         {
-            CompleteMessage((Message)ctx, result);
+            CompleteMessage((RedisMessage)ctx, result);
         }
         /// <summary>
         /// Invoked when the server is terminating
@@ -166,7 +166,7 @@ namespace BookSleeve
         protected override void ShuttingDown(Exception error)
         {
             base.ShuttingDown(error);
-            Message message;
+            RedisMessage message;
             RedisResult result = null;
 
             lock (sent)
@@ -185,7 +185,7 @@ namespace BookSleeve
                 }
             }
         }
-        private readonly Queue<Message> sent;
+        private readonly Queue<RedisMessage> sent;
         private readonly bool allowAdmin;
         /// <summary>
         /// Query usage metrics for this connection
@@ -205,7 +205,7 @@ namespace BookSleeve
         }
         private int GetSentCount() { lock (sent) { return sent.Count; } }
         private DateTime opened;
-        internal override void RecordSent(Message message, bool drainFirst)
+        internal override void RecordSent(RedisMessage message, bool drainFirst)
         {
             base.RecordSent(message, drainFirst);
 
@@ -231,12 +231,12 @@ namespace BookSleeve
         public Task<byte[]> Get(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBytes(KeyMessage.Get(db, key), false);
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.GET, key), false);
         }
         public Task<string> GetString(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(KeyMessage.Get(db, key), false);
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.GET, key), false);
         }
 
         public Task<long> Increment(int db, string key, bool queueJump = false)
@@ -255,107 +255,77 @@ namespace BookSleeve
         {
             return ExecuteInt64(GetDelta(db, key, -1), queueJump);
         }
-        static Message GetDelta(int db, string key, long value)
+        static RedisMessage GetDelta(int db, string key, long value)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             switch (value)
             {
-                case -1: return KeyMessage.Decr(db, key);
-                case 1: return KeyMessage.Incr(db, key);
-                default: return new DeltaMessage(db, key, value);
+                case -1: return RedisMessage.Create(db, RedisLiteral.DECR, key);
+                case 1: return RedisMessage.Create(db, RedisLiteral.INCR, key);
+                default: return RedisMessage.Create(db, RedisLiteral.INCRBY, key, value);
             }
         }
 
         public Task PromoteToMaster()
         {
-            return ExecuteVoid(SlaveMessage.Master(), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
         }
  
         public Task Set(int db, string key, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyValueMessage.Set(db, key, value), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
         }
         public Task Set(int db, string key, string value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyValueMessage.Set(db, key, value), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
         }
         public Task<bool> SetIfNotExists(int db, string key, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.SetIfNotExists(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETNX, key, value), queueJump);
         }
         public Task<bool> SetIfNotExists(int db, string key, string value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.SetIfNotExists(db, key, value), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETNX, key, value), queueJump);
         }
 
         public Task<string> Append(int db, string key, string value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(KeyValueMessage.Append(db, key, value), queueJump);
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.APPEND, key, value), queueJump);
         }
         public Task<byte[]> Append(int db, string key, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBytes(KeyValueMessage.Append(db, key, value), queueJump);
-        }
-
-
-
-
-
-        public Task<bool> AddToSortedSet(int db, string key, string value, double score, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyScoreValueMessage.AddToSortedSet(db, key, score, value), false);
-        }
-        public Task<bool> AddToSortedSet(int db, string key, byte[] value, double score, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyScoreValueMessage.AddToSortedSet(db, key, score, value), false);
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.APPEND, key, value), queueJump);
         }
 
         public Task SetWithExpiry(int db, string key, int seconds, string value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyScoreValueMessage.SetWithExpiry(db, key, seconds, value), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SETEX, key, seconds, value).ExpectOk(), queueJump);
         }
         public Task SetWithExpiry(int db, string key, int seconds, byte[] value, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyScoreValueMessage.SetWithExpiry(db, key, seconds, value), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SETEX, key, seconds, value).ExpectOk(), queueJump);
         }
         
 
 
-        public Task<double> IncrementSortedSet(int db, string key, byte[] value, double score, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteDouble(KeyScoreValueMessage.IncrementSortedSet(db, key, score, value), queueJump);
-        }
-        public Task<double> IncrementSortedSet(int db, string key, string value, double score, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteDouble(KeyScoreValueMessage.IncrementSortedSet(db, key, score, value), queueJump);
-        }
 
-        public Task<long> CardinalityOfSortedSet(int db, string key, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(KeyMessage.CardinalityOfSortedSet(db, key), queueJump);
-        }
 
 
         public Task<long> Publish(string key, string value, bool queueJump = false)
         {
-            return ExecuteInt64(KeyValueMessage.Publish(key, value), queueJump);
+            return ExecuteInt64(RedisMessage.Create(-1, RedisLiteral.PUBLISH, key, value), queueJump);
         }
         public Task<long> Publish(string key, byte[] value, bool queueJump = false)
         {
-            return ExecuteInt64(KeyValueMessage.Publish(key, value), queueJump);
+            return ExecuteInt64(RedisMessage.Create(-1, RedisLiteral.PUBLISH, key, value), queueJump);
         }
 
 
@@ -371,7 +341,7 @@ namespace BookSleeve
             if (allowAdmin)
             {
                 if (db < 0) throw new ArgumentOutOfRangeException("db");
-                return ExecuteVoid(VanillaMessage.FlushDb(db), false);
+                return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
             }
             else
                 throw new InvalidOperationException("Flush is not enabled");
@@ -380,46 +350,12 @@ namespace BookSleeve
         {
             if (allowAdmin)
             {
-                return ExecuteVoid(VanillaMessage.FlushAll(), false);
+                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.FLUSHALL).ExpectOk().Critical(), false);
             }
             else
                 throw new InvalidOperationException("Flush is not enabled");
         }
         public new Task<long> Ping(bool queueJump = false) { return base.Ping(queueJump); }
-        public Task<double>[] IncrementSortedSet(int db, string key, double score, string[] values, bool queueJump = false)
-        {
-
-            if (values == null) throw new ArgumentNullException("values");
-            Task<double>[] result = new Task<double>[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                result[i] = IncrementSortedSet(db, key, values[i], score, queueJump);
-            }
-            return result;
-        }
-        public Task<double>[] IncrementSortedSet(int db, string key, double score, byte[][] values, bool queueJump = false)
-        {
-            if (values == null) throw new ArgumentNullException("values");
-            Task<double>[] result = new Task<double>[values.Length];
-            for (int i = 0; i < values.Length; i++)
-            {
-                result[i] = IncrementSortedSet(db, key, values[i], score, queueJump);
-            }
-            return result;
-        }
-
-        public Task<KeyValuePair<byte[], double>[]> GetRangeOfSortedSetDescending(int db, string key, int start, int stop, bool queueJump = false)
-        {
-            return ExecutePairs(RangeMessage.SortedSetRangeDescending(db, key, start, stop, true), queueJump);
-        }
-
-        public Task<KeyValuePair<byte[], double>[]> GetRangeOfSortedSet(int db, string key, int start, int stop, bool queueJump = false)
-        {
-            return ExecutePairs(RangeMessage.SortedSetRange(db, key, start, stop, true), queueJump);
-        }
-        public Task<long> RemoveFromSortedSetByScore(int db, string key, int start, int stop, bool queueJump = false)
-        {
-            return ExecuteInt64(RangeMessage.RemoveFromSortedSetByScore(db, key, start, stop), queueJump);
-        }
+        
     }
 }
