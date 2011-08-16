@@ -111,7 +111,7 @@ namespace BookSleeve
         {
             return ProcessReply(ref result, null);
         }
-        internal override object ProcessReply(ref RedisResult result, Message message)
+        internal override object ProcessReply(ref RedisResult result, RedisMessage message)
         {
             return null;
         }
@@ -192,7 +192,7 @@ namespace BookSleeve
         {
             ValidateKey(key, false);
             AddNamedSubscription(key, handler);
-            EnqueueMessage(KeyMessage.Subscribe(key), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, key), false);
         }
         /// <summary>
         /// Subscribe to a set of channels
@@ -205,7 +205,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, false);
             AddNamedSubscriptions(keys, handler);
-            EnqueueMessage((keys.Length == 1 ? KeyMessage.Subscribe(keys[0]) : MultiKeyMessage.Subscribe(keys)), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Subscribe to a set of pattern (using wildcards, for exmaple "Foo*")
@@ -218,7 +218,7 @@ namespace BookSleeve
         {
             ValidateKey(key, true);
             AddNamedSubscription(key, handler);
-            EnqueueMessage(KeyMessage.PatternSubscribe(key), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Subscribe to a set of patterns (using wildcards, for exmaple "Foo*")
@@ -231,7 +231,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, true);
             AddNamedSubscriptions(keys, handler);
-            EnqueueMessage((keys.Length == 1 ? KeyMessage.PatternSubscribe(keys[0]) : MultiKeyMessage.PatternSubscribe(keys)), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a channel
@@ -242,7 +242,7 @@ namespace BookSleeve
         {
             ValidateKey(key, false);
             RemoveNamedSubscription(key);
-            EnqueueMessage(KeyMessage.Unsubscribe(key), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Unsubscribe from a set of channels
@@ -253,7 +253,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, false);
             RemoveNamedSubscriptions(keys);
-            EnqueueMessage((keys.Length == 1 ? KeyMessage.Unsubscribe(keys[0]) : MultiKeyMessage.Unsubscribe(keys)), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a pattern (which must match a pattern previously subscribed)
@@ -263,7 +263,7 @@ namespace BookSleeve
         public void PatternUnsubscribe(string key)
         {
             ValidateKey(key, true);
-            EnqueueMessage(KeyMessage.PatternUnsubscribe(key), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Unsubscribe from a set of patterns (which must match patterns previously subscribed)
@@ -273,7 +273,7 @@ namespace BookSleeve
         public void PatternUnsubscribe(string[] keys)
         {
             ValidateKeys(keys, true);
-            EnqueueMessage((keys.Length == 1 ? KeyMessage.PatternUnsubscribe(keys[0]) : MultiKeyMessage.PatternUnsubscribe(keys)), false);
+            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, keys), false);
         }
     }
 }

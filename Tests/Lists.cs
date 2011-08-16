@@ -287,9 +287,9 @@ namespace Tests
                 conn.Lists.Trim(2, "trim", 1);
                 var ne = conn.Lists.GetLength(2, "trim");
 
-                conn.Lists.AddLast(2, "byindex", Encode("a"));
-                conn.Lists.AddLast(2, "byindex", Encode("b"));
-                conn.Lists.AddLast(2, "byindex", Encode("c"));
+                conn.Lists.AddLast(2, "trim", Encode("a"));
+                conn.Lists.AddLast(2, "trim", Encode("b"));
+                conn.Lists.AddLast(2, "trim", Encode("c"));
 
 
                 conn.Lists.Trim(2, "trim", 1);
@@ -349,7 +349,7 @@ namespace Tests
 
                 var e = conn.Lists.Remove(2, "remove", "b", count: 2);
                 var count = conn.Lists.GetLength(2, "remove");
-                Assert.AreEqual(-1, conn.Wait(ne));
+                Assert.AreEqual(0, conn.Wait(ne));
                 Assert.AreEqual(2, conn.Wait(e));
                 Assert.AreEqual(3, conn.Wait(count));
             }
@@ -370,7 +370,7 @@ namespace Tests
 
                 var e = conn.Lists.Remove(2, "remove", Encode("b"), count: 2);
                 var count = conn.Lists.GetLength(2, "remove");
-                Assert.AreEqual(-1, conn.Wait(ne));
+                Assert.AreEqual(0, conn.Wait(ne));
                 Assert.AreEqual(2, conn.Wait(e));
                 Assert.AreEqual(3, conn.Wait(count));
             }

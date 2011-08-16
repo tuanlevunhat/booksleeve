@@ -108,7 +108,7 @@ namespace BookSleeve
         public Task<bool> Remove(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyMessage.Del(db, key), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.DEL, key), queueJump);
         }
         /// <summary>
         /// Removes multiple keys from the database.</summary>
@@ -116,7 +116,7 @@ namespace BookSleeve
         public Task<long> Remove(int db, string[] keys, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64((keys.Length == 1 ? KeyMessage.Del(db, keys[0]) : MultiKeyMessage.Del(db, keys)), queueJump);
+            return ExecuteInt64((keys.Length == 1 ? RedisMessage.Create(db, RedisLiteral.DEL, keys[0]) : RedisMessage.Create(db, RedisLiteral.DEL, keys)), queueJump);
         }
         /// <summary>
         /// Returns if key exists.
@@ -129,7 +129,7 @@ namespace BookSleeve
         Task<bool> IKeyCommands.Exists(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyMessage.Exists(db, key), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.EXISTS, key), queueJump);
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace BookSleeve
         public Task<bool> Expire(int db, string key, int seconds, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyScoreMessage.Expire(db, key, seconds), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.EXPIRE, key, seconds), queueJump);
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace BookSleeve
         public Task<bool> Persist(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyMessage.Persist(db, key), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.PERSIST, key), queueJump);
         }
         /// <summary>
         /// Returns all keys matching pattern.
@@ -170,7 +170,7 @@ namespace BookSleeve
         Task<string[]> IKeyCommands.Find(int db, string pattern, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteMultiString(KeyMessage.Keys(db, pattern), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.KEYS, pattern), queueJump);
         }
 
         /// <summary>
@@ -181,7 +181,7 @@ namespace BookSleeve
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
             if (targetDb < 0) throw new ArgumentOutOfRangeException("targetDb");
-            return ExecuteBoolean(KeyScoreMessage.Move(db, key, targetDb), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.MOVE, key, targetDb), queueJump);
         }
 
 
@@ -198,7 +198,7 @@ namespace BookSleeve
         Task<string> IKeyCommands.Random(int db, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(VanillaMessage.RandomKey(db), queueJump);
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.RANDOMKEY), queueJump);
         }
 
         /// <summary>
@@ -208,7 +208,7 @@ namespace BookSleeve
         public Task Rename(int db, string fromKey, string toKey, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(KeyValueMessage.Rename(db, fromKey, toKey), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.RENAME, fromKey, toKey).ExpectOk(), queueJump);
         }
 
 
@@ -219,7 +219,7 @@ namespace BookSleeve
         public Task<bool> RenameIfNotExists(int db, string fromKey, string toKey, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(KeyValueMessage.RenameIfNotExists(db, fromKey, toKey), queueJump);
+            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.RENAMENX, fromKey, toKey), queueJump);
         }
         /// <summary>
         /// Returns the remaining time to live of a key that has a timeout.
@@ -228,13 +228,13 @@ namespace BookSleeve
         public Task<long> TimeToLive(int db, string key, bool queueJump = false)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteInt64(KeyMessage.Ttl(db, key), queueJump);
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.TTL, key), queueJump);
         }
 
         Task<string> IKeyCommands.Type(int db, string key, bool queueJump)
         {
             if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(KeyMessage.Type(db, key), queueJump);
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.TYPE, key), queueJump);
         }
     }
 }
