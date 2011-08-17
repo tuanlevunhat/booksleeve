@@ -19,10 +19,10 @@ namespace Tests
 
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.Set(1, "select", "abc");
-                conn.Set(2, "select", "def");
-                var x = conn.GetString(1, "select");
-                var y = conn.GetString(2, "select");
+                conn.Strings.Set(1, "select", "abc");
+                conn.Strings.Set(2, "select", "def");
+                var x = conn.Strings.GetString(1, "select");
+                var y = conn.Strings.GetString(2, "select");
                 conn.WaitAll(x, y);
                 Assert.AreEqual("abc", x.Result);
                 Assert.AreEqual("def", y.Result);
@@ -33,7 +33,7 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection())
             {
-                conn.GetString(-1, "select");                
+                conn.Strings.GetString(-1, "select");                
             }
         }
 

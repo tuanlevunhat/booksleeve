@@ -16,12 +16,12 @@ namespace Tests
 
                 using (var tran = conn.CreateTransaction())
                 {
-                    var s1 = tran.Set(1, "tran", "abc");
-                    var s2 = tran.Set(2, "tran", "def");
-                    var g1 = tran.GetString(1, "tran");
-                    var g2 = tran.GetString(2, "tran");
+                    var s1 = tran.Strings.Set(1, "tran", "abc");
+                    var s2 = tran.Strings.Set(2, "tran", "def");
+                    var g1 = tran.Strings.GetString(1, "tran");
+                    var g2 = tran.Strings.GetString(2, "tran");
 
-                    var outsideTran = conn.GetString(1, "tran");
+                    var outsideTran = conn.Strings.GetString(1, "tran");
 
                     var exec = tran.Execute();
 
@@ -42,7 +42,7 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             using (var tran = conn.CreateTransaction())
             {
-                var task = tran.Set(4, "abc", "def");
+                var task = tran.Strings.Set(4, "abc", "def");
                 tran.Discard();
 
                 Assert.IsTrue(task.IsCanceled, "should be cancelled");
@@ -64,7 +64,7 @@ namespace Tests
             {
                 using (var tran = conn.CreateTransaction())
                 {
-                    task = tran.Set(4, "abc", "def");
+                    task = tran.Strings.Set(4, "abc", "def");
                 }
                 Assert.IsTrue(task.IsCanceled, "should be cancelled");
                 try
@@ -85,9 +85,9 @@ namespace Tests
                 conn.Keys.Remove(db, "foo"); // just to reset
                 using(var tran = conn.CreateTransaction())
                 {   // deliberately ignoring INCRBY here
-                    tran.Increment(db, "foo");
-                    tran.Increment(db, "foo");
-                    var val = tran.GetString(db, "foo");
+                    tran.Strings.Increment(db, "foo");
+                    tran.Strings.Increment(db, "foo");
+                    var val = tran.Strings.GetString(db, "foo");
 
                     tran.Execute(); // this *still* returns a Task
 

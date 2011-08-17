@@ -26,12 +26,12 @@ namespace Tests
                     // do in batches of 10 on each
                     for (int db = 0; db < 5; db++)
                         for (int j = 0; j < 10; j++)
-                            conn.Increment(db, "perftest");
+                            conn.Strings.Increment(db, "perftest");
                 }
                 asyncFaF = (int)timer.ElapsedMilliseconds;
                 Task<string>[] final = new Task<string>[5];
                 for (int db = 0; db < 5; db++)
-                    final[db] = conn.GetString(db, "perftest");
+                    final[db] = conn.Strings.GetString(db, "perftest");
                 conn.WaitAll(final);
                 timer.Stop();
                 asyncTimer = (int)timer.ElapsedMilliseconds;
