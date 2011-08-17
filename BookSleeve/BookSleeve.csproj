@@ -64,7 +64,6 @@
     <Compile Include="RedisConnectionBase.cs" />
     <Compile Include="RedisCounters.cs" />
     <Compile Include="RedisFeatures.cs" />
-    <Compile Include="RedisMessage.cs" />
     <Compile Include="RedisTransaction.cs" />
     <Compile Include="RedisResult.cs" />
     <Compile Include="RedisSubscriberConnection.cs" />

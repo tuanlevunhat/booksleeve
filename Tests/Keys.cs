@@ -390,6 +390,22 @@ namespace Tests
 
             }
         }
+
+        [Test]
+        public void TestFind()
+        {
+            using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
+            {
+                conn.FlushDb(20);
+                conn.Strings.Set(20, "abc", "def");
+                conn.Strings.Set(20, "abd", "ghi");
+                conn.Strings.Set(20, "aef", "jkl");
+                var arr = conn.Wait(conn.Keys.Find(20, "ab*"));
+                Assert.AreEqual(2, arr.Length);
+                Assert.Contains("abc", arr);
+                Assert.Contains("abd", arr);
+            }
+        }
     }
 }
 

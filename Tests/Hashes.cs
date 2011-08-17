@@ -107,11 +107,17 @@ namespace Tests
                 var set1 = conn.Hashes.Set(9, "hashkey", "field", "value2");
                 var val2 = conn.Hashes.GetString(9, "hashkey", "field");
 
+                var set2 = conn.Hashes.Set(9, "hashkey", "field-blob", Encoding.UTF8.GetBytes("value3"));
+                var val3 = conn.Hashes.Get(9, "hashkey", "field-blob");
+
                 Assert.AreEqual(null, val0.Result);
                 Assert.AreEqual(true, set0.Result);
                 Assert.AreEqual("value1", val1.Result);
                 Assert.AreEqual(false, set1.Result);
                 Assert.AreEqual("value2", val2.Result);
+
+                Assert.AreEqual(true, set2.Result);
+                Assert.AreEqual("value3", Encoding.UTF8.GetString(val3.Result));
                 
             }
         }
@@ -128,11 +134,19 @@ namespace Tests
                 var set1 = conn.Hashes.SetIfNotExists(9, "hashkey", "field", "value2");
                 var val2 = conn.Hashes.GetString(9, "hashkey", "field");
 
+                var set2 = conn.Hashes.SetIfNotExists(9, "hashkey", "field-blob", Encoding.UTF8.GetBytes("value3"));
+                var val3 = conn.Hashes.Get(9, "hashkey", "field-blob");
+                var set3 = conn.Hashes.SetIfNotExists(9, "hashkey", "field-blob", Encoding.UTF8.GetBytes("value3"));
+
                 Assert.AreEqual(null, val0.Result);
                 Assert.AreEqual(true, set0.Result);
                 Assert.AreEqual("value1", val1.Result);
                 Assert.AreEqual(false, set1.Result);
                 Assert.AreEqual("value1", val2.Result);
+
+                Assert.AreEqual(true, set2.Result);
+                Assert.AreEqual("value3", Encoding.UTF8.GetString(val3.Result));
+                Assert.AreEqual(false, set3.Result);
 
             }
         }
@@ -184,6 +198,11 @@ namespace Tests
                 Assert.IsFalse(conn.Wait(d1));
                 Assert.IsTrue(conn.Wait(d2));
                 Assert.IsFalse(conn.Wait(d3));
+
+                var removeFinal = conn.Hashes.Remove(3, "TestDelMulti", new[] {"key2"});
+                
+                Assert.AreEqual(0, conn.Wait(conn.Hashes.GetLength(3, "TestDelMulti")));
+                Assert.AreEqual(1, conn.Wait(removeFinal));
             }
         }
         [Test]
@@ -324,21 +343,26 @@ namespace Tests
 
                 var result1 = conn.Hashes.GetString(9, "hashkey", fields);
 
+                var result2 = conn.Hashes.Get(9, "hashkey", fields);
+
                 var arr0 = result0.Result;
                 var arr1 = result1.Result;
+                var arr2 = result2.Result;
 
                 Assert.AreEqual(3, arr0.Length);
                 Assert.IsNull(arr0[0]);
                 Assert.IsNull(arr0[1]);
                 Assert.IsNull(arr0[2]);
 
-                Assert.AreEqual(3, arr0.Length);
+                Assert.AreEqual(3, arr1.Length);
                 Assert.AreEqual("abc", arr1[0]);
                 Assert.AreEqual("def", arr1[1]);
                 Assert.IsNull(arr1[2]);
-                
 
-
+                Assert.AreEqual(3, arr2.Length);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(arr2[0]));
+                Assert.AreEqual("def", Encoding.UTF8.GetString(arr2[1]));
+                Assert.IsNull(arr2[2]);
             }
         }
 

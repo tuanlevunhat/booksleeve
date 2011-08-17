@@ -26,27 +26,27 @@ namespace BookSleeve
             /// <summary>
             /// Redis Lists are simply lists of strings, sorted by insertion order. It is possible to add elements to a Redis List pushing new elements on the head (on the left) or on the tail (on the right) of the list.
             /// </summary>
-            /// <see cref="http://redis.io/topics/data-types#lists"/>
+            /// <remarks>http://redis.io/topics/data-types#lists</remarks>
             public const string List = "list";
             /// <summary>
             /// Strings are the most basic kind of Redis value. Redis Strings are binary safe, this means that a Redis string can contain any kind of data, for instance a JPEG image or a serialized Ruby object.
             /// </summary>
-            /// <see cref="http://redis.io/topics/data-types#strings"/>
+            /// <remarks>http://redis.io/topics/data-types#strings</remarks>
             public const string String = "string";
             /// <summary>
             /// Redis Sets are an unordered collection of Strings. It is possible to add, remove, and test for existence of members in O(1) (constant time regardless of the number of elements contained inside the Set).
             /// </summary>
-            /// <see cref="http://redis.io/topics/data-types#sets"/>
+            /// <remarks>http://redis.io/topics/data-types#sets</remarks>
             public const string Set = "set";
             /// <summary>
             /// Redis Sorted Sets are, similarly to Redis Sets, non repeating collections of Strings. The difference is that every member of a Sorted Set is associated with score, that is used in order to take the sorted set ordered, from the smallest to the greatest score.
             /// </summary>
-            /// <see cref="http://redis.io/topics/data-types#sorted-sets"/>
+            /// <remarks>http://redis.io/topics/data-types#sorted-sets</remarks>
             public const string SortedSet = "zset";
             /// <summary>
             /// Redis Hashes are maps between string field and string values, so they are the perfect data type to represent objects (for instance Users with a number of fields like name, surname, age, and so forth)
             /// </summary>
-            /// <see cref="http://redis.io/topics/data-types#hashes"/>
+            /// <remarks>http://redis.io/topics/data-types#hashes</remarks>
             public const string Hash = "hash";
         }
         internal const bool DefaultAllowAdmin = false;
@@ -230,7 +230,9 @@ namespace BookSleeve
 
 
 
-
+        /// <summary>
+        /// Takes a server out of "slave" mode, to act as a replication master.
+        /// </summary>
         public Task PromoteToMaster()
         {
             return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
@@ -238,17 +240,26 @@ namespace BookSleeve
  
        
 
-
+        /// <summary>
+        /// Posts a message to the given channel.
+        /// </summary>
+        /// <returns>the number of clients that received the message.</returns>
         public Task<long> Publish(string key, string value, bool queueJump = false)
         {
             return ExecuteInt64(RedisMessage.Create(-1, RedisLiteral.PUBLISH, key, value), queueJump);
         }
+        /// <summary>
+        /// Posts a message to the given channel.
+        /// </summary>
+        /// <returns>the number of clients that received the message.</returns>
         public Task<long> Publish(string key, byte[] value, bool queueJump = false)
         {
             return ExecuteInt64(RedisMessage.Create(-1, RedisLiteral.PUBLISH, key, value), queueJump);
         }
 
-
+        /// <summary>
+        /// Indicates the number of messages that have not yet been sent to the server.
+        /// </summary>
         public override int OutstandingCount
         {
             get
@@ -256,6 +267,9 @@ namespace BookSleeve
                 return base.OutstandingCount + GetSentCount();
             }
         }
+        /// <summary>
+        /// Delete all the keys of the currently selected DB.
+        /// </summary>
         public Task FlushDb(int db)
         {
             if (allowAdmin)
@@ -266,6 +280,9 @@ namespace BookSleeve
             else
                 throw new InvalidOperationException("Flush is not enabled");
         }
+        /// <summary>
+        /// Delete all the keys of all the existing databases, not just the currently selected one.
+        /// </summary>
         public Task FlushAll()
         {
             if (allowAdmin)
@@ -275,6 +292,10 @@ namespace BookSleeve
             else
                 throw new InvalidOperationException("Flush is not enabled");
         }
+        /// <summary>
+        /// This command is often used to test if a connection is still alive, or to measure latency.
+        /// </summary>
+        /// <returns>The latency in milliseconds.</returns>
         public new Task<long> Ping(bool queueJump = false) { return base.Ping(queueJump); }
         
     }

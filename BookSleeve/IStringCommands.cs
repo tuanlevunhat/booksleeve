@@ -9,51 +9,51 @@ namespace BookSleeve
     /// Commands that apply to key/value pairs, where the value
     /// can be a string, a BLOB, or interpreted as a number
     /// </summary>
-    /// <see cref="http://redis.io/commands#string"/>
+    /// <remarks>http://redis.io/commands#string</remarks>
     public interface IStringCommands
     {
         /// <summary>
         /// If key already exists and is a string, this command appends the value at the end of the string. If key does not exist it is created and set as an empty string, so APPEND will be similar to SET in this special case.
         /// </summary>
         /// <returns>the length of the string after the append operation.</returns>
-        /// <see cref="http://redis.io/commands/append"/>
+        /// <remarks>http://redis.io/commands/append</remarks>
         Task<long> Append(int db, string key, string value, bool queueJump = false);
 
         /// <summary>
         /// If key already exists and is a string, this command appends the value at the end of the string. If key does not exist it is created and set as an empty string, so APPEND will be similar to SET in this special case.
         /// </summary>
         /// <returns>the length of the string after the append operation.</returns>
-        /// <see cref="http://redis.io/commands/append"/>
+        /// <remarks>http://redis.io/commands/append</remarks>
         Task<long> Append(int db, string key, byte[] value, bool queueJump = false);
 
         /// <summary>
         /// Decrements the number stored at key by decrement. If the key does not exist, it is set to 0 before performing the operation. An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer. This operation is limited to 64 bit signed integers.
         /// </summary>
         /// <returns> the value of key after the increment</returns>
-        /// <see cref="http://redis.io/commands/decrby"/>
-        /// <see cref="http://redis.io/commands/decr"/>
+        /// <remarks>http://redis.io/commands/decrby</remarks>
+        /// <remarks>http://redis.io/commands/decr</remarks>
         Task<long> Decrement(int db, string key, long value = 1, bool queueJump = false);
 
         /// <summary>
         /// Increments the number stored at key by increment. If the key does not exist, it is set to 0 before performing the operation. An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer. This operation is limited to 64 bit signed integers.
         /// </summary>
         /// <returns> the value of key after the increment</returns>
-        /// <see cref="http://redis.io/commands/incrby"/>
-        /// <see cref="http://redis.io/commands/incr"/>
+        /// <remarks>http://redis.io/commands/incrby</remarks>
+        /// <remarks>http://redis.io/commands/incr</remarks>
         Task<long> Increment(int db, string key, long value = 1, bool queueJump = false);
 
         /// <summary>
         /// Get the value of key. If the key does not exist the special value nil is returned. An error is returned if the value stored at key is not a string, because GET only handles string values.
         /// </summary>
         /// <returns>the value of key, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/get"/>
+        /// <remarks>http://redis.io/commands/get</remarks>
         Task<byte[]> Get(int db, string key, bool queueJump = false);
 
         /// <summary>
         /// Get the value of key. If the key does not exist the special value nil is returned. An error is returned if the value stored at key is not a string, because GET only handles string values.
         /// </summary>
         /// <returns>the value of key, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/get"/>
+        /// <remarks>http://redis.io/commands/get</remarks>
         Task<string> GetString(int db, string key, bool queueJump = false);
 
         /// <summary>
@@ -61,7 +61,7 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>Negative offsets can be used in order to provide an offset starting from the end of the string. So -1 means the last character, -2 the penultimate and so forth. The function handles out of range requests by limiting the resulting range to the actual length of the string.</remarks>
         /// <returns>the value of key, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/getrange"/>
+        /// <remarks>http://redis.io/commands/getrange</remarks>
         Task<byte[]> Get(int db, string key, int start, int end, bool queueJump = false);
 
         /// <summary>
@@ -69,59 +69,59 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>Negative offsets can be used in order to provide an offset starting from the end of the string. So -1 means the last character, -2 the penultimate and so forth. The function handles out of range requests by limiting the resulting range to the actual length of the string.</remarks>
         /// <returns>the value of key, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/getrange"/>
+        /// <remarks>http://redis.io/commands/getrange</remarks>
         Task<string> GetString(int db, string key, int start, int end, bool queueJump = false);
 
         /// <summary>
         /// Returns the values of all specified keys. For every key that does not hold a string value or does not exist, the special value nil is returned. Because of this, the operation never fails.
         /// </summary>
         /// <returns>list of values at the specified keys.</returns>
-        /// <see cref="http://redis.io/commands/mget"/>
+        /// <remarks>http://redis.io/commands/mget</remarks>
         Task<byte[][]> Get(int db, string[] keys, bool queueJump = false);
 
         /// <summary>
         /// Returns the values of all specified keys. For every key that does not hold a string value or does not exist, the special value nil is returned. Because of this, the operation never fails.
         /// </summary>
         /// <returns>list of values at the specified keys.</returns>
-        /// <see cref="http://redis.io/commands/mget"/>
+        /// <remarks>http://redis.io/commands/mget</remarks>
         Task<string[]> GetString(int db, string[] keys, bool queueJump = false);
 
         /// <summary>
         /// Atomically sets key to value and returns the old value stored at key. Returns an error when key exists but does not hold a string value.
         /// </summary>
         /// <returns>the old value stored at key, or nil when key did not exist.</returns>
-        /// <see cref="http://redis.io/commands/getset"/>
+        /// <remarks>http://redis.io/commands/getset</remarks>
         Task<string> GetSet(int db, string key, string value, bool queueJump = false);
 
         /// <summary>
         /// Atomically sets key to value and returns the old value stored at key. Returns an error when key exists but does not hold a string value.
         /// </summary>
         /// <returns>the old value stored at key, or nil when key did not exist.</returns>
-        /// <see cref="http://redis.io/commands/getset"/>
+        /// <remarks>http://redis.io/commands/getset</remarks>
         Task<byte[]> GetSet(int db, string key, byte[] value, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold the string value. If key already holds a value, it is overwritten, regardless of its type.
         /// </summary>
-        /// <see cref="http://redis.io/commands/set"/>
+        /// <remarks>http://redis.io/commands/set</remarks>
         Task Set(int db, string key, string value, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold the string value. If key already holds a value, it is overwritten, regardless of its type.
         /// </summary>
-        /// <see cref="http://redis.io/commands/set"/>
+        /// <remarks>http://redis.io/commands/set</remarks>
         Task Set(int db, string key, byte[] value, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold the string value and set key to timeout after a given number of seconds.
         /// </summary>
-        /// <see cref="http://redis.io/commands/setex"/>
+        /// <remarks>http://redis.io/commands/setex</remarks>
         Task Set(int db, string key, string value, long expirySeconds, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold the string value and set key to timeout after a given number of seconds.
         /// </summary>
-        /// <see cref="http://redis.io/commands/setex"/>
+        /// <remarks>http://redis.io/commands/setex</remarks>
         Task Set(int db, string key, byte[] value, long expirySeconds, bool queueJump = false);
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>Note that the maximum offset that you can set is 229 -1 (536870911), as Redis Strings are limited to 512 megabytes. If you need to grow beyond this size, you can use multiple keys.
         /// Warning: When setting the last possible byte and the string value stored at key does not yet hold a string value, or holds a small string value, Redis needs to allocate all intermediate memory which can block the server for some time. On a 2010 MacBook Pro, setting byte number 536870911 (512MB allocation) takes ~300ms, setting byte number 134217728 (128MB allocation) takes ~80ms, setting bit number 33554432 (32MB allocation) takes ~30ms and setting bit number 8388608 (8MB allocation) takes ~8ms. Note that once this first allocation is done, subsequent calls to SETRANGE for the same key will not have the allocation overhead.</remarks>
-        /// <see cref="http://redis.io/commands/setrange"/>
+        /// <remarks>http://redis.io/commands/setrange</remarks>
         /// <returns>the length of the string after it was modified by the command.</returns>
         Task<long> Set(int db, string key, long offset, string value, bool queueJump = false);
 
@@ -138,7 +138,7 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>Note that the maximum offset that you can set is 229 -1 (536870911), as Redis Strings are limited to 512 megabytes. If you need to grow beyond this size, you can use multiple keys.
         /// Warning: When setting the last possible byte and the string value stored at key does not yet hold a string value, or holds a small string value, Redis needs to allocate all intermediate memory which can block the server for some time. On a 2010 MacBook Pro, setting byte number 536870911 (512MB allocation) takes ~300ms, setting byte number 134217728 (128MB allocation) takes ~80ms, setting bit number 33554432 (32MB allocation) takes ~30ms and setting bit number 8388608 (8MB allocation) takes ~8ms. Note that once this first allocation is done, subsequent calls to SETRANGE for the same key will not have the allocation overhead.</remarks>
-        /// <see cref="http://redis.io/commands/setrange"/>
+        /// <remarks>http://redis.io/commands/setrange</remarks>
         /// <returns>the length of the string after it was modified by the command.</returns>
         Task<long> Set(int db, string key, long offset, byte[] value, bool queueJump = false);
 
@@ -146,14 +146,14 @@ namespace BookSleeve
         /// Sets the given keys to their respective values. MSET replaces existing values with new values, just as regular SET. See MSETNX if you don't want to overwrite existing values.
         /// </summary>
         /// <remarks>MSET is atomic, so all given keys are set at once. It is not possible for clients to see that some of the keys were updated while others are unchanged.</remarks>
-        /// <see cref="http://redis.io/commands/mset"/>
+        /// <remarks>http://redis.io/commands/mset</remarks>
         Task Set(int db, Dictionary<string,string> values, bool queueJump = false);
 
         /// <summary>
         /// Sets the given keys to their respective values. MSET replaces existing values with new values, just as regular SET. See MSETNX if you don't want to overwrite existing values.
         /// </summary>
         /// <remarks>MSET is atomic, so all given keys are set at once. It is not possible for clients to see that some of the keys were updated while others are unchanged.</remarks>
-        /// <see cref="http://redis.io/commands/mset"/>
+        /// <remarks>http://redis.io/commands/mset</remarks>
         Task Set(int db, Dictionary<string, byte[]> values, bool queueJump = false);
 
         /// <summary>
@@ -162,7 +162,7 @@ namespace BookSleeve
         /// <remarks>Because of this semantic MSETNX can be used in order to set different keys representing different fields of an unique logic object in a way that ensures that either all the fields or none at all are set.
         /// MSETNX is atomic, so all given keys are set at once. It is not possible for clients to see that some of the keys were updated while others are unchanged.</remarks>
         /// <returns>1 if the all the keys were set, 0 if no key was set (at least one key already existed).</returns>
-        /// <see cref="http://redis.io/commands/msetnx"/>
+        /// <remarks>http://redis.io/commands/msetnx</remarks>
         Task<bool> SetIfNotExists(int db, Dictionary<string, string> values, bool queueJump = false);
 
         /// <summary>
@@ -171,21 +171,21 @@ namespace BookSleeve
         /// <remarks>Because of this semantic MSETNX can be used in order to set different keys representing different fields of an unique logic object in a way that ensures that either all the fields or none at all are set.
         /// MSETNX is atomic, so all given keys are set at once. It is not possible for clients to see that some of the keys were updated while others are unchanged.</remarks>
         /// <returns>1 if the all the keys were set, 0 if no key was set (at least one key already existed).</returns>
-        /// <see cref="http://redis.io/commands/msetnx"/>
+        /// <remarks>http://redis.io/commands/msetnx</remarks>
         Task<bool> SetIfNotExists(int db, Dictionary<string, byte[]> values, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold string value if key does not exist. In that case, it is equal to SET. When key already holds a value, no operation is performed. 
         /// </summary>
         /// <returns>1 if the key was set, 0 if the key was not set</returns>
-        /// <see cref="http://redis.io/commands/setnx"/>
+        /// <remarks>http://redis.io/commands/setnx</remarks>
         Task<bool> SetIfNotExists(int db, string key, string value, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold string value if key does not exist. In that case, it is equal to SET. When key already holds a value, no operation is performed. 
         /// </summary>
         /// <returns>1 if the key was set, 0 if the key was not set</returns>
-        /// <see cref="http://redis.io/commands/setnx"/>
+        /// <remarks>http://redis.io/commands/setnx</remarks>
         Task<bool> SetIfNotExists(int db, string key, byte[] value, bool queueJump = false);
 
         /// <summary>
@@ -193,14 +193,14 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>When offset is beyond the string length, the string is assumed to be a contiguous space with 0 bits. When key does not exist it is assumed to be an empty string, so offset is always out of range and the value is also assumed to be a contiguous space with 0 bits.</remarks>
         /// <returns>the bit value stored at offset.</returns>
-        /// <see cref="http://redis.io/commands/getbit"/>
+        /// <remarks>http://redis.io/commands/getbit</remarks>
         Task<bool> GetBit(int db, string key, long offset, bool queueJump = false);
 
         /// <summary>
         /// Returns the length of the string value stored at key. An error is returned when key holds a non-string value.
         /// </summary>
         /// <returns>the length of the string at key, or 0 when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/strlen"/>
+        /// <remarks>http://redis.io/commands/strlen</remarks>
         Task<long> GetLength(int db, string key, bool queueJump = false);
 
 
@@ -212,7 +212,7 @@ namespace BookSleeve
         /// Warning: When setting the last possible bit (offset equal to 232 -1) and the string value stored at key does not yet hold a string value, or holds a small string value, Redis needs to allocate all intermediate memory which can block the server for some time. On a 2010 MacBook Pro, setting bit number 232 -1 (512MB allocation) takes ~300ms, setting bit number 230 -1 (128MB allocation) takes ~80ms, setting bit number 228 -1 (32MB allocation) takes ~30ms and setting bit number 226 -1 (8MB allocation) takes ~8ms. Note that once this first allocation is done, subsequent calls to SETBIT for the same key will not have the allocation overhead.
         /// </remarks>
         /// <returns>the original bit value stored at offset.</returns>
-        /// <see cref="http://redis.io/commands/setbit"/>
+        /// <remarks>http://redis.io/commands/setbit</remarks>
         Task<bool> SetBit(int db, string key, long offset, bool value, bool queueJump = false);
     }
 
@@ -222,7 +222,7 @@ namespace BookSleeve
         /// Commands that apply to key/value pairs, where the value
         /// can be a string, a BLOB, or interpreted as a number
         /// </summary>
-        /// <see cref="http://redis.io/commands#string"/>
+        /// <remarks>http://redis.io/commands#string</remarks>
         public IStringCommands Strings
         {
             get { return this; }
@@ -403,72 +403,113 @@ namespace BookSleeve
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETBIT, key, offset, value ? 1L : 0L), queueJump);
         }
 
-
+        /// <summary>
+        /// See Strings.Get
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<byte[]> Get(int db, string key, bool queueJump = false)
         {
             return Strings.Get(db, key, queueJump);
         }
+        /// <summary>
+        /// See Strings.GetString
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<string> GetString(int db, string key, bool queueJump = false)
         {
             return Strings.GetString(db, key, queueJump);
         }
+        /// <summary>
+        /// See Strings.Increment
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> Increment(int db, string key, bool queueJump = false)
         {
             return Strings.Increment(db, key, 1, queueJump);
         }
+        /// <summary>
+        /// See Strings.Increment
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> IncrementBy(int db, string key, long value, bool queueJump = false)
         {
             return Strings.Increment(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Decrement
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> DecrementBy(int db, string key, long value, bool queueJump = false)
         {
             return Strings.Decrement(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Decrement
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> Decrement(int db, string key, bool queueJump = false)
         {
             return Strings.Decrement(db, key, 1, queueJump);
         }
+        /// <summary>
+        /// See Strings.Set
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task Set(int db, string key, byte[] value, bool queueJump = false)
         {
             return Strings.Set(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Set
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task Set(int db, string key, string value, bool queueJump = false)
         {
             return Strings.Set(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.SetIfNotExists
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<bool> SetIfNotExists(int db, string key, byte[] value, bool queueJump = false)
         {
             return Strings.SetIfNotExists(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.SetIfNotExists
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<bool> SetIfNotExists(int db, string key, string value, bool queueJump = false)
         {
             return Strings.SetIfNotExists(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Append
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> Append(int db, string key, string value, bool queueJump = false)
         {
             return Strings.Append(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Append
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> Append(int db, string key, byte[] value, bool queueJump = false)
         {
             return Strings.Append(db, key, value, queueJump);
         }
+        /// <summary>
+        /// See Strings.Set
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task SetWithExpiry(int db, string key, int seconds, string value, bool queueJump = false)
         {
             return Strings.Set(db, key, value, seconds, queueJump);
         }
+        /// <summary>
+        /// See Strings.Set
+        /// </summary>
         [Obsolete("Please use the Strings API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task SetWithExpiry(int db, string key, int seconds, byte[] value, bool queueJump = false)
         {
