@@ -9,112 +9,112 @@ namespace BookSleeve
     /// have no defined order and are strictly unique. Duplicates
     /// are not allowed (typically, duplicates are silently discarded).
     /// </summary>
-    /// <see cref="http://redis.io/commands#set"/>
+    /// <remarks>http://redis.io/commands#set</remarks>
     public interface ISetCommands
     {
         /// <summary>
         /// Add member to the set stored at key. If member is already a member of this set, no operation is performed. If key does not exist, a new set is created with member as its sole member.
         /// </summary>
         /// <returns>true if added</returns>
-        /// <see cref="http://redis.io/commands/sadd"/>
+        /// <remarks>http://redis.io/commands/sadd</remarks>
         Task<bool> Add(int db, string key, string value, bool queueJump = false);
         /// <summary>
         /// Add member to the set stored at key. If member is already a member of this set, no operation is performed. If key does not exist, a new set is created with member as its sole member.
         /// </summary>
         /// <returns>true if added</returns>
-        /// <see cref="http://redis.io/commands/sadd"/>
+        /// <remarks>http://redis.io/commands/sadd</remarks>
         Task<bool> Add(int db, string key, byte[] value, bool queueJump = false);
         /// <summary>
         /// Add member to the set stored at key. If member is already a member of this set, no operation is performed. If key does not exist, a new set is created with member as its sole member.
         /// </summary>
         /// <returns>the number of elements actually added to the set.</returns>
-        /// <see cref="http://redis.io/commands/sadd"/>
+        /// <remarks>http://redis.io/commands/sadd</remarks>
         Task<long> Add(int db, string key, string[] values, bool queueJump = false);
         /// <summary>
         /// Add member to the set stored at key. If member is already a member of this set, no operation is performed. If key does not exist, a new set is created with member as its sole member.
         /// </summary>
         /// <returns>the number of elements actually added to the set.</returns>
-        /// <see cref="http://redis.io/commands/sadd"/>
+        /// <remarks>http://redis.io/commands/sadd</remarks>
         Task<long> Add(int db, string key, byte[][] values, bool queueJump = false);
 
         /// <summary>
         /// Returns the set cardinality (number of elements) of the set stored at key.
         /// </summary>
         /// <returns>the cardinality (number of elements) of the set, or 0 if key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/scard"/>
+        /// <remarks>http://redis.io/commands/scard</remarks>
         Task<long> GetLength(int db, string key, bool queueJump = false);
 
         /// <summary>
         /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sdiff"/>
+        /// <remarks>http://redis.io/commands/sdiff</remarks>
         Task<string[]> DifferenceString(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// Returns the members of the set resulting from the difference between the first set and all the successive sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sdiff"/>
+        /// <remarks>http://redis.io/commands/sdiff</remarks>
         Task<byte[][]> Difference(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// This command is equal to SDIFF, but instead of returning the resulting set, it is stored in destination.
         /// </summary>
         /// <remarks> If destination already exists, it is overwritten.</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sdiffstore"/>
+        /// <remarks>http://redis.io/commands/sdiffstore</remarks>
         Task<long> DifferenceAndStore(int db, string destination, string[] keys, bool queueJump = false);
 
         /// <summary>
         /// Returns the members of the set resulting from the intersection of all the given sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sinter"/>
+        /// <remarks>http://redis.io/commands/sinter</remarks>
         Task<string[]> IntersectString(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// Returns the members of the set resulting from the intersection of all the given sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sinter"/>
+        /// <remarks>http://redis.io/commands/sinter</remarks>
         Task<byte[][]> Intersect(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// This command is equal to SINTER, but instead of returning the resulting set, it is stored in destination.
         /// </summary>
         /// <remarks>If destination already exists, it is overwritten.</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sinterstore"/>
+        /// <remarks>http://redis.io/commands/sinterstore</remarks>
         Task<long> IntersectAndStore(int db, string destination, string[] keys, bool queueJump = false);
 
         /// <summary>
         /// Returns the members of the set resulting from the union of all the given sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sunion"/>
+        /// <remarks>http://redis.io/commands/sunion</remarks>
         Task<string[]> UnionString(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// Returns the members of the set resulting from the union of all the given sets.
         /// </summary>
         /// <returns>list with members of the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sunion"/>
+        /// <remarks>http://redis.io/commands/sunion</remarks>
         Task<byte[][]> Union(int db, string[] keys, bool queueJump = false);
         /// <summary>
         /// This command is equal to SUNION, but instead of returning the resulting set, it is stored in destination.
         /// </summary>
         /// <remarks>If destination already exists, it is overwritten.</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
-        /// <see cref="http://redis.io/commands/sunionstore"/>
+        /// <remarks>http://redis.io/commands/sunionstore</remarks>
         Task<long> UnionAndStore(int db, string destination, string[] keys, bool queueJump = false);
 
         /// <summary>
         /// Returns if member is a member of the set stored at key.
         /// </summary>
         /// <returns>1 if the element is a member of the set. 0 if the element is not a member of the set, or if key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/sismember"/>
+        /// <remarks>http://redis.io/commands/sismember</remarks>
         Task<bool> Contains(int db, string key, string value, bool queueJump = false);
         /// <summary>
         /// Returns if member is a member of the set stored at key.
         /// </summary>
         /// <returns>1 if the element is a member of the set. 0 if the element is not a member of the set, or if key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/sismember"/>
+        /// <remarks>http://redis.io/commands/sismember</remarks>
         Task<bool> Contains(int db, string key, byte[] value, bool queueJump = false);
 
 
@@ -122,13 +122,13 @@ namespace BookSleeve
         /// Returns all the members of the set value stored at key.
         /// </summary>
         /// <returns>all elements of the set.</returns>
-        /// <see cref="http://redis.io/commands/smembers"/>
+        /// <remarks>http://redis.io/commands/smembers</remarks>
         Task<string[]> GetAllString(int db, string key, bool queueJump = false);
         /// <summary>
         /// Returns all the members of the set value stored at key.
         /// </summary>
         /// <returns>all elements of the set.</returns>
-        /// <see cref="http://redis.io/commands/smembers"/>
+        /// <remarks>http://redis.io/commands/smembers</remarks>
         Task<byte[][]> GetAll(int db, string key, bool queueJump = false);
 
         /// <summary>
@@ -136,54 +136,67 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>If the source set does not exist or does not contain the specified element, no operation is performed and 0 is returned. Otherwise, the element is removed from the source set and added to the destination set. When the specified element already exists in the destination set, it is only removed from the source set.</remarks>
         /// <returns>1 if the element is moved. 0 if the element is not a member of source and no operation was performed.</returns>
-        /// <see cref="http://redis.io/commands/smove"/>
+        /// <remarks>http://redis.io/commands/smove</remarks>
         Task<bool> Move(int db, string source, string destination, string value, bool queueJump = false);
         /// <summary>
         /// Move member from the set at source to the set at destination. This operation is atomic. In every given moment the element will appear to be a member of source or destination for other clients.
         /// </summary>
         /// <remarks>If the source set does not exist or does not contain the specified element, no operation is performed and 0 is returned. Otherwise, the element is removed from the source set and added to the destination set. When the specified element already exists in the destination set, it is only removed from the source set.</remarks>
         /// <returns>1 if the element is moved. 0 if the element is not a member of source and no operation was performed.</returns>
-        /// <see cref="http://redis.io/commands/smove"/>
+        /// <remarks>http://redis.io/commands/smove</remarks>
         Task<bool> Move(int db, string source, string destination, byte[] value, bool queueJump = false);
 
         /// <summary>
         /// Removes and returns a random element from the set value stored at key.
         /// </summary>
         /// <returns>the removed element, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/spop"/>
+        /// <remarks>http://redis.io/commands/spop</remarks>
         Task<string> RemoveRandomString(int db, string key, bool queueJump = false);
         /// <summary>
         /// Removes and returns a random element from the set value stored at key.
         /// </summary>
         /// <returns>the removed element, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/spop"/>
+        /// <remarks>http://redis.io/commands/spop</remarks>
         Task<byte[]> RemoveRandom(int db, string key, bool queueJump = false);
 
         /// <summary>
         /// Return a random element from the set value stored at key.
         /// </summary>
         /// <returns>the randomly selected element, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/srandmember"/>
+        /// <remarks>http://redis.io/commands/srandmember</remarks>
         Task<string> GetRandomString(int db, string key, bool queueJump = false);
         /// <summary>
         /// Return a random element from the set value stored at key.
         /// </summary>
         /// <returns>the randomly selected element, or nil when key does not exist.</returns>
-        /// <see cref="http://redis.io/commands/srandmember"/>
+        /// <remarks>http://redis.io/commands/srandmember</remarks>
         Task<byte[]> GetRandom(int db, string key, bool queueJump = false);
 
         /// <summary>
         /// Remove member from the set stored at key. If member is not a member of this set, no operation is performed.
         /// </summary>
         /// <returns>1 if the element was removed. 0 if the element was not a member of the set.</returns>
-        /// <see cref="http://redis.io/commands/srem"/>
+        /// <remarks>http://redis.io/commands/srem</remarks>
         Task<bool> Remove(int db, string key, string value, bool queueJump = false);
         /// <summary>
         /// Remove member from the set stored at key. If member is not a member of this set, no operation is performed.
         /// </summary>
         /// <returns>1 if the element was removed. 0 if the element was not a member of the set.</returns>
-        /// <see cref="http://redis.io/commands/srem"/>
+        /// <remarks>http://redis.io/commands/srem</remarks>
         Task<bool> Remove(int db, string key, byte[] value, bool queueJump = false);
+
+        /// <summary>
+        /// Remove member from the set stored at key. If member is not a member of this set, no operation is performed.
+        /// </summary>
+        /// <returns>1 if the element was removed. 0 if the element was not a member of the set.</returns>
+        /// <remarks>http://redis.io/commands/srem</remarks>
+        Task<long> Remove(int db, string key, string[] values, bool queueJump = false);
+        /// <summary>
+        /// Remove member from the set stored at key. If member is not a member of this set, no operation is performed.
+        /// </summary>
+        /// <returns>1 if the element was removed. 0 if the element was not a member of the set.</returns>
+        /// <remarks>http://redis.io/commands/srem</remarks>
+        Task<long> Remove(int db, string key, byte[][] values, bool queueJump = false);
     }
 
     partial class RedisConnection : ISetCommands
@@ -193,7 +206,7 @@ namespace BookSleeve
         /// have no defined order and are strictly unique. Duplicates
         /// are not allowed (typically, duplicates are silently discarded).
         /// </summary>
-        /// <see cref="http://redis.io/commands#set"/>
+        /// <remarks>http://redis.io/commands#set</remarks>
         public ISetCommands Sets
         {
             get { return this; }
@@ -223,19 +236,128 @@ namespace BookSleeve
 
         Task<bool> ISetCommands.Add(int db, string key, byte[] value, bool queueJump)
         {
-            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SADD, key, value), queueJump);
         }
+        private Task<long> ExecMultiAddRemove(int db, RedisLiteral command, string key, string[] values, bool queueJump)
+        {
+            RedisFeatures features;
+            if (values.Length > 1 && ((features = Features) == null || !features.SetVaradicAddRemove))
+            {
+                RedisTransaction tran = this as RedisTransaction;
+                bool execute = false;
+                if (tran == null)
+                {
+                    tran = CreateTransaction();
+                    execute = true;
+                }
+                Task<bool>[] tasks = new Task<bool>[values.Length];
 
+                var sets = tran.Sets;
+                for (int i = 0; i < values.Length; i++)
+                {
+                    tasks[i] = ExecuteBoolean(RedisMessage.Create(db, command, key, values[i]), queueJump);
+                }
+                TaskCompletionSource<long> final = new TaskCompletionSource<long>();
+                tasks[values.Length - 1].ContinueWith(t =>
+                {
+                    if (t.IsFaulted) final.SetException(t.Exception);
+                    try
+                    {
+                        long count = 0;
+                        for (int i = 0; i < tasks.Length; i++)
+                        {
+                            if (tran.Wait(tasks[i]))
+                            {
+                                count++;
+                            }
+                        }
+                        final.SetResult(count);
+                    }
+                    catch (Exception ex)
+                    {
+                        final.SetException(ex);
+                    }
+                });
+                if (execute) tran.Execute(queueJump);
+                return final.Task;
+            }
+            else
+            {
+                return ExecuteInt64(RedisMessage.Create(db, command, key, values), queueJump);
+            }
+        }
+        private Task<long> ExecMultiAddRemove(int db, RedisLiteral command, string key, byte[][] values, bool queueJump)
+        {
+            RedisFeatures features;
+            if (values.Length > 1 && ((features = Features) == null || !features.SetVaradicAddRemove))
+            {
+                RedisTransaction tran = this as RedisTransaction;
+                bool execute = false;
+                if (tran == null)
+                {
+                    tran = CreateTransaction();
+                    execute = true;
+                }
+                Task<bool>[] tasks = new Task<bool>[values.Length];
+
+                var sets = tran.Sets;
+                for (int i = 0; i < values.Length; i++)
+                {
+                    tasks[i] = ExecuteBoolean(RedisMessage.Create(db, command, key, values[i]), queueJump);
+                }
+                TaskCompletionSource<long> final = new TaskCompletionSource<long>();
+                tasks[values.Length - 1].ContinueWith(t =>
+                {
+                    if (t.IsFaulted) final.SetException(t.Exception);
+                    try
+                    {
+                        long count = 0;
+                        for (int i = 0; i < tasks.Length; i++)
+                        {
+                            if (tran.Wait(tasks[i]))
+                            {
+                                count++;
+                            }
+                        }
+                        final.SetResult(count);
+                    }
+                    catch (Exception ex)
+                    {
+                        final.SetException(ex);
+                    }
+                });
+                if (execute) tran.Execute(queueJump);
+                return final.Task;
+            }
+            else
+            {
+                var args = new RedisMessage.RedisParameter[values.Length + 1];
+                args[0] = key;
+                for (int i = 0; i < values.Length; i++)
+                {
+                    args[i + 1] = values[i];
+                }
+                return ExecuteInt64(RedisMessage.Create(db, command, args), queueJump);
+            }
+        }
         Task<long> ISetCommands.Add(int db, string key, string[] values, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            return ExecMultiAddRemove(db, RedisLiteral.SADD, key, values, queueJump);
+        }
+        Task<long> ISetCommands.Remove(int db, string key, string[] values, bool queueJump)
+        {
+            return ExecMultiAddRemove(db, RedisLiteral.SREM, key, values, queueJump);
         }
 
         Task<long> ISetCommands.Add(int db, string key, byte[][] values, bool queueJump)
         {
-            throw new System.NotImplementedException();
+            return ExecMultiAddRemove(db, RedisLiteral.SADD, key, values, queueJump);
         }
+        Task<long> ISetCommands.Remove(int db, string key, byte[][] values, bool queueJump)
+        {
+            return ExecMultiAddRemove(db, RedisLiteral.SREM, key, values, queueJump);
+        }
+
         /// <summary>
         /// Returns the number of items in a set
         /// </summary>

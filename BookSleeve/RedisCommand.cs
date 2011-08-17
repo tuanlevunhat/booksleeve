@@ -106,7 +106,7 @@ namespace BookSleeve
             }
             else
             {
-                if (db < 0) throw new ArgumentOutOfRangeException("db", "A db has been specified for " + command);
+                if (db < 0) throw new ArgumentOutOfRangeException("db", "A db must be specified for " + command);
             }
             this.db = db;
             this.command = command;

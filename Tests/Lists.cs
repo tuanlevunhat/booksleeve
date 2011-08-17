@@ -85,12 +85,12 @@ namespace Tests
                 conn.Lists.AddLast(4, "mylist", Encode("value2"));
 
                 var first = conn.Lists.RemoveFirst(4, "mylist");
-                var second = conn.Lists.RemoveFirst(4, "mylist");
+                var second = conn.Lists.RemoveFirstString(4, "mylist");
                 var third = conn.Lists.RemoveFirst(4, "mylist");
                 var len = conn.Lists.GetLength(4, "mylist");
 
                 Assert.AreEqual("value1", Decode(conn.Wait(first)));
-                Assert.AreEqual("value2", Decode(conn.Wait(second)));
+                Assert.AreEqual("value2", conn.Wait(second));
                 Assert.IsNull(conn.Wait(third));
                 Assert.AreEqual(0, conn.Wait(len));
             }
@@ -105,16 +105,53 @@ namespace Tests
                 conn.Lists.AddLast(4, "mylist", Encode("value2"));
 
                 var first = conn.Lists.RemoveLast(4, "mylist");
-                var second = conn.Lists.RemoveLast(4, "mylist");
+                var second = conn.Lists.RemoveLastString(4, "mylist");
                 var third = conn.Lists.RemoveLast(4, "mylist");
                 var len = conn.Lists.GetLength(4, "mylist");
 
                 Assert.AreEqual("value2", Decode(conn.Wait(first)));
-                Assert.AreEqual("value1", Decode(conn.Wait(second)));
+                Assert.AreEqual("value1", conn.Wait(second));
                 Assert.IsNull(conn.Wait(third));
                 Assert.AreEqual(0, conn.Wait(len));
             }
         }
+
+
+        [Test]
+        public void CheckPushPop()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(4, "source");
+                conn.Keys.Remove(4, "dest");
+
+                var empty0 = conn.Lists.RemoveLastAndAddFirst(4, "source", "dest");
+                var empty1 = conn.Lists.RemoveLastAndAddFirstString(4, "source", "dest");
+                conn.Lists.AddLast(4, "source", "abc");
+                conn.Lists.AddLast(4, "source", "def");
+
+                var s = conn.Lists.RemoveLastAndAddFirstString(4, "source", "dest");
+                var b = conn.Lists.RemoveLastAndAddFirst(4, "source", "dest");
+                var l0 = conn.Lists.GetLength(4, "source");
+                var l1 = conn.Lists.GetLength(4, "dest");
+                var final = conn.Lists.RangeString(4, "dest", 0, 3);
+
+                Assert.IsNull(conn.Wait(empty0));
+                Assert.IsNull(conn.Wait(empty1));
+                Assert.AreEqual("def", conn.Wait(s));
+                Assert.AreEqual("abc", Decode(conn.Wait(b)));
+                Assert.AreEqual(0, conn.Wait(l0));
+                Assert.AreEqual(2, conn.Wait(l1));
+
+                var arr = conn.Wait(final);
+                Assert.AreEqual(2, arr.Length);
+                Assert.AreEqual("abc", arr[0]);
+                Assert.AreEqual("def", arr[1]);
+
+
+            }
+        }
+
 
         // BLPOP, BRPOP and BRPOPLPUSH are intentionally not implemented;
         // blocking operations have little place in a multiplexer

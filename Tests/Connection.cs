@@ -48,6 +48,30 @@ namespace Tests
             }
         }
 
+        [Test]
+        public void CheckCounters()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Wait(conn.Strings.GetString(0, "select"));
+                var first = conn.GetCounters();
+
+                conn.Wait(conn.Strings.GetString(0, "select"));
+                var second = conn.GetCounters();
+                // +2 = ping + one select
+                Assert.AreEqual(first.MessagesSent + 2, second.MessagesSent, "MessagesSent");
+                Assert.AreEqual(first.MessagesReceived + 2, second.MessagesReceived, "MessagesReceived");
+                Assert.AreEqual(0, second.ErrorMessages, "ErrorMessages");
+                Assert.AreEqual(0, second.MessagesCancelled, "MessagesCancelled");
+                Assert.AreEqual(0, second.SentQueue, "SentQueue");
+                Assert.AreEqual(0, second.UnsentQueue, "UnsentQueue");
+                Assert.AreEqual(0, second.QueueJumpers, "QueueJumpers");
+                Assert.AreEqual(0, second.Timeouts, "Timeouts");
+                Assert.IsTrue(second.Ping >= 0, "Ping");
+                Assert.IsTrue(second.ToString().Length > 0, "ToString");
+            }
+        }
+
         
     }
 }

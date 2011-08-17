@@ -204,6 +204,9 @@ namespace BookSleeve
                 throw;
             }
         }
+        /// <summary>
+        /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
+        /// </summary>
         public Task<string> GetInfo(bool queueJump = false)
         {
             return ExecuteString(RedisMessage.Create(-1, RedisLiteral.INFO), queueJump);
@@ -220,54 +223,22 @@ namespace BookSleeve
             }
             return data;
         }
-        //internal Func<long> ExecuteFutureInt(Message message, bool queueJump = false)
-        //{
-        //    var future = Future<long>.Limited(syncTimeout);
-        //    Enqueue(message.WithCallback(rr =>
-        //    {
-        //        future.SetValue(() => rr.ValueInt64);
-        //    }), queueJump);
-        //    Interlocked.Increment(ref futures);
-        //    return future.GetValue;
-        //}
-        //internal Func<byte[]> ExecuteFutureBytes(Message message, bool queueJump = false)
-        //{
-        //    var future = Future<byte[]>.Limited(syncTimeout);
-        //    Enqueue(message.WithCallback(rr =>
-        //    {
-        //        future.SetValue(() => rr.ValueBytes);
-        //    }), queueJump);
-        //    Interlocked.Increment(ref futures);
-        //    return future.GetValue;
-        //}
-        //internal Func<string> ExecuteFutureString(Message message, bool queueJump = false)
-        //{
-        //    var future = Future<string>.Limited(syncTimeout);
-        //    Enqueue(message.WithCallback(rr =>
-        //    {
-        //        future.SetValue(() => rr.ValueString);
-        //    }), queueJump);
-        //    Interlocked.Increment(ref futures);
-        //    return future.GetValue;
-        //}
-        //internal Func<bool> ExecuteFutureBool(Message message, bool queueJump = false)
-        //{
-        //    var future = Future<bool>.Limited(syncTimeout);
-        //    Enqueue(message.WithCallback(rr =>
-        //    {
-        //        future.SetValue(() => rr.ValueBoolean);
-        //    }), queueJump);
-        //    Interlocked.Increment(ref futures);
-        //    return future.GetValue;
-        //}
 
         int timeouts;
 
-
+        /// <summary>
+        /// Indicate the number of messages that have not yet been set.
+        /// </summary>
         public virtual int OutstandingCount { get { return unsent.GetCount(); } }
         private readonly AsyncCallback readReplyHeader;
+        /// <summary>
+        /// Raised when a connection becomes closed.
+        /// </summary>
         public event EventHandler Closed;
         volatile bool abort;
+        /// <summary>
+        /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
+        /// </summary>
         public void Close(bool abort)
         {
             this.abort = abort;
@@ -607,7 +578,9 @@ namespace BookSleeve
             return isNeg ? -value : value;
         }
  
-
+        /// <summary>
+        /// Indicates the number of commands executed on a per-database basis
+        /// </summary>
         protected Dictionary<int, int> GetDbUsage()
         {
             lock (dbUsage)
@@ -632,7 +605,13 @@ namespace BookSleeve
                 }
             }
         }
+        /// <summary>
+        /// Invoked when any error message is received on the connection.
+        /// </summary>
         public event EventHandler<ErrorEventArgs> Error;
+        /// <summary>
+        /// Raises an error event
+        /// </summary>
         protected void OnError(object sender, ErrorEventArgs args)
         {
             var handler = Error;
@@ -641,6 +620,9 @@ namespace BookSleeve
                 handler(sender, args);
             }
         }
+        /// <summary>
+        /// Raises an error event
+        /// </summary>
         protected void OnError(string cause, Exception ex, bool isFatal)
         {
             var handler = Error;
@@ -751,9 +733,31 @@ namespace BookSleeve
             }
         }
         internal virtual void RecordSent(RedisMessage message, bool drainFirst = false) { }
+        /// <summary>
+        /// Indicates the current state of the connection to the server
+        /// </summary>
         public enum ConnectionState
         {
-            Shiny, Opening, Open, Closing, Closed
+            /// <summary>
+            /// A connection that has not yet been innitialized
+            /// </summary>
+            Shiny,
+            /// <summary>
+            /// A connection that is in the process of opening
+            /// </summary>
+            Opening,
+            /// <summary>
+            /// An open connection
+            /// </summary>
+            Open,
+            /// <summary>
+            /// A connection that is in the process of closing
+            /// </summary>
+            Closing,
+            /// <summary>
+            /// A connection that is now closed and cannot be used
+            /// </summary>
+            Closed
         }
         private readonly MemoryStream bodyBuffer = new MemoryStream();
 
