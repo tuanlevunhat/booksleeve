@@ -5,12 +5,14 @@ using System.Text;
 using System.Threading;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Reflection;
 
 namespace BookSleeve
 {
     abstract class RedisMessage
     {
         private static readonly byte[][] literals;
+        private static readonly RedisLiteral[] dbFree;
         static RedisMessage()
         {
             var arr = Enum.GetValues(typeof (RedisLiteral));
@@ -19,6 +21,13 @@ namespace BookSleeve
             {
                 literals[(int) literal] = Encoding.ASCII.GetBytes(literal.ToString().ToUpperInvariant());
             }
+            List<RedisLiteral> tmp = new List<RedisLiteral>();
+            var fields = typeof (RedisLiteral).GetFields(BindingFlags.Public | BindingFlags.Static);
+            for(int i = 0 ; i < fields.Length ; i++)
+            {
+                if(fields[i].IsDefined(typeof(DbFreeAttribute), false)) tmp.Add((RedisLiteral)fields[i].GetValue(null));
+            }
+            dbFree = tmp.ToArray();
         }
 
         private readonly int db;
@@ -82,8 +91,26 @@ namespace BookSleeve
         public RedisLiteral Command { get { return command; } }
         protected RedisMessage(int db, RedisLiteral command)
         {
+            bool isDbFree = false;
+            for (int i = 0; i < dbFree.Length; i++ )
+            {
+                if(dbFree[i] == command)
+                {
+                    isDbFree = true;
+                    break;
+                }
+            }
+            if(isDbFree)
+            {
+                if (db >= 0) throw new ArgumentOutOfRangeException("db", "A db is not required for " + command);
+            }
+            else
+            {
+                if (db < 0) throw new ArgumentOutOfRangeException("db", "A db has been specified for " + command);
+            }
             this.db = db;
             this.command = command;
+
         }
         public static RedisMessage Create(int db, RedisLiteral command)
         {
@@ -587,13 +614,52 @@ namespace BookSleeve
                 sent - created, received - sent));
         }
     }
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
+    sealed internal class DbFreeAttribute : Attribute{}
+
     enum RedisLiteral
     {
         None = 0,
         // responses
         OK,QUEUED,PONG,
         // commands (extracted from http://redis.io/commands)
-        APPEND,AUTH,BGREWRITEAOF,BGSAVE,BLPOP,BRPOP,BRPOPLPUSH,CONFIG,GET,SET,RESETSTAT,DBSIZE,DEBUG,OBJECT,SEGFAULT,DECR,DECRBY,DEL,DISCARD,ECHO,EXEC,EXISTS,EXPIRE,EXPIREAT,FLUSHALL,FLUSHDB,GETBIT,GETRANGE,GETSET,HDEL,HEXISTS,HGET,HGETALL,HINCRBY,HKEYS,HLEN,HMGET,HMSET,HSET,HSETNX,HVALS,INCR,INCRBY,INFO,KEYS,LASTSAVE,LINDEX,LINSERT,LLEN,LPOP,LPUSH,LPUSHX,LRANGE,LREM,LSET,LTRIM,MGET,MONITOR,MOVE,MSET,MSETNX,MULTI,PERSIST,PING,PSUBSCRIBE,PUBLISH,PUNSUBSCRIBE,QUIT,RANDOMKEY,RENAME,RENAMENX,RPOP,RPOPLPUSH,RPUSH,RPUSHX,SADD,SAVE,SCARD,SDIFF,SDIFFSTORE,SELECT,SETBIT,SETEX,SETNX,SETRANGE,SHUTDOWN,SINTER,SINTERSTORE,SISMEMBER,SLAVEOF,SLOWLOG,SMEMBERS,SMOVE,SORT,SPOP,SRANDMEMBER,SREM,STRLEN,SUBSCRIBE,SUNION,SUNIONSTORE,SYNC,TTL,TYPE,UNSUBSCRIBE,UNWATCH,WATCH,ZADD,ZCARD,ZCOUNT,ZINCRBY,ZINTERSTORE,ZRANGE,ZRANGEBYSCORE,ZRANK,ZREM,ZREMRANGEBYRANK,ZREMRANGEBYSCORE,ZREVRANGE,ZREVRANGEBYSCORE,ZREVRANK,ZSCORE,ZUNIONSTORE,
+        APPEND,
+        [DbFree]
+        AUTH, BGREWRITEAOF, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH, CONFIG, GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
+        [DbFree]
+        DISCARD,
+        [DbFree]
+        ECHO,
+        [DbFree]
+        EXEC, EXISTS, EXPIRE, EXPIREAT,
+        [DbFree]
+        FLUSHALL, FLUSHDB, GETBIT, GETRANGE, GETSET, HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HKEYS, HLEN, HMGET, HMSET, HSET, HSETNX, HVALS, INCR, INCRBY,
+        [DbFree]
+        INFO, KEYS, LASTSAVE, LINDEX, LINSERT, LLEN, LPOP, LPUSH, LPUSHX, LRANGE, LREM, LSET, LTRIM, MGET,
+        [DbFree]
+        MONITOR, MOVE, MSET, MSETNX,
+        [DbFree]
+        MULTI, PERSIST,
+        [DbFree]
+        PING,
+        [DbFree]
+        PSUBSCRIBE,
+        [DbFree]
+        PUBLISH,
+        [DbFree]
+        PUNSUBSCRIBE,
+        [DbFree]
+        QUIT, RANDOMKEY, RENAME, RENAMENX, RPOP, RPOPLPUSH, RPUSH, RPUSHX, SADD, SAVE, SCARD, SDIFF, SDIFFSTORE, SELECT, SETBIT, SETEX, SETNX, SETRANGE, SHUTDOWN, SINTER, SINTERSTORE, SISMEMBER,
+        [DbFree]
+        SLAVEOF, SLOWLOG, SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
+        [DbFree]
+        SUBSCRIBE, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
+        [DbFree]
+        UNSUBSCRIBE,
+        [DbFree]
+        UNWATCH,
+        [DbFree]
+        WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
         NO,ONE,WITHSCORES,BEFORE,AFTER
         
