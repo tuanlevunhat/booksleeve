@@ -238,13 +238,13 @@ namespace BookSleeve
         Task<double> ISortedSetCommands.Increment(int db, string key, string member, double delta, bool queueJump)
         {
             
-            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, delta, member), queueJump);
+            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, key, delta, member), queueJump);
         }
 
         Task<double> ISortedSetCommands.Increment(int db, string key, byte[] member, double delta, bool queueJump)
         {
-            
-            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, delta, member), queueJump);
+
+            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, key, delta, member), queueJump);
         }
         Task<double>[] ISortedSetCommands.Increment(int db, string key, string[] members, double delta, bool queueJump)
         {
