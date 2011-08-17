@@ -131,7 +131,7 @@ namespace BookSleeve
         [Obsolete("Please use the Hashes API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<byte[][]> GetHash(int db, string key, bool queueJump = false)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HGETALL, key), queueJump);
         }
 
@@ -146,7 +146,7 @@ namespace BookSleeve
         }
         Task<Dictionary<string, byte[]>> IHashCommands.GetAll(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
 
             return ExecuteHashPairs(RedisMessage.Create(db, RedisLiteral.HGETALL, key), queueJump);
         }
@@ -161,7 +161,7 @@ namespace BookSleeve
         }
         Task<long> IHashCommands.Increment(int db, string key, string field, int value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
 
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HINCRBY, key, field, value), queueJump);
         }
@@ -177,7 +177,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.Set(int db, string key, string field, string value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSET, key, field, value), queueJump);
         }
         /// <summary>
@@ -190,7 +190,7 @@ namespace BookSleeve
         }
         Task IHashCommands.Set(int db, string key, Dictionary<string, byte[]> values, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             var keyAndFields = new RedisMessage.RedisParameter[(values.Count * 2) + 1];
             int index = 0;
             keyAndFields[index++] = key;
@@ -212,7 +212,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.Set(int db, string key, string field, byte[] value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSET, key, field, value), queueJump);
         }
         /// <summary>
@@ -226,7 +226,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.SetIfNotExists(int db, string key, string field, string value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSETNX, key, field, value), queueJump);
         }
         /// <summary>
@@ -240,7 +240,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.SetIfNotExists(int db, string key, string field, byte[] value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HSETNX, key, field, value), queueJump);
         }
         /// <summary>
@@ -254,7 +254,7 @@ namespace BookSleeve
         }
         Task<string> IHashCommands.GetString(int db, string key, string field, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
         }
         /// <summary>
@@ -268,7 +268,7 @@ namespace BookSleeve
         }
         Task<byte[]> IHashCommands.Get(int db, string key, string field, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
         }
 
@@ -283,7 +283,7 @@ namespace BookSleeve
         }
         Task<string[]> IHashCommands.GetString(int db, string key, string[] fields, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.HMGET, key, fields), queueJump);
         }
         /// <summary>
@@ -297,7 +297,7 @@ namespace BookSleeve
         }
         Task<byte[][]> IHashCommands.Get(int db, string key, string[] fields, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HMGET, key, fields), queueJump);
         }
 
@@ -311,7 +311,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.Remove(int db, string key, string field, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HDEL, key, field), queueJump);
         }
         /// <summary>
@@ -324,7 +324,7 @@ namespace BookSleeve
         }
         Task<long> IHashCommands.Remove(int db, string key, string[] fields, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
 
             RedisFeatures features;
             if (fields.Length > 1 && ((features = Features) == null || !features.HashVaradicDelete))
@@ -384,7 +384,7 @@ namespace BookSleeve
         }
         Task<bool> IHashCommands.Exists(int db, string key, string field, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.HEXISTS, key, field), queueJump);
         }
 
@@ -399,7 +399,7 @@ namespace BookSleeve
         }
         Task<string[]> IHashCommands.GetKeys(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.HKEYS, key), queueJump);
         }
 
@@ -414,7 +414,7 @@ namespace BookSleeve
         }
         Task<byte[][]> IHashCommands.GetValues(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.HVALS, key), queueJump);
         }
         /// <summary>
@@ -428,7 +428,7 @@ namespace BookSleeve
         }
         Task<long> IHashCommands.GetLength(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HLEN, key), queueJump);
         }
 

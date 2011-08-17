@@ -207,25 +207,21 @@ namespace BookSleeve
 
         Task<long> IListCommands.InsertBefore(int db, string key, byte[] pivot, byte[] value, bool queueJump)
         {
-            if(db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LINSERT, key, RedisLiteral.BEFORE, pivot, value), queueJump);
         }
 
         Task<long> IListCommands.InsertBefore(int db, string key, string pivot, string value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LINSERT, key, RedisLiteral.BEFORE, pivot, value), queueJump);
         }
 
         Task<long> IListCommands.InsertAfter(int db, string key, byte[] pivot, byte[] value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LINSERT, key, RedisLiteral.AFTER, pivot, value), queueJump);
         }
 
         Task<long> IListCommands.InsertAfter(int db, string key, string pivot, string value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LINSERT, key, RedisLiteral.AFTER, pivot, value), queueJump);
         }
 
@@ -249,25 +245,25 @@ namespace BookSleeve
         }
         Task<byte[]> IListCommands.Get(int db, string key, int index, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBytes(RedisMessage.Create(db,RedisLiteral.LINDEX, key, index), queueJump);
         }
 
         Task<string> IListCommands.GetString(int db, string key, int index, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.LINDEX, key, index), queueJump);
         }
 
         Task IListCommands.Set(int db, string key, int index, string value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.LSET, key, index, value).ExpectOk(), queueJump);
         }
 
         Task IListCommands.Set(int db, string key, int index, byte[] value, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.LSET, key, index, value).ExpectOk(), queueJump);
         }
 
@@ -285,7 +281,7 @@ namespace BookSleeve
         }
         Task<long> IListCommands.GetLength(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LLEN, key), queueJump);
         }
         /// <summary>
@@ -316,25 +312,25 @@ namespace BookSleeve
 
         Task<string> IListCommands.RemoveFirstString(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.LPOP, key), queueJump);
         }
 
         Task<byte[]> IListCommands.RemoveFirst(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.LPOP, key), queueJump);
         }
 
         Task<string> IListCommands.RemoveLastString(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.RPOP, key), queueJump);
         }
 
         Task<byte[]> IListCommands.RemoveLast(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.RPOP, key), queueJump);
         }
 
@@ -366,13 +362,13 @@ namespace BookSleeve
         }
         Task<long> IListCommands.AddFirst(int db, string key, string value, bool createIfMissing, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, createIfMissing ? RedisLiteral.LPUSH : RedisLiteral.LPUSHX, key, value), queueJump);
         }
 
         Task<long> IListCommands.AddFirst(int db, string key, byte[] value, bool createIfMissing, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, createIfMissing ? RedisLiteral.LPUSH : RedisLiteral.LPUSHX, key, value), queueJump);
         }
         /// <summary>
@@ -404,25 +400,25 @@ namespace BookSleeve
         }
         Task<long> IListCommands.AddLast(int db, string key, string value, bool createIfMissing, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, createIfMissing ? RedisLiteral.RPUSH : RedisLiteral.RPUSHX, key, value), queueJump);
         }
 
         Task<long> IListCommands.AddLast(int db, string key, byte[] value, bool createIfMissing, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, createIfMissing ? RedisLiteral.RPUSH : RedisLiteral.RPUSHX, key, value), queueJump);
         }
 
         Task<long> IListCommands.Remove(int db, string key, string value, int count, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LREM, key, count, value), queueJump);
         }
 
         Task<long> IListCommands.Remove(int db, string key, byte[] value, int count, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.LREM, key, count, value), queueJump);
         }
         Task IListCommands.Trim(int db, string key, int count, bool queueJump)
@@ -433,7 +429,6 @@ namespace BookSleeve
         }
         Task IListCommands.Trim(int db, string key, int start, int stop, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
             return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.LTRIM, key, start, stop).ExpectOk(), queueJump);
         }
 

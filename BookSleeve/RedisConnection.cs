@@ -228,95 +228,15 @@ namespace BookSleeve
             this.opened = DateTime.UtcNow;
         }
 
-        public Task<byte[]> Get(int db, string key, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.GET, key), false);
-        }
-        public Task<string> GetString(int db, string key, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(RedisMessage.Create(db, RedisLiteral.GET, key), false);
-        }
 
-        public Task<long> Increment(int db, string key, bool queueJump = false)
-        {
-            return ExecuteInt64(GetDelta(db, key, 1), queueJump);
-        }
-        public Task<long> IncrementBy(int db, string key, long value, bool queueJump = false)
-        {
-            return ExecuteInt64(GetDelta(db, key, value), queueJump);
-        }
-        public Task<long> DecrementBy(int db, string key, long value, bool queueJump = false)
-        {
-            return ExecuteInt64(GetDelta(db, key, -value), queueJump);
-        }
-        public Task<long> Decrement(int db, string key, bool queueJump = false)
-        {
-            return ExecuteInt64(GetDelta(db, key, -1), queueJump);
-        }
-        static RedisMessage GetDelta(int db, string key, long value)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            switch (value)
-            {
-                case -1: return RedisMessage.Create(db, RedisLiteral.DECR, key);
-                case 1: return RedisMessage.Create(db, RedisLiteral.INCR, key);
-                default: return RedisMessage.Create(db, RedisLiteral.INCRBY, key, value);
-            }
-        }
+
 
         public Task PromoteToMaster()
         {
             return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
         }
  
-        public Task Set(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
-        }
-        public Task Set(int db, string key, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
-        }
-        public Task<bool> SetIfNotExists(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETNX, key, value), queueJump);
-        }
-        public Task<bool> SetIfNotExists(int db, string key, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETNX, key, value), queueJump);
-        }
-
-        public Task<string> Append(int db, string key, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteString(RedisMessage.Create(db, RedisLiteral.APPEND, key, value), queueJump);
-        }
-        public Task<byte[]> Append(int db, string key, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.APPEND, key, value), queueJump);
-        }
-
-        public Task SetWithExpiry(int db, string key, int seconds, string value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SETEX, key, seconds, value).ExpectOk(), queueJump);
-        }
-        public Task SetWithExpiry(int db, string key, int seconds, byte[] value, bool queueJump = false)
-        {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SETEX, key, seconds, value).ExpectOk(), queueJump);
-        }
-        
-
-
-
+       
 
 
         public Task<long> Publish(string key, string value, bool queueJump = false)
@@ -340,7 +260,7 @@ namespace BookSleeve
         {
             if (allowAdmin)
             {
-                if (db < 0) throw new ArgumentOutOfRangeException("db");
+                
                 return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
             }
             else

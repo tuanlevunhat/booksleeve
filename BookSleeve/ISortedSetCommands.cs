@@ -194,13 +194,13 @@ namespace BookSleeve
         }
         Task<bool> ISortedSetCommands.Add(int db, string key, string value, double score, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.ZADD, key, score, value), queueJump);
         }
 
         Task<bool> ISortedSetCommands.Add(int db, string key, byte[] value, double score, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.ZADD, key, score, value), queueJump);
         }
 
@@ -211,30 +211,30 @@ namespace BookSleeve
         }
         Task<long> ISortedSetCommands.GetLength(int db, string key, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZCARD, key), queueJump);
         }
 
         Task<long> ISortedSetCommands.GetLength(int db, string key, double min, double max, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZCOUNT, key, min, max), queueJump);
         }
 
         Task<double> ISortedSetCommands.Increment(int db, string key, string member, double delta, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, delta, member), queueJump);
         }
 
         Task<double> ISortedSetCommands.Increment(int db, string key, byte[] member, double delta, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZINCRBY, delta, member), queueJump);
         }
         Task<double>[] ISortedSetCommands.Increment(int db, string key, string[] members, double delta, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             if (members == null) throw new ArgumentNullException("members");
             Task<double>[] result = new Task<double>[members.Length];
             var ss = SortedSets;
@@ -247,7 +247,7 @@ namespace BookSleeve
 
         Task<double>[] ISortedSetCommands.Increment(int db, string key, byte[][] members, double delta, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             if (members == null) throw new ArgumentNullException("members");
             Task<double>[] result = new Task<double>[members.Length];
             var ss = SortedSets;
@@ -280,7 +280,7 @@ namespace BookSleeve
         }
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, long start, long stop, bool ascending, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start, stop, RedisLiteral.WITHSCORES), queueJump);
         }
 
@@ -291,7 +291,7 @@ namespace BookSleeve
 
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGEBYSCORE : RedisLiteral.ZREVRANGEBYSCORE, key,
                 RedisMessage.RedisParameter.Range(min, minInclusive), RedisMessage.RedisParameter.Range(max, maxInclusive), RedisLiteral.WITHSCORES), queueJump);
         }
@@ -309,37 +309,37 @@ namespace BookSleeve
 
         Task<long> ISortedSetCommands.Rank(int db, string key, string member, bool ascending, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
         }
 
         Task<long> ISortedSetCommands.Rank(int db, string key, byte[] member, bool ascending, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
         }
 
         Task<double> ISortedSetCommands.Score(int db, string key, string member, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
         }
 
         Task<double> ISortedSetCommands.Score(int db, string key, byte[] member, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
         }
 
         Task<bool> ISortedSetCommands.Remove(int db, string key, string member, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.ZREM, key, member), queueJump);
         }
 
         Task<bool> ISortedSetCommands.Remove(int db, string key, byte[] member, bool queueJump)
         {
-            if (db < 0) throw new ArgumentOutOfRangeException("db");
+            
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.ZREM, key, member), queueJump);
         }
 
