@@ -413,5 +413,43 @@ namespace Tests
             }
         }
 
+        [Test, ExpectedException(typeof(ArgumentOutOfRangeException))]
+        public void TestTrimNeg()
+        {
+            using(var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "trim");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.Trim(1, "trim", -1);
+            }
+        }
+        [Test]
+        public void TestTrimZero()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "trim");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.Trim(1, "trim", 0);
+                Assert.IsFalse(conn.Wait(conn.Keys.Exists(1, "trim")));
+                Assert.AreEqual(0, conn.Wait(conn.Lists.GetLength(1, "trim")));
+            }
+        }
+        [Test]
+        public void TestTrimOne()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "trim");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.AddLast(1, "trim", "x");
+                conn.Lists.Trim(1, "trim", 1);
+                Assert.IsTrue(conn.Wait(conn.Keys.Exists(1, "trim")));
+                Assert.AreEqual(1, conn.Wait(conn.Lists.GetLength(1, "trim")));
+            }
+        }
+
     }
 }
