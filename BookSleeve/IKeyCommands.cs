@@ -89,6 +89,12 @@ namespace BookSleeve
         /// <returns> type of key, or none when key does not exist.</returns>
         /// <remarks>http://redis.io/commands/type</remarks>
         Task<string> Type(int db, string key, bool queueJump = false);
+
+        /// <summary>
+        /// Return the number of keys in the currently selected database.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/dbsize</remarks>
+        Task<long> GetLength(int db, bool queueJump = false);
     }
 
     partial class RedisConnection : IKeyCommands
@@ -234,6 +240,11 @@ namespace BookSleeve
         {
             
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.TYPE, key), queueJump);
+        }
+
+        Task<long> IKeyCommands.GetLength(int db, bool queueJump)
+        {
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.DBSIZE), queueJump);
         }
     }
 }

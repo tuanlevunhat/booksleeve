@@ -406,6 +406,22 @@ namespace Tests
                 Assert.Contains("abd", arr);
             }
         }
+
+        [Test]
+        public void TestDBSize()
+        {
+            using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
+            {
+                conn.FlushDb(20);
+                var empty = conn.Keys.GetLength(20);
+                for (int i = 0; i < 10; i++ )
+                    conn.Strings.Set(20, "abc" + i, "def" + i);
+                var withData = conn.Keys.GetLength(20);
+
+                Assert.AreEqual(0, conn.Wait(empty));
+                Assert.AreEqual(10, conn.Wait(withData));
+            }
+        }
     }
 }
 
