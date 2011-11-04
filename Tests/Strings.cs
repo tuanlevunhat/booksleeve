@@ -132,7 +132,7 @@ namespace Tests
         [Test]
         public void GetRange()
         {
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
             {   
                 conn.Keys.Remove(2, "range");
 
@@ -140,8 +140,8 @@ namespace Tests
                 var s = conn.Strings.GetString(2, "range", 2, 4);
                 var b = conn.Strings.Get(2, "range", 2, 4);
 
-                Assert.AreEqual("cd", conn.Wait(s));
-                Assert.AreEqual("cd", Decode(conn.Wait(b)));
+                Assert.AreEqual("cde", conn.Wait(s));
+                Assert.AreEqual("cde", Decode(conn.Wait(b)));
             }
         }
 

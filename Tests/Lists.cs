@@ -46,7 +46,7 @@ namespace Tests
                 var len2 = conn.Lists.AddLast(4, "mylist", Encode("value2"));
                 var items = conn.Lists.Range(4, "mylist", 0, -1);
 
-                if (lenNil != null) Assert.AreEqual(-1, conn.Wait(lenNil));
+                if (lenNil != null) Assert.AreEqual(0, conn.Wait(lenNil));
                 Assert.AreEqual(1, conn.Wait(len1));
                 Assert.AreEqual(2, conn.Wait(len2));
                 var arr = conn.Wait(items);
@@ -66,7 +66,7 @@ namespace Tests
                 var len2 = conn.Lists.AddFirst(4, "mylist", Encode("value2"));
                 var items = conn.Lists.Range(4, "mylist", 0, -1);
 
-                if(lenNil != null) Assert.AreEqual(-1, conn.Wait(lenNil));
+                if(lenNil != null) Assert.AreEqual(0, conn.Wait(lenNil));
                 Assert.AreEqual(1, conn.Wait(len1));
                 Assert.AreEqual(2, conn.Wait(len2));
                 var arr = conn.Wait(items);
@@ -233,49 +233,56 @@ namespace Tests
         [Test]
         public void TestListInsertString()
         {
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
             {
-                conn.Keys.Remove(2, "ins");
-                conn.Lists.AddFirst(2, "ins", "x");
-                var missingB = conn.Lists.InsertBefore(2, "ins", "abc", "AAA");
-                var missingA = conn.Lists.InsertAfter(2, "ins", "abc", "BBB");
-                
-                conn.Lists.AddFirst(2, "ins", "abc");
-                conn.Lists.AddFirst(2, "ins", "y");
-                var existB = conn.Lists.InsertBefore(2, "ins", "abc", "CCC");
-                var existA = conn.Lists.InsertAfter(2, "ins", "abc", "DDD");
-                var all = conn.Lists.RangeString(2, "ins", 0, -1);
-                Assert.AreEqual(-1, conn.Wait(missingB));
-                Assert.AreEqual(-1, conn.Wait(missingA));
+                if (conn.Features.ListInsert)
+                {
+                    conn.Keys.Remove(2, "ins");
+                    conn.Lists.AddFirst(2, "ins", "x");
+                    var missingB = conn.Lists.InsertBefore(2, "ins", "abc", "AAA");
+                    var missingA = conn.Lists.InsertAfter(2, "ins", "abc", "BBB");
 
-                Assert.AreEqual(4, conn.Wait(existB));
-                Assert.AreEqual(5, conn.Wait(existA));
+                    conn.Lists.AddFirst(2, "ins", "abc");
+                    conn.Lists.AddFirst(2, "ins", "y");
+                    var existB = conn.Lists.InsertBefore(2, "ins", "abc", "CCC");
+                    var existA = conn.Lists.InsertAfter(2, "ins", "abc", "DDD");
+                    var all = conn.Lists.RangeString(2, "ins", 0, -1);
+                    Assert.AreEqual(-1, conn.Wait(missingB));
+                    Assert.AreEqual(-1, conn.Wait(missingA));
 
-                Assert.IsTrue(conn.Wait(all).SequenceEqual(new[] {"x","CCC","abc","DDD","y"}));
+                    Assert.AreEqual(4, conn.Wait(existB));
+                    Assert.AreEqual(5, conn.Wait(existA));
+
+                    string seq = string.Join(" ", conn.Wait(all));
+                    Assert.AreEqual("y CCC abc DDD x", seq);
+                }
             }
         }
         [Test]
         public void TestListInsertBlob()
         {
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
             {
-                conn.Keys.Remove(2, "ins");
-                conn.Lists.AddFirst(2, "ins", Encode("x"));
-                var missingB = conn.Lists.InsertBefore(2, "ins", Encode("abc"), Encode("AAA"));
-                var missingA = conn.Lists.InsertAfter(2, "ins", Encode("abc"), Encode("BBB"));
+                if (conn.Features.ListInsert)
+                {
+                    conn.Keys.Remove(2, "ins");
+                    conn.Lists.AddFirst(2, "ins", Encode("x"));
+                    var missingB = conn.Lists.InsertBefore(2, "ins", Encode("abc"), Encode("AAA"));
+                    var missingA = conn.Lists.InsertAfter(2, "ins", Encode("abc"), Encode("BBB"));
 
-                conn.Lists.AddFirst(2, "ins", Encode("abc"));
-                conn.Lists.AddFirst(2, "ins", Encode("y"));
-                var existB = conn.Lists.InsertBefore(2, "ins", Encode("abc"), Encode("CCC"));
-                var existA = conn.Lists.InsertAfter(2, "ins", Encode("abc"), Encode("DDD"));
-                var all = conn.Lists.Range(2, "ins", 0, -1);
-                Assert.AreEqual(-1, conn.Wait(missingB));
-                Assert.AreEqual(-1, conn.Wait(missingA));
+                    conn.Lists.AddFirst(2, "ins", Encode("abc"));
+                    conn.Lists.AddFirst(2, "ins", Encode("y"));
+                    var existB = conn.Lists.InsertBefore(2, "ins", Encode("abc"), Encode("CCC"));
+                    var existA = conn.Lists.InsertAfter(2, "ins", Encode("abc"), Encode("DDD"));
+                    var all = conn.Lists.Range(2, "ins", 0, -1);
+                    Assert.AreEqual(-1, conn.Wait(missingB));
+                    Assert.AreEqual(-1, conn.Wait(missingA));
 
-                Assert.AreEqual(4, conn.Wait(existB));
-                Assert.AreEqual(5, conn.Wait(existA));
-
-                Assert.IsTrue(conn.Wait(all).Select(Decode).SequenceEqual(new[] { "x", "CCC", "abc", "DDD", "y" }));
+                    Assert.AreEqual(4, conn.Wait(existB));
+                    Assert.AreEqual(5, conn.Wait(existA));
+                    string seq = string.Join(" ", conn.Wait(all).Select(Decode));
+                    Assert.AreEqual("y CCC abc DDD x", seq);
+                }
             }
         }
         [Test]

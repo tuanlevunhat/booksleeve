@@ -653,7 +653,7 @@ namespace BookSleeve
         [DbFree]
         SLAVEOF, SLOWLOG, SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
         [DbFree]
-        SUBSCRIBE, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
+        SUBSCRIBE, SUBSTR, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
         [DbFree]
         UNSUBSCRIBE,
         [DbFree]

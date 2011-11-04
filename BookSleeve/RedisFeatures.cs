@@ -22,12 +22,13 @@ namespace BookSleeve
             this.version = version;
         }
 
-        private static readonly Version v2_1_1 = new Version("2.1.1"),
-                                        v2_1_2 = new Version("2.1.2"),
-                                        v2_1_3 = new Version("2.1.3"),
-                                        v2_1_8 = new Version("2.1.8"),
-                                        v2_2_0 = new Version("2.2.0"),
-                                        v2_4_0 = new Version("2.4.0");
+        internal static readonly Version v2_1_0 = new Version("2.1.0"),
+                                         v2_1_1 = new Version("2.1.1"),
+                                         v2_1_2 = new Version("2.1.2"),
+                                         v2_1_3 = new Version("2.1.3"),
+                                         v2_1_8 = new Version("2.1.8"),
+                                         v2_2_0 = new Version("2.2.0"),
+                                         v2_4_0 = new Version("2.4.0");
         /// <summary>
         /// Is the PERSIST operation supported?
         /// </summary>
@@ -67,5 +68,9 @@ namespace BookSleeve
 
             return sb.ToString();
         }
+        /// <summary>
+        /// Is LINSERT available?
+        /// </summary>
+        public bool ListInsert { get { return version >= v2_1_1; } }
     }
 }
