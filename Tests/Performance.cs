@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace Tests
 {
-    [TestFixture, Ignore]
+    [TestFixture]
     public class Performance
     {
         [Test]

@@ -278,12 +278,20 @@ namespace BookSleeve
 
         Task<byte[]> IStringCommands.Get(int db, string key, int start, int end, bool queueJump)
         {
-            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.GETRANGE, key, start, end), queueJump);
+            var features = this.Features;
+            RedisLiteral cmd = features != null && features.Version < RedisFeatures.v2_1_0
+                                   ? RedisLiteral.SUBSTR
+                                   : RedisLiteral.GETRANGE;
+            return ExecuteBytes(RedisMessage.Create(db, cmd, key, start, end), queueJump);
         }
-
+        
         Task<string> IStringCommands.GetString(int db, string key, int start, int end, bool queueJump)
         {
-            return ExecuteString(RedisMessage.Create(db, RedisLiteral.GETRANGE, key, start, end), queueJump);
+            var features = this.Features;
+            RedisLiteral cmd = features != null && features.Version < RedisFeatures.v2_1_0
+                                   ? RedisLiteral.SUBSTR
+                                   : RedisLiteral.GETRANGE;
+            return ExecuteString(RedisMessage.Create(db, cmd, key, start, end), queueJump);
         }
 
         Task<byte[][]> IStringCommands.Get(int db, string[] keys, bool queueJump)
