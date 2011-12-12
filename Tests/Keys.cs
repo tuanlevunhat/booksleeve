@@ -227,7 +227,7 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
             {
-                conn.FlushDb(7);
+                conn.Server.FlushDb(7);
                 var key1 = conn.Keys.Random(7);
                 conn.Strings.Set(7, "random1", "random1");
                 var key2 = conn.Keys.Random(7);
@@ -396,7 +396,7 @@ namespace Tests
         {
             using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
             {
-                conn.FlushDb(20);
+                conn.Server.FlushDb(20);
                 conn.Strings.Set(20, "abc", "def");
                 conn.Strings.Set(20, "abd", "ghi");
                 conn.Strings.Set(20, "aef", "jkl");
@@ -412,7 +412,7 @@ namespace Tests
         {
             using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
             {
-                conn.FlushDb(20);
+                conn.Server.FlushDb(20);
                 var empty = conn.Keys.GetLength(20);
                 for (int i = 0; i < 10; i++ )
                     conn.Strings.Set(20, "abc" + i, "def" + i);

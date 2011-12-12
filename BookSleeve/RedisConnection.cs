@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.ComponentModel;
@@ -84,6 +85,35 @@ namespace BookSleeve
             conn.Open();
             return conn;
         }
+        /// <summary>
+        /// Configures an automatic keep-alive PING at a pre-determined interval.
+        /// </summary>
+        public new void SetKeepAlive(int seconds)
+        {
+            base.SetKeepAlive(seconds);
+        }
+        protected override void OnInitConnection()
+        {
+            base.OnInitConnection();
+
+            var options = Server.GetConfig("timeout");
+            options.ContinueWith(x =>
+            {
+                if(x.IsCompleted)
+                {
+                    int timeout;
+                    string text;
+                    if(x.Result.TryGetValue("timeout", out text) && int.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out timeout))
+                    {
+                        SetKeepAlive(timeout - 15); // allow a few seconds contingency
+                    }
+                } else if(x.IsFaulted)
+                {
+                    var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
+                }
+            });
+        }
+
         /// <summary>
         /// Creates a pub/sub connection to the same redis server
         /// </summary>
@@ -200,7 +230,7 @@ namespace BookSleeve
                 GetSentCount(),
                 GetDbUsage(),
                 // important that ping happens last, as this may artificially drain the queues
-                (int)Wait(Ping())
+                (int)Wait(Server.Ping())
             );
         }
         private int GetSentCount() { lock (sent) { return sent.Count; } }
@@ -267,36 +297,5 @@ namespace BookSleeve
                 return base.OutstandingCount + GetSentCount();
             }
         }
-        /// <summary>
-        /// Delete all the keys of the currently selected DB.
-        /// </summary>
-        public Task FlushDb(int db)
-        {
-            if (allowAdmin)
-            {
-                
-                return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("Flush is not enabled");
-        }
-        /// <summary>
-        /// Delete all the keys of all the existing databases, not just the currently selected one.
-        /// </summary>
-        public Task FlushAll()
-        {
-            if (allowAdmin)
-            {
-                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.FLUSHALL).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("Flush is not enabled");
-        }
-        /// <summary>
-        /// This command is often used to test if a connection is still alive, or to measure latency.
-        /// </summary>
-        /// <returns>The latency in milliseconds.</returns>
-        public new Task<long> Ping(bool queueJump = false) { return base.Ping(queueJump); }
-        
     }
 }

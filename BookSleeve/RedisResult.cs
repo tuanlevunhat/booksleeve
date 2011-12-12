@@ -180,6 +180,20 @@ namespace BookSleeve
             }
             return dict;
         }
+        public Dictionary<string, string> ExtractStringPairs()
+        {
+            var items = this.ValueItems;
+            int count = items.Length / 2;
+            var dict = new Dictionary<string, string>(count);
+            int index = 0;
+            for (int i = 0; i < count; i++)
+            {
+                var itemKey = items[index++].ValueString;
+                var itemValue = items[index++].ValueString;
+                dict.Add(itemKey, itemValue);
+            }
+            return dict;
+        }
     }
     internal class MultiRedisResult : RedisResult
     {

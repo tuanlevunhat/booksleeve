@@ -614,6 +614,7 @@ namespace BookSleeve
                 sent - created, received - sent));
         }
     }
+
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
     sealed internal class DbFreeAttribute : Attribute{}
 
@@ -625,7 +626,7 @@ namespace BookSleeve
         // commands (extracted from http://redis.io/commands)
         APPEND,
         [DbFree]
-        AUTH, BGREWRITEAOF, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH, CONFIG, GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
+        AUTH, BGREWRITEAOF, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH, [DbFree] CONFIG, GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
         [DbFree]
         DISCARD,
         [DbFree]

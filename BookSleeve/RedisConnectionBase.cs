@@ -17,7 +17,7 @@ namespace BookSleeve
         private Socket socket;
         private NetworkStream redisStream;
 
-        private readonly BlockingQueue<RedisMessage> unsent;
+        private readonly MessageQueue unsent;
         private readonly int port, ioTimeout, syncTimeout;
         private readonly string host, password;
         /// <summary>
@@ -87,11 +87,12 @@ namespace BookSleeve
         /// </summary>
         protected const int DefaultSyncTimeout = 10000;
         // dont' really want external subclasses
-        internal RedisConnectionBase(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue, int syncTimeout = DefaultSyncTimeout)
+        internal RedisConnectionBase(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue,
+            int syncTimeout = DefaultSyncTimeout)
         {
             if(syncTimeout <= 0) throw new ArgumentOutOfRangeException("syncTimeout");
             this.syncTimeout = syncTimeout;
-            this.unsent = new BlockingQueue<RedisMessage>(maxUnsent);
+            this.unsent = new MessageQueue(maxUnsent);
             this.host = host;
             this.port = port;
             this.ioTimeout = ioTimeout;
@@ -146,6 +147,19 @@ namespace BookSleeve
         /// Called before opening a connection
         /// </summary>
         protected virtual void OnOpening() { }
+
+        /// <summary>
+        /// Called during connection init, but after the AUTH is sent (if needed)
+        /// </summary>
+        protected virtual void OnInitConnection() { }
+
+        /// <summary>
+        /// Configures an automatic keep-alive at a pre-determined interval
+        /// </summary>
+        protected void SetKeepAlive(int seconds)
+        {
+            unsent.SetKeepAlive(seconds);
+        }
         /// <summary>
         /// Attempts to open the connection to the remote server
         /// </summary>
@@ -173,8 +187,9 @@ namespace BookSleeve
                 thread.Start();
 
                 if (!string.IsNullOrEmpty(password)) EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.AUTH, password).ExpectOk().Critical(), true);
-                var info = GetInfo();
 
+                var info = GetInfo();
+                OnInitConnection();
                 ReadMoreAsync();
 
                 return ContinueWith(info, done =>
@@ -836,6 +851,13 @@ namespace BookSleeve
         internal Task<Dictionary<string, byte[]>> ExecuteHashPairs(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultHashPairs();
+            message.SetMessageResult(msgResult);
+            EnqueueMessage(message, queueJump);
+            return msgResult.Task;
+        }
+        internal Task<Dictionary<string, string>> ExecuteStringPairs(RedisMessage message, bool queueJump)
+        {
+            var msgResult = new MessageResultStringPairs();
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
