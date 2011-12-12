@@ -38,6 +38,9 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IServerCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
     <Compile Include="ISortedSetCommands.cs">
       <DependentUpon>RedisConnection.cs</DependentUpon>
     </Compile>
@@ -67,7 +70,7 @@
     <Compile Include="RedisTransaction.cs" />
     <Compile Include="RedisResult.cs" />
     <Compile Include="RedisSubscriberConnection.cs" />
-    <Compile Include="BlockingQueue.cs" />
+    <Compile Include="MessageQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\license.txt">

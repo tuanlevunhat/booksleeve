@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Diagnostics;
 
 namespace BookSleeve
 {
@@ -11,7 +12,7 @@ namespace BookSleeve
     /// Implements a thread-safe queue for use in a producer/consumer scenario
     /// </summary>
     /// <remarks> This is based on http://stackoverflow.com/questions/530211/creating-a-blocking-queuet-in-net/530228#530228 </remarks>
-    internal class BlockingQueue<T>
+    internal class MessageQueue
     {
         bool closed;
         public void Close()
@@ -30,12 +31,38 @@ namespace BookSleeve
                 Monitor.PulseAll(stdPriority);
             }
         }
-        private readonly Queue<T> stdPriority = new Queue<T>(), // we'll use stdPriority as the sync-lock for both
-            highPriority = new Queue<T>();
-        private readonly int maxSize;
-        public BlockingQueue(int maxSize) { this.maxSize = maxSize; }
+        private readonly Queue<RedisMessage> stdPriority = new Queue<RedisMessage>(), // we'll use stdPriority as the sync-lock for both
+            highPriority = new Queue<RedisMessage>();
 
-        public void Enqueue(T item, bool highPri)
+        private readonly int maxSize;
+        private int keepAliveMilliseconds = int.MaxValue;
+        public void SetKeepAlive(int seconds)
+        {
+            int newTimeout;
+            checked
+            {
+                newTimeout = (seconds > 0 && seconds != int.MaxValue) ? (1000 * seconds) : int.MaxValue;
+            }
+            lock(stdPriority)
+            {
+                if (newTimeout != keepAliveMilliseconds)
+                {
+                    keepAliveMilliseconds = newTimeout;
+                    if (!closed && stdPriority.Count == 0 && highPriority.Count == 0)
+                    {
+                        // nothing is waiting, so the timeout won't get reset - add a PING into the mix
+                        stdPriority.Enqueue(new PingMessage());
+                        Monitor.PulseAll(stdPriority);
+                    }
+                }
+            }
+        }
+        public MessageQueue(int maxSize)
+        {
+            this.maxSize = maxSize;
+        }
+
+        public void Enqueue(RedisMessage item, bool highPri)
         {
             lock (stdPriority)
             {
@@ -62,11 +89,11 @@ namespace BookSleeve
                 }
             }
         }
-        public T[] DequeueAll()
+        public RedisMessage[] DequeueAll()
         {
             lock (stdPriority)
             {
-                T[] result = new T[highPriority.Count + stdPriority.Count];
+                RedisMessage[] result = new RedisMessage[highPriority.Count + stdPriority.Count];
                 highPriority.CopyTo(result, 0);
                 stdPriority.CopyTo(result, highPriority.Count);
                 highPriority.Clear();
@@ -76,21 +103,33 @@ namespace BookSleeve
                 return result;
             }
         }
-        public bool TryDequeue(bool noWait, out T value, out bool isHigh, out bool shouldFlush)
+        public bool TryDequeue(bool noWait, out RedisMessage value, out bool isHigh, out bool shouldFlush)
         {
             lock (stdPriority)
             {
-                while (highPriority.Count == 0 && stdPriority.Count == 0)
+                int timeoutMilliseconds = this.keepAliveMilliseconds;
+                while (highPriority.Count == 0 && stdPriority.Count == 0 && timeoutMilliseconds > 0)
                 {
                     if (closed || noWait)
                     {
-                        value = default(T);
+                        value = null;
                         isHigh = false;
                         shouldFlush = true;
                         return false;
                     }
-                    Monitor.Wait(stdPriority);
+                    if (timeoutMilliseconds == int.MaxValue)
+                    {
+                        Monitor.Wait(stdPriority);
+                    }
+                    else
+                    {
+                        var watch = Stopwatch.StartNew();
+                        Monitor.Wait(stdPriority, timeoutMilliseconds);
+                        watch.Stop();
+                        timeoutMilliseconds -= (int) watch.ElapsedMilliseconds;
+                    }
                 }
+
                 int loCount = stdPriority.Count, hiCount = highPriority.Count;
                 isHigh = hiCount > 0;
                 if (isHigh)
@@ -99,11 +138,15 @@ namespace BookSleeve
                     hiCount--;
                     shouldFlush = hiCount == 0;
                 }
-                else
+                else if(loCount > 0)
                 {
                     value = stdPriority.Dequeue();
                     loCount--;
                     shouldFlush = loCount == 0;
+                } else
+                { // nothing there! it must have been a KeepAlive timeout then
+                    shouldFlush = true; // want this sent NOW
+                    value = new PingMessage();
                 }
 
                 if ((!isHigh && loCount == maxSize - 1) || (loCount == 0 && hiCount == 0))
