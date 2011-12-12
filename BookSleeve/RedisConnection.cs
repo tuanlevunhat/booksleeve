@@ -92,6 +92,9 @@ namespace BookSleeve
         {
             base.SetKeepAlive(seconds);
         }
+        /// <summary>
+        /// Called during connection init, but after the AUTH is sent (if needed)
+        /// </summary>
         protected override void OnInitConnection()
         {
             base.OnInitConnection();
