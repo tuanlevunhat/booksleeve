@@ -389,10 +389,6 @@ namespace BookSleeve
         }
         private void Shutdown(string cause, Exception error)
         {
-            if (error != null)
-            {
-                Debugger.Break();
-            }
             Close(error != null);
             Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
 
