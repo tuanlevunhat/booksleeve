@@ -161,7 +161,7 @@ namespace BookSleeve
             for (int i = 0; i < pairs.Length; i++)
             {
                 var itemKey = items[index++].ValueBytes;
-                var itemScore = (int)items[index++].ValueDouble;
+                var itemScore = items[index++].ValueDouble;
                 pairs[i] = new KeyValuePair<byte[], double>(itemKey, itemScore);
             }
             return pairs;
