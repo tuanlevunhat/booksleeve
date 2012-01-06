@@ -87,4 +87,12 @@ namespace BookSleeve
         public new Task Task { get { return base.Task; } }
         protected override bool GetValue(RedisResult result) { result.Assert(); return true; }
     }
+    internal sealed class MessageLockResult : MessageResult<bool>
+    {
+        protected override bool GetValue(RedisResult result)
+        {
+            var items = result.ValueItems;
+            return items != null;
+        }
+    }
 }
