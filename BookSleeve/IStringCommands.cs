@@ -214,6 +214,28 @@ namespace BookSleeve
         /// <returns>the original bit value stored at offset.</returns>
         /// <remarks>http://redis.io/commands/setbit</remarks>
         Task<bool> SetBit(int db, string key, long offset, bool value, bool queueJump = false);
+
+        /// <summary>
+        /// This is a composite helper command, to help with using redis as a lock provider. This is achieved
+        /// as a string key/value pair with timeout. If the lock does not exist (or has expired), then a new string key is
+        /// created (with the supplied duration), and <c>true</c> is returned to indicate success. If the lock
+        /// already exists, then no lock is taken, and <c>false</c> is returned. The value may be fetched separately, but the meaning is
+        /// implementation-defined). No change is made if the
+        /// lock was not successfully taken. In this case, the client should delay and retry.
+        /// 
+        /// It is expected that a well-behaved client will also release the lock in a timely fashion via <c>ReleaseLock</c>.
+        /// </summary>
+        /// <returns><c>null</c> if the lock was successfully taken; the competing value otherwise</returns>
+        /// <remarks>It transpires that robust locking in redis is actually remarkably hard, and most
+        /// implementations are broken in one way or another (most commonly: thread-race, or extending the
+        /// lock duration when failing to take the lock).</remarks>
+        Task<bool> TakeLock(int db, string key, string value, int expirySeconds, bool queueJump = false);
+
+        /// <summary>
+        /// Releases a lock that was taken successfully via TakeLock. You should not release a lock that you did
+        /// not take, as this will cause problems.
+        /// </summary>
+        Task ReleaseLock(int db, string key, bool queueJump = false);
     }
 
     partial class RedisConnection : IStringCommands
@@ -410,6 +432,16 @@ namespace BookSleeve
         {
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETBIT, key, offset, value ? 1L : 0L), queueJump);
         }
+
+        Task<bool> IStringCommands.TakeLock(int db, string key, string value, int expirySeconds, bool queueJump)
+        {
+            return ExecuteBoolean(new LockMessage(db, key, value, expirySeconds), queueJump);
+        }
+        Task IStringCommands.ReleaseLock(int db, string key, bool queueJump)
+        {
+            return Keys.Remove(db, key, queueJump);
+        }
+
 
         /// <summary>
         /// See Strings.Get

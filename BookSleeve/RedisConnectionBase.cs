@@ -647,6 +647,11 @@ namespace BookSleeve
             }
         }
         private Stream outBuffer;
+        internal void Flush(bool all)
+        {
+            if (all) outBuffer.Flush();
+            redisStream.Flush();
+        }
         private void Outgoing()
         {
             try
@@ -671,8 +676,7 @@ namespace BookSleeve
                     }
                     if (isHigh) Interlocked.Increment(ref queueJumpers);
                     WriteMessage(ref db, next, null);
-                    if(shouldFlush) outBuffer.Flush();
-                    redisStream.Flush();
+                    Flush(shouldFlush);
                     
                 }
                 Interlocked.CompareExchange(ref state, (int)ConnectionState.Closing, (int)ConnectionState.Open);
@@ -695,7 +699,7 @@ namespace BookSleeve
 
         }
 
-        private void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
+        internal void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
         {
 
             if (next.Db >= 0)
@@ -714,33 +718,28 @@ namespace BookSleeve
                 }
                 LogUsage(db);
             }
+
             if (next.Command == RedisLiteral.SELECT)
             {
                 // dealt with above; no need to send SELECT, SELECT
             }
             else
             {
+                var mm = next as IMultiMessage;
                 var tmp = next;
                 if(queued != null)
                 {
+                    if(mm != null) throw new InvalidOperationException("Cannot perform composite operations (such as transactions) inside transactions");
                     queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
                 }
                 RecordSent(tmp);
                 tmp.Write(outBuffer);
                 Interlocked.Increment(ref messagesSent);
-                
-                 if (next is MultiMessage)
-                 {
-                    var mm = (MultiMessage)next;
-                    var pending = mm.GetPendingMessages();
-                    List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
-                    for (int i = 0; i < pending.Length; i++)
-                    {
-                        WriteMessage(ref db, pending[i], newlyQueued);
-                    }
-                    newlyQueued.TrimExcess();
-                    WriteMessage(ref db, mm.Execute(newlyQueued), queued);
-                 }
+
+                if (mm != null)
+                {
+                    mm.Execute(this, ref db);
+                }
             }
         }
         internal virtual void RecordSent(RedisMessage message, bool drainFirst = false) { }
