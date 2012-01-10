@@ -366,6 +366,7 @@ namespace BookSleeve
                     return RedisResult.Bytes(ReadBulkBytes());
                 case '*':
                     int count = (int)ReadInt64();
+                    if (count == -1) return RedisResult.Multi(null);
                     RedisResult[] inner = new RedisResult[count];
                     for (int i = 0; i < count; i++)
                     {
