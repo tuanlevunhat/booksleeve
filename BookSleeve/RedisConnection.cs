@@ -102,7 +102,11 @@ namespace BookSleeve
             var options = Server.GetConfig("timeout");
             options.ContinueWith(x =>
             {
-                if(x.IsCompleted)
+                if(x.IsFaulted)
+                {
+                    var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
+                }
+                else if(x.IsCompleted)
                 {
                     int timeout;
                     string text;
@@ -110,9 +114,6 @@ namespace BookSleeve
                     {
                         SetKeepAlive(timeout - 15); // allow a few seconds contingency
                     }
-                } else if(x.IsFaulted)
-                {
-                    var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
                 }
             });
         }
