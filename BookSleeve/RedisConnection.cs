@@ -267,9 +267,10 @@ namespace BookSleeve
         /// <summary>
         /// Takes a server out of "slave" mode, to act as a replication master.
         /// </summary>
+        [Obsolete("Please use the Server API")]
         public Task PromoteToMaster()
         {
-            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
+            return Server.MakeMaster();
         }
  
        
