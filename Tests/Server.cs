@@ -50,5 +50,25 @@ namespace Tests
                 }
             }
         }
+
+        [Test]
+        public void TestMasterSlaveSetup()
+        {
+            using(var unsec = Config.GetUnsecuredConnection(true, true, true))
+            using(var sec = Config.GetUnsecuredConnection(true, true, true))
+            {
+                var makeSlave = sec.Server.MakeSlave(unsec.Host, unsec.Port);
+                var info = sec.Wait(sec.GetInfo());
+                sec.Wait(makeSlave);
+                Assert.IsTrue(info.Contains("role:slave"), "slave");
+                Assert.IsTrue(info.Contains("master_host:" + unsec.Host), "host");
+                Assert.IsTrue(info.Contains("master_port:" + unsec.Port), "port");
+                var makeMaster = sec.Server.MakeMaster();
+                info = sec.Wait(sec.GetInfo());
+                sec.Wait(makeMaster);
+                Assert.IsTrue(info.Contains("role:master"), "master");
+
+            }
+        }
     }
 }

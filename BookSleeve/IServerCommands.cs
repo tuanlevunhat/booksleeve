@@ -43,6 +43,19 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/config-set</remarks>
         Task SetConfig(string parameter, string value);
+
+        /// <summary>
+        /// The SLAVEOF command can change the replication settings of a slave on the fly. In the proper form SLAVEOF hostname port will make the server a slave of another server listening at the specified hostname and port.
+        /// If a server is already a slave of some master, SLAVEOF hostname port will stop the replication against the old server and start the synchronization against the new one, discarding the old dataset.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/slaveof</remarks>
+        Task MakeSlave(string host, int port);
+        /// <summary>
+        /// The SLAVEOF command can change the replication settings of a slave on the fly. 
+        /// If a Redis server is already acting as slave, the command SLAVEOF NO ONE will turn off the replication, turning the Redis server into a MASTER.
+        /// The form SLAVEOF NO ONE will stop replication, turning the server into a MASTER, but will not discard the replication. So, if the old master stops working, it is possible to turn the slave into a master and set the application to use this new master in read/write. Later when the other Redis server is fixed, it can be reconfigured to work as a slave.
+        /// </summary>
+        Task MakeMaster();
     }
     partial class RedisConnection : IServerCommands
     {
@@ -89,6 +102,25 @@ namespace BookSleeve
             }
             else
                 throw new InvalidOperationException("Flush is not enabled");
+        }
+
+        Task IServerCommands.MakeMaster()
+        {
+            if (allowAdmin)
+            {
+                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
+            }
+            else
+                throw new InvalidOperationException("MakeMaster is not enabled");
+        }
+        Task IServerCommands.MakeSlave(string host, int port)
+        {
+            if (allowAdmin)
+            {
+                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, host, port).ExpectOk().Critical(), false);
+            }
+            else
+                throw new InvalidOperationException("MakeSlave is not enabled");
         }
 
         /// <summary>
