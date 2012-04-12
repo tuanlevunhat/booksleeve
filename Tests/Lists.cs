@@ -458,5 +458,244 @@ namespace Tests
             }
         }
 
+
+        [Test]
+        public void TestLeftBlockingPop()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "blocking");
+                conn.Keys.Remove(1, "blocking-A");
+                conn.Keys.Remove(1, "blocking-B");
+                // empty, no data
+                Assert.IsNull(conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking" }, 1).Result);
+
+                // empty, successful blocking getting data from another client
+                var found = conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking" }, 1);
+                var len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", conn.Wait(found).Item2);
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // empty, successful blocking getting data from another client, multiple keys
+                found = conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking-A", "blocking", "blocking-B" }, 1);
+                len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", conn.Wait(found).Item2);
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // data, no need to block
+                conn.Lists.AddLast(1, "blocking", "abc");
+                len = conn.Lists.AddLast(1, "blocking", "def");
+                var found0 = conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking" }, 1);
+                var found1 = conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking" }, 1);
+                var found2 = conn.Lists.BlockingRemoveFirstString(1, new[] { "blocking" }, 1);
+                Assert.AreEqual(2, conn.Wait(len));
+                Assert.AreEqual("blocking", conn.Wait(found0).Item1);
+                Assert.AreEqual("abc", conn.Wait(found0).Item2);
+                Assert.AreEqual("blocking", conn.Wait(found1).Item1);
+                Assert.AreEqual("def", conn.Wait(found1).Item2);
+                Assert.IsNull(found2.Result);
+            }
+        }
+
+        [Test]
+        public void TestRightBlockingPop()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "blocking");
+                conn.Keys.Remove(1, "blocking-A");
+                conn.Keys.Remove(1, "blocking-B");
+                // empty, no data
+                Assert.IsNull(conn.Lists.BlockingRemoveLastString(1, new[] { "blocking" }, 1).Result);
+
+                // empty, successful blocking getting data from another client
+                var found = conn.Lists.BlockingRemoveLastString(1, new[] { "blocking" }, 1);
+                var len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", conn.Wait(found).Item2);
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // empty, successful blocking getting data from another client, multiple keys
+                found = conn.Lists.BlockingRemoveLastString(1, new[] { "blocking-A", "blocking", "blocking-B" }, 1);
+                len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", conn.Wait(found).Item2);
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // data, no need to block
+                conn.Lists.AddLast(1, "blocking", "abc");
+                len = conn.Lists.AddLast(1, "blocking", "def");
+                var found0 = conn.Lists.BlockingRemoveLastString(1, new[] { "blocking" }, 1);
+                var found1 = conn.Lists.BlockingRemoveLastString(1, new[] { "blocking" }, 1);
+                var found2 = conn.Lists.BlockingRemoveLastString(1, new[] { "blocking" }, 1);
+                Assert.AreEqual(2, conn.Wait(len));
+                Assert.AreEqual("blocking", conn.Wait(found0).Item1);
+                Assert.AreEqual("def", conn.Wait(found0).Item2);
+                Assert.AreEqual("blocking", conn.Wait(found1).Item1);
+                Assert.AreEqual("abc", conn.Wait(found1).Item2);
+                Assert.IsNull(found2.Result);
+            }
+        }
+
+        [Test]
+        public void TestLeftBlockingPopBytes()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "blocking");
+                conn.Keys.Remove(1, "blocking-A");
+                conn.Keys.Remove(1, "blocking-B");
+                // empty, no data
+                Assert.IsNull(conn.Lists.BlockingRemoveFirst(1, new[] { "blocking" }, 1).Result);
+
+                // empty, successful blocking getting data from another client
+                var found = conn.Lists.BlockingRemoveFirst(1, new[] { "blocking" }, 1);
+                var len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", Encoding.UTF8.GetString(conn.Wait(found).Item2));
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // empty, successful blocking getting data from another client, multiple keys
+                found = conn.Lists.BlockingRemoveFirst(1, new[] { "blocking-A", "blocking", "blocking-B" }, 1);
+                len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", Encoding.UTF8.GetString(conn.Wait(found).Item2));
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // data, no need to block
+                conn.Lists.AddLast(1, "blocking", "abc");
+                len = conn.Lists.AddLast(1, "blocking", "def");
+                var found0 = conn.Lists.BlockingRemoveFirst(1, new[] { "blocking" }, 1);
+                var found1 = conn.Lists.BlockingRemoveFirst(1, new[] { "blocking" }, 1);
+                var found2 = conn.Lists.BlockingRemoveFirst(1, new[] { "blocking" }, 1);
+                Assert.AreEqual(2, conn.Wait(len));
+                Assert.AreEqual("blocking", conn.Wait(found0).Item1);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(conn.Wait(found0).Item2));
+                Assert.AreEqual("blocking", conn.Wait(found1).Item1);
+                Assert.AreEqual("def", Encoding.UTF8.GetString(conn.Wait(found1).Item2));
+                Assert.IsNull(found2.Result);
+            }
+        }
+
+        [Test]
+        public void TestRightBlockingPopBytes()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "blocking");
+                conn.Keys.Remove(1, "blocking-A");
+                conn.Keys.Remove(1, "blocking-B");
+                // empty, no data
+                Assert.IsNull(conn.Lists.BlockingRemoveLast(1, new[] { "blocking" }, 1).Result);
+
+                // empty, successful blocking getting data from another client
+                var found = conn.Lists.BlockingRemoveLast(1, new[] { "blocking" }, 1);
+                var len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", Encoding.UTF8.GetString(conn.Wait(found).Item2));
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // empty, successful blocking getting data from another client, multiple keys
+                found = conn.Lists.BlockingRemoveLast(1, new[] { "blocking-A", "blocking", "blocking-B" }, 1);
+                len = conn2.Lists.AddLast(1, "blocking", "another client");
+                Assert.AreEqual("blocking", conn.Wait(found).Item1);
+                Assert.AreEqual("another client", Encoding.UTF8.GetString(conn.Wait(found).Item2));
+                Assert.AreEqual(1, conn2.Wait(len));
+
+                // data, no need to block
+                conn.Lists.AddLast(1, "blocking", "abc");
+                len = conn.Lists.AddLast(1, "blocking", "def");
+                var found0 = conn.Lists.BlockingRemoveLast(1, new[] { "blocking" }, 1);
+                var found1 = conn.Lists.BlockingRemoveLast(1, new[] { "blocking" }, 1);
+                var found2 = conn.Lists.BlockingRemoveLast(1, new[] { "blocking" }, 1);
+                Assert.AreEqual(2, conn.Wait(len));
+                Assert.AreEqual("blocking", conn.Wait(found0).Item1);
+                Assert.AreEqual("def", Encoding.UTF8.GetString(conn.Wait(found0).Item2));
+                Assert.AreEqual("blocking", conn.Wait(found1).Item1);
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(conn.Wait(found1).Item2));
+                Assert.IsNull(found2.Result);
+            }
+        }
+
+        [Test]
+        public void TestBlockingPopPush()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "source");
+                conn.Keys.Remove(1, "target");
+
+                // empty
+                var found = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                Assert.IsNull(found.Result);
+
+                // already data
+                conn.Lists.AddLast(1, "source", "abc");
+                conn.Lists.AddLast(1, "source", "def");
+                var found0 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                var found1 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                var found2 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                Assert.AreEqual("def", found0.Result);
+                Assert.AreEqual("abc", found1.Result);
+                Assert.IsNull(found2.Result);
+
+                // add data from another client
+                conn.Lists.AddFirst(1, "source", "abc");
+                found0 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                found1 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                found2 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                var found3 = conn.Lists.BlockingRemoveLastAndAddFirstString(1, "source", "target", 1);
+                conn2.Lists.AddFirst(1, "source", "def");
+                conn2.Lists.AddFirst(1, "source", "ghi");
+                Assert.AreEqual("abc", found0.Result);
+                Assert.AreEqual("def", found1.Result);
+                Assert.AreEqual("ghi", found2.Result);
+                Assert.IsNull(found3.Result);
+            }
+        }
+        [Test]
+        public void TestBlockingPopPushBytes()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn2 = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "source");
+                conn.Keys.Remove(1, "target");
+
+                // empty
+                var found = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                Assert.IsNull(found.Result);
+
+                // already data
+                conn.Lists.AddLast(1, "source", "abc");
+                conn.Lists.AddLast(1, "source", "def");
+                var found0 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                var found1 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                var found2 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                Assert.AreEqual("def", Encoding.UTF8.GetString(found0.Result));
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(found1.Result));
+                Assert.IsNull(found2.Result);
+
+                // add data from another client
+                conn.Lists.AddFirst(1, "source", "abc");
+                found0 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                found1 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                found2 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                var found3 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                conn2.Lists.AddFirst(1, "source", "def");
+                conn2.Lists.AddFirst(1, "source", "ghi");
+                Assert.AreEqual("abc", Encoding.UTF8.GetString(found0.Result));
+                Assert.AreEqual("def", Encoding.UTF8.GetString(found1.Result));
+                Assert.AreEqual("ghi", Encoding.UTF8.GetString(found2.Result));
+                Assert.IsNull(found3.Result);
+            }
+        }
     }
 }

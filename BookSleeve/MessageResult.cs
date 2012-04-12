@@ -58,6 +58,10 @@ namespace BookSleeve
     {
         protected override string GetValue(RedisResult result) { return result.ValueString; }
     }
+    internal sealed class MessageResultRaw : MessageResult<RedisResult>
+    {
+        protected override RedisResult GetValue(RedisResult result) { return result; }
+    }
     internal sealed class MessageResultMultiString : MessageResult<string[]>
     {
         protected override string[] GetValue(RedisResult result) { return result.ValueItemsString(); }

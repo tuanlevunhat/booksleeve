@@ -813,6 +813,14 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
+        internal Task<RedisResult> ExecuteRaw(RedisMessage message, bool queueJump)
+        {
+            var msgResult = new MessageResultRaw();
+            message.SetMessageResult(msgResult);
+            EnqueueMessage(message, queueJump);
+            return msgResult.Task;
+        }
+
         internal Task<string> ExecuteString(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultString();
