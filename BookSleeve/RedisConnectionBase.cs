@@ -233,8 +233,12 @@ namespace BookSleeve
             for (int i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
+                if (string.IsNullOrEmpty(line) || line[0] == '#') continue; // 2.6+ can have empty lines, and comment lines
                 int idx = line.IndexOf(':');
-                data.Add(line.Substring(0, idx), line.Substring(idx + 1));
+                if (idx > 0) // double check this line looks about right
+                {
+                    data.Add(line.Substring(0, idx), line.Substring(idx + 1));
+                }
             }
             return data;
         }
