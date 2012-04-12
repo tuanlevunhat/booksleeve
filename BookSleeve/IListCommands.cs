@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using System;
 using System.ComponentModel;
+using System.Text;
 namespace BookSleeve
 {
     /// <summary>
@@ -95,6 +96,48 @@ namespace BookSleeve
         /// <returns>the value of the first element, or nil when key does not exist.</returns>
         /// <remarks>http://redis.io/commands/rpop</remarks>
         Task<byte[]> RemoveLast(int db, string key, bool queueJump = false);
+
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BLPOP is a blocking list pop primitive. It is the blocking version of LPOP because it blocks the connection when there are no elements to pop from any of the given lists. An element is popped from the head of the first list that is non-empty, with the given keys being checked in the order that they are given. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <returns>A null when no element could be popped and the timeout expired, otherwise the popped element.</returns>
+        /// <remarks>http://redis.io/commands/blpop</remarks>
+        Task<Tuple<string,string>> BlockingRemoveFirstString(int db, string[] keys, int timeoutSeconds, bool queueJump = false);
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BLPOP is a blocking list pop primitive. It is the blocking version of LPOP because it blocks the connection when there are no elements to pop from any of the given lists. An element is popped from the head of the first list that is non-empty, with the given keys being checked in the order that they are given. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <returns>A null when no element could be popped and the timeout expired, otherwise the popped element.</returns>
+        /// <remarks>http://redis.io/commands/blpop</remarks>
+        Task<Tuple<string, byte[]>> BlockingRemoveFirst(int db, string[] keys, int timeoutSeconds, bool queueJump = false);
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BRPOP is a blocking list pop primitive. It is the blocking version of RPOP because it blocks the connection when there are no elements to pop from any of the given lists. An element is popped from the tail of the first list that is non-empty, with the given keys being checked in the order that they are given. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <returns>A null when no element could be popped and the timeout expired, otherwise the popped element.</returns>
+        /// <remarks>http://redis.io/commands/brpop</remarks>
+        Task<Tuple<string, string>> BlockingRemoveLastString(int db, string[] keys, int timeoutSeconds, bool queueJump = false);
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BRPOP is a blocking list pop primitive. It is the blocking version of RPOP because it blocks the connection when there are no elements to pop from any of the given lists. An element is popped from the tail of the first list that is non-empty, with the given keys being checked in the order that they are given. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <returns>A null when no element could be popped and the timeout expired, otherwise the popped element.</returns>
+        /// <remarks>http://redis.io/commands/brpop</remarks>
+        Task<Tuple<string,byte[]>> BlockingRemoveLast(int db, string[] keys, int timeoutSeconds, bool queueJump = false);
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BRPOPLPUSH is the blocking variant of RPOPLPUSH. When source contains elements, this command behaves exactly like RPOPLPUSH. When source is empty, Redis will block the connection until another client pushes to it or until timeout is reached. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <string>For example: consider source holding the list a,b,c, and destination holding the list x,y,z. Executing RPOPLPUSH results in source holding a,b and destination holding c,x,y,z.</string>
+        /// <remarks>If source does not exist, the value nil is returned and no operation is performed. If source and destination are the same, the operation is equivalent to removing the last element from the list and pushing it as first element of the list, so it can be considered as a list rotation command.</remarks>
+        /// <returns>the element being popped and pushed.</returns>
+        /// <remarks>http://redis.io/commands/brpoplpush</remarks>
+        Task<byte[]> BlockingRemoveLastAndAddFirst(int db, string source, string destination, int timeoutSeconds, bool queueJump = false);
+        /// <summary>IMPORTANT: blocking commands will interrupt multiplexing, and should not be used on a connection being used by parallel consumers.
+        /// BRPOPLPUSH is the blocking variant of RPOPLPUSH. When source contains elements, this command behaves exactly like RPOPLPUSH. When source is empty, Redis will block the connection until another client pushes to it or until timeout is reached. A timeout of zero can be used to block indefinitely.
+        /// </summary>
+        /// <string>For example: consider source holding the list a,b,c, and destination holding the list x,y,z. Executing RPOPLPUSH results in source holding a,b and destination holding c,x,y,z.</string>
+        /// <remarks>If source does not exist, the value nil is returned and no operation is performed. If source and destination are the same, the operation is equivalent to removing the last element from the list and pushing it as first element of the list, so it can be considered as a list rotation command.</remarks>
+        /// <returns>the element being popped and pushed.</returns>
+        /// <remarks>http://redis.io/commands/brpoplpush</remarks>
+        Task<string> BlockingRemoveLastAndAddFirstString(int db, string source, string destination, int timeoutSeconds, bool queueJump = false);
+
         /// <summary>
         /// Inserts value at the head of the list stored at key. If key does not exist and createIfMissing is true, it is created as empty list before performing the push operation. 
         /// </summary>
@@ -471,7 +514,43 @@ namespace BookSleeve
         }
 
 
-
-
+        static RedisMessage GetBlockingPop(int db, RedisLiteral command, string[] keys, int timeoutSeconds)
+        {
+            var args = new RedisMessage.RedisParameter[keys.Length + 1];
+            for (int i = 0; i < keys.Length; i++)
+                args[i] = keys[i];
+            args[keys.Length] = timeoutSeconds;
+            return RedisMessage.Create(db, command, args);
+        }
+        Task<Tuple<string, string>> IListCommands.BlockingRemoveFirstString(int db, string[] keys, int timeoutSeconds, bool queueJump)
+        {
+            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump);
+            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+        }
+        Task<Tuple<string, byte[]>> IListCommands.BlockingRemoveFirst(int db, string[] keys, int timeoutSeconds, bool queueJump)
+        {
+            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump);
+            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+        }
+        Task<Tuple<string, string>> IListCommands.BlockingRemoveLastString(int db, string[] keys, int timeoutSeconds, bool queueJump)
+        {
+            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump);
+            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+        }
+        Task<Tuple<string, byte[]>> IListCommands.BlockingRemoveLast(int db, string[] keys, int timeoutSeconds, bool queueJump)
+        {
+            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump);
+            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+        }
+        Task<byte[]> IListCommands.BlockingRemoveLastAndAddFirst(int db, string source, string destination, int timeoutSeconds, bool queueJump)
+        {
+            return ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump)
+                .ContinueWith(x => x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueBytes);
+        }
+        Task<string> IListCommands.BlockingRemoveLastAndAddFirstString(int db, string source, string destination, int timeoutSeconds, bool queueJump)
+        {
+            return ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump)
+                .ContinueWith(x => x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueString);
+        }
     }
 }
