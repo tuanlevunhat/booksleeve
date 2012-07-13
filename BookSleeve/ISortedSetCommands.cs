@@ -409,20 +409,22 @@ namespace BookSleeve
 
         Task<long> ISortedSetCommands.IntersectAndStore(int db, string destination, string[] keys, RedisAggregate aggregate, bool queueJump)
         {
-            string[] parameters = new string[keys.Length + 2]; //prepend the number of keys and append the aggregation type
+            string[] parameters = new string[keys.Length + 3]; //prepend the number of keys and append the aggregate keyword and the aggregation type
             parameters[0] = keys.Length.ToString();
             keys.CopyTo(parameters, 1);
-            parameters[keys.Length + 1] = "AGGREGATE " + aggregate.ToString();
+            parameters[keys.Length + 1] = "AGGREGATE";
+            parameters[keys.Length + 2] = aggregate.ToString();
 
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZINTERSTORE, destination, parameters), queueJump);          
         }
 
         Task<long> ISortedSetCommands.UnionAndStore(int db, string destination, string[] keys, RedisAggregate aggregate, bool queueJump)
         {
-            string[] parameters = new string[keys.Length + 2]; //prepend the number of keys and append the aggregation type
+            string[] parameters = new string[keys.Length + 3]; //prepend the number of keys and append the aggregate keyword and the aggregation type
             parameters[0] = keys.Length.ToString();
             keys.CopyTo(parameters, 1);
-            parameters[keys.Length + 1] = "AGGREGATE " + aggregate.ToString();
+            parameters[keys.Length + 1] = "AGGREGATE";
+            parameters[keys.Length + 2] = aggregate.ToString();
 
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZUNIONSTORE, destination, parameters), queueJump);
         }
