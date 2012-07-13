@@ -166,6 +166,19 @@ namespace BookSleeve
             }
             return pairs;
         }
+        public KeyValuePair<string, double>[] ExtractStringDoublePairs()
+        {
+            var items = ValueItems;
+            KeyValuePair<string, double>[] pairs = new KeyValuePair<string, double>[items.Length / 2];
+            int index = 0;
+            for (int i = 0; i < pairs.Length; i++)
+            {
+                var itemKey = items[index++].ValueString;
+                var itemScore = items[index++].ValueDouble;
+                pairs[i] = new KeyValuePair<string,double>(itemKey, itemScore);
+            }
+            return pairs;
+        }
         public Dictionary<string, byte[]> ExtractHashPairs()
         {
             var items = this.ValueItems;

@@ -173,6 +173,20 @@ namespace BookSleeve
         /// <returns>the number of elements removed.</returns>
         /// <remarks>Since version 2.1.6, min and max can be exclusive, following the syntax of ZRANGEBYSCORE.</remarks>
         Task<long> RemoveRange(int db, string key, double min, double max, bool minInclusive = true, bool maxInclusive = true, bool queueJump = false);
+
+        /// <summary>
+        /// Intersects the sorted sets at setsToIntersect to a new sortedset at resultSetKey
+        /// </summary>
+        /// <remarks>If destination already exists, it is overwritten.</remarks>
+        /// <returns>the number of elements in the resulting set.</returns>
+        Task<long> IntersectAndStore(int db, string destionation, string[] keys, RedisAggregate aggregate = RedisAggregate.Sum, bool queueJump = false);
+
+        /// <summary>
+        /// Intersects the sorted sets at setsToIntersect to a new sortedset at resultSetKey
+        /// </summary>
+        /// <remarks>If destination already exists, it is overwritten.</remarks>
+        /// <returns>the number of elements in the resulting set.</returns>
+        Task<long> UnionAndStore(int db, string destination, string[] keys, RedisAggregate aggregate = RedisAggregate.Sum, bool queueJump = false);
     }
 
     partial class RedisConnection : ISortedSetCommands
@@ -304,14 +318,13 @@ namespace BookSleeve
             return SortedSets.Increment(db, key, values, score, queueJump);
         }
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, long start, long stop, bool ascending, bool queueJump)
-        {
-            
+        {            
             return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start, stop, RedisLiteral.WITHSCORES), queueJump);
         }
 
         Task<KeyValuePair<string, double>[]> ISortedSetCommands.RangeString(int db, string key, long start, long stop, bool ascending, bool queueJump)
         {
-            throw new NotImplementedException();
+            return ExecuteStringDoublePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start, stop, RedisLiteral.WITHSCORES), queueJump);
         }
 
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
@@ -392,6 +405,26 @@ namespace BookSleeve
         Task<long> ISortedSetCommands.RemoveRange(int db, string key, double min, double max, bool minInclusive, bool maxInclusive, bool queueJump)
         {
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZREMRANGEBYSCORE, key, RedisMessage.RedisParameter.Range(min, minInclusive), RedisMessage.RedisParameter.Range(max, maxInclusive)), queueJump);
+        }
+
+        Task<long> ISortedSetCommands.IntersectAndStore(int db, string destination, string[] keys, RedisAggregate aggregate, bool queueJump)
+        {
+            string[] parameters = new string[keys.Length + 2]; //prepend the number of keys and append the aggregation type
+            parameters[0] = keys.Length.ToString();
+            keys.CopyTo(parameters, 1);
+            parameters[keys.Length + 1] = "AGGREGATE " + aggregate.ToString();
+
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZINTERSTORE, destination, parameters), queueJump);          
+        }
+
+        Task<long> ISortedSetCommands.UnionAndStore(int db, string destination, string[] keys, RedisAggregate aggregate, bool queueJump)
+        {
+            string[] parameters = new string[keys.Length + 2]; //prepend the number of keys and append the aggregation type
+            parameters[0] = keys.Length.ToString();
+            keys.CopyTo(parameters, 1);
+            parameters[keys.Length + 1] = "AGGREGATE " + aggregate.ToString();
+
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZUNIONSTORE, destination, parameters), queueJump);
         }
     }
 }

@@ -63,6 +63,7 @@
     </Compile>
     <Compile Include="MessageResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RedisAggregate.cs" />
     <Compile Include="RedisCommand.cs" />
     <Compile Include="RedisConnection.cs" />
     <Compile Include="RedisConnectionBase.cs" />
