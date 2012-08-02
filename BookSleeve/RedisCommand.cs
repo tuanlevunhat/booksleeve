@@ -325,6 +325,7 @@ namespace BookSleeve
             public RedisMessageUniString(int db, RedisLiteral command, string arg0)
                 : base(db, command)
             {
+                if(arg0 == null) throw new ArgumentNullException("arg0");
                 this.arg0 = arg0;
             }
             public override void Write(Stream stream)
@@ -343,6 +344,8 @@ namespace BookSleeve
             public RedisMessageBiString(int db, RedisLiteral command, string arg0, string arg1)
                 : base(db, command)
             {
+                if (arg0 == null) throw new ArgumentNullException("arg0");
+                if (arg1 == null) throw new ArgumentNullException("arg1");
                 this.arg0 = arg0;
                 this.arg1 = arg1;
             }
@@ -364,6 +367,12 @@ namespace BookSleeve
             public RedisMessageMultiString(int db, RedisLiteral command, string arg0, string[] args)
                 : base(db, command)
             {
+                if (arg0 == null) throw new ArgumentNullException("arg0");
+                if (args == null) throw new ArgumentNullException("args");
+                for (int i = 0; i < args.Length; i++ )
+                {
+                    if (args[i] == null) throw new ArgumentNullException("args:" + i);
+                }
                 this.arg0 = arg0;
                 this.args = args;
             }
@@ -510,7 +519,11 @@ namespace BookSleeve
             class RedisStringParameter : RedisParameter
             {
                 private readonly string value;
-                public RedisStringParameter(string value) { this.value = value; }
+                public RedisStringParameter(string value)
+                {
+                    if (value == null) throw new ArgumentNullException("value");
+                    this.value = value;
+                }
                 public override void Write(Stream stream)
                 {
                     WriteUnified(stream, value);
@@ -525,7 +538,11 @@ namespace BookSleeve
             class RedisBlobParameter : RedisParameter
             {
                 private readonly byte[] value;
-                public RedisBlobParameter(byte[] value) { this.value = value; }
+                public RedisBlobParameter(byte[] value)
+                {
+                    if(value == null) throw new ArgumentNullException("value");
+                    this.value = value;
+                }
                 public override void Write(Stream stream)
                 {
                     WriteUnified(stream, value);
