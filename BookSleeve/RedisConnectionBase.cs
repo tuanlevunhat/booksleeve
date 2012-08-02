@@ -99,6 +99,7 @@ namespace BookSleeve
             this.password = password;
 
             this.readReplyHeader = ReadReplyHeader;
+            IncludeDetailInTimeouts = true;
         }
         static bool TryParseVersion(string value, out Version version)
         {  // .NET 4.0 has Version.TryParse, but 3.5 CP does not
@@ -897,6 +898,14 @@ namespace BookSleeve
             Wait((Task)task);
             return task.Result;
         }
+
+        /// <summary>
+        /// If true, then when using the Wait methods, information about the oldest outstanding message
+        /// is included in the exception; this often points to a particular operation that was monopolising
+        /// the connection
+        /// </summary>
+        public bool IncludeDetailInTimeouts { get; set; }
+
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
         /// </summary>
@@ -910,7 +919,7 @@ namespace BookSleeve
             {
                 if (!task.Wait(syncTimeout))
                 {
-                    throw new TimeoutException();
+                    throw CreateTimeout();
                 }
             }
             catch (AggregateException ex)
@@ -923,6 +932,26 @@ namespace BookSleeve
             }
         }
         /// <summary>
+        /// Give some information about the oldest incomplete (but sent) message on the server
+        /// </summary>
+        protected virtual string GetTimeoutSummary()
+        {
+            return null;
+        }
+        private TimeoutException CreateTimeout()
+        {
+            if(IncludeDetailInTimeouts)
+            {
+                string compete = GetTimeoutSummary();
+                if(!string.IsNullOrWhiteSpace(compete))
+                {
+                    string message = "The operation has timed out; possibly blocked by: " + compete;
+                    return new TimeoutException(message);
+                }
+            }
+            return new TimeoutException();
+        }
+        /// <summary>
         /// Waits for all of a set of tasks to complete, up to a maximum of SyncTimeout milliseconds.
         /// </summary>
         /// <param name="tasks">The tasks to wait on</param>
@@ -932,7 +961,7 @@ namespace BookSleeve
             if (tasks == null) throw new ArgumentNullException("tasks");
             if (!Task.WaitAll(tasks, syncTimeout))
             {
-                throw new TimeoutException();
+                throw CreateTimeout();
             }
         }
         /// <summary>

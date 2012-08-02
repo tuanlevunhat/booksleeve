@@ -48,6 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config.cs" />
+    <Compile Include="Issues\Massive Delete.cs" />
+    <Compile Include="Issues\SO10504853.cs" />
+    <Compile Include="Issues\SO10825542.cs" />
     <Compile Include="Locking.cs" />
     <Compile Include="Performance.cs" />
     <Compile Include="Program.cs" />

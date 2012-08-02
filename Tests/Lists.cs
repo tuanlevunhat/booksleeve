@@ -153,9 +153,7 @@ namespace Tests
         }
 
 
-        // BLPOP, BRPOP and BRPOPLPUSH are intentionally not implemented;
-        // blocking operations have little place in a multiplexer
-
+        
         [Test]
         public void GetStringFromList()
         {
@@ -458,6 +456,17 @@ namespace Tests
             }
         }
 
+        [Test, ExpectedException(typeof(TimeoutException), ExpectedMessage = "The operation has timed out; possibly blocked by: 1: BLPOP \"blocking\" 5")]
+        public void TestBlockingTimeout()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "blocking");
+                conn.Lists.BlockingRemoveFirst(1, new[]{"blocking"}, 5);
+                var next = conn.Strings.Get(1, "foofoo");
+                conn.Wait(next);
+            }
+        }
 
         [Test]
         public void TestLeftBlockingPop()

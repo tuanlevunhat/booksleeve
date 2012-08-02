@@ -253,6 +253,22 @@ namespace BookSleeve
                 sent.Enqueue(message);
             }
         }
+
+
+        /// <summary>
+        /// Give some information about the oldest incomplete (but sent) message on the server
+        /// </summary>
+        protected override string GetTimeoutSummary()
+        {
+            RedisMessage msg;
+            lock (sent)
+            {
+                if (sent.Count == 0) return null;
+                msg = sent.Peek();
+            }
+            return msg.ToString();
+        }
+
         /// <summary>
         /// Called after opening a connection
         /// </summary>

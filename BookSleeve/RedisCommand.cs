@@ -314,6 +314,10 @@ namespace BookSleeve
                 WriteCommand(stream, 1);
                 arg0.Write(stream);
             }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0.ToString();
+            }
         }
         sealed class RedisMessageUniString : RedisMessage
         {
@@ -327,6 +331,10 @@ namespace BookSleeve
             {
                 WriteCommand(stream, 1);
                 WriteUnified(stream, arg0);
+            }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0;
             }
         }
         sealed class RedisMessageBiString : RedisMessage
@@ -343,6 +351,10 @@ namespace BookSleeve
                 WriteCommand(stream, 2);
                 WriteUnified(stream, arg0);
                 WriteUnified(stream, arg1);
+            }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0 + " " + arg1;
             }
         }
         sealed class RedisMessageMultiString : RedisMessage
@@ -362,6 +374,13 @@ namespace BookSleeve
                 for (int i = 0; i < args.Length; i++ )
                     WriteUnified(stream, args[i]);
             }
+            public override string ToString()
+            {
+                StringBuilder sb = new StringBuilder(base.ToString());
+                for (int i = 0; i < args.Length; i++)
+                    sb.Append(" ").Append(args[i]);
+                return sb.ToString();
+            }
         }
         sealed class RedisMessageBi : RedisMessage
         {
@@ -377,6 +396,10 @@ namespace BookSleeve
                 WriteCommand(stream, 2);
                 arg0.Write(stream);
                 arg1.Write(stream);
+            }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0.ToString() + " " + arg1.ToString();
             }
         }
         sealed class RedisMessageTri : RedisMessage
@@ -395,6 +418,10 @@ namespace BookSleeve
                 arg0.Write(stream);
                 arg1.Write(stream);
                 arg2.Write(stream);
+            }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0.ToString() + " " + arg1.ToString() + " " + arg2.ToString();
             }
         }
         sealed class RedisMessageQuad : RedisMessage
@@ -416,6 +443,10 @@ namespace BookSleeve
                 arg2.Write(stream);
                 arg3.Write(stream);
             }
+            public override string ToString()
+            {
+                return base.ToString() + " " + arg0.ToString() + " " + arg1.ToString() + " " + arg2.ToString() + " " + arg3.ToString();
+            }
         }
         sealed class RedisMessageMulti : RedisMessage
         {
@@ -436,6 +467,13 @@ namespace BookSleeve
                     for (int i = 0; i < args.Length; i++)
                         args[i].Write(stream);
                 }
+            }
+            public override string ToString()
+            {
+                StringBuilder sb = new StringBuilder(base.ToString());
+                for (int i = 0; i < args.Length; i++)
+                    sb.Append(" ").Append(args[i]);
+                return sb.ToString();
             }
         }
         internal abstract class RedisParameter
@@ -464,6 +502,10 @@ namespace BookSleeve
                 {
                     WriteUnified(stream, value);
                 }
+                public override string ToString()
+                {
+                    return value.ToString();
+                }
             }
             class RedisStringParameter : RedisParameter
             {
@@ -472,6 +514,12 @@ namespace BookSleeve
                 public override void Write(Stream stream)
                 {
                     WriteUnified(stream, value);
+                }
+                public override string ToString()
+                {
+                    if (value == null) return "**NULL**";
+                    if (value.Length < 20) return "\"" + value + "\"";
+                    return "\"" + value.Substring(0, 15) + "...[" + value.Length.ToString() + "]";
                 }
             }
             class RedisBlobParameter : RedisParameter
@@ -482,6 +530,11 @@ namespace BookSleeve
                 {
                     WriteUnified(stream, value);
                 }
+                public override string ToString()
+                {
+                    if (value == null) return "**NULL**";
+                    return "{" + value.Length.ToString() + " bytes}";
+                }
             }
             class RedisInt64Parameter : RedisParameter
             {
@@ -491,6 +544,10 @@ namespace BookSleeve
                 {
                     WriteUnified(stream, value);
                 }
+                public override string ToString()
+                {
+                    return value.ToString();
+                }
             }
             class RedisDoubleParameter : RedisParameter
             {
@@ -499,6 +556,10 @@ namespace BookSleeve
                 public override void Write(Stream stream)
                 {
                     WriteUnified(stream, value);
+                }
+                public override string ToString()
+                {
+                    return value.ToString();
                 }
             }
         }

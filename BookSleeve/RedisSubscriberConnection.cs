@@ -263,6 +263,7 @@ namespace BookSleeve
         public void PatternUnsubscribe(string key)
         {
             ValidateKey(key, true);
+            RemoveNamedSubscription(key);
             EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, key), false);
         }
         /// <summary>
@@ -273,6 +274,7 @@ namespace BookSleeve
         public void PatternUnsubscribe(string[] keys)
         {
             ValidateKeys(keys, true);
+            RemoveNamedSubscriptions(keys);
             EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, keys), false);
         }
     }
