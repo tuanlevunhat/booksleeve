@@ -38,6 +38,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionUtils.cs" />
     <Compile Include="IServerCommands.cs">
       <DependentUpon>RedisConnection.cs</DependentUpon>
     </Compile>
