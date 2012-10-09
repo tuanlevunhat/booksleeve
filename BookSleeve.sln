@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookSleeve", "BookSleeve\BookSleeve.csproj", "{418634B2-8D66-42DB-9FCC-800639EC4540}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{41DB4CF7-55E0-41E6-B278-3A3B141DDD47}"
@@ -9,8 +9,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Async", "Async\Async.csproj
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{51F00EC5-785B-4B68-BE7F-055269D9D2EA}"
 	ProjectSection(SolutionItems) = preProject
+		BookSleeve.nuspec = BookSleeve.nuspec
 		license.txt = license.txt
 		nuget.png = nuget.png
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{9FF69DA9-48F9-4C0E-B954-C1ECA31F3D98}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\packages.config = .nuget\packages.config
 	EndProjectSection
 EndProject
 Global
