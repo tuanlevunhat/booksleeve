@@ -23,9 +23,9 @@ namespace Tests
         const string host = "127.0.0.1";
         const int unsecuredPort = 6379, securedPort = 6380;
 
-        internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false)
+        internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
         {
-            var conn = new RedisConnection(host, unsecuredPort, syncTimeout: 5000, ioTimeout: 5000, allowAdmin: allowAdmin);
+            var conn = new RedisConnection(host, unsecuredPort, syncTimeout: syncTimeout, ioTimeout: ioTimeout, allowAdmin: allowAdmin);
             conn.Error += (s, args) =>
             {
                 Trace.WriteLine(args.Exception.Message, args.Cause);

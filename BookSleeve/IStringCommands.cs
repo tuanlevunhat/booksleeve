@@ -433,9 +433,25 @@ namespace BookSleeve
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETBIT, key, offset, value ? 1L : 0L), queueJump);
         }
 
+        // minimise delegate creations via a single static delegate instance
+        static readonly Action<Task<bool>> takeLockContinuation =
+            task =>
+            {
+                var result = (TaskCompletionSource<bool>)task.AsyncState;
+                if (Condition.ShouldSetResult(task, result)) result.TrySetResult(task.Result);
+            };
+
         Task<bool> IStringCommands.TakeLock(int db, string key, string value, int expirySeconds, bool queueJump)
         {
-            return ExecuteBoolean(new LockMessage(db, key, value, expirySeconds), queueJump);
+            TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
+            
+            using (var tran = CreateTransaction(state: result))
+            {
+                tran.AddCondition(Condition.KeyNotExists(db, key));
+                tran.Strings.Set(db, key, value, expirySeconds);
+                tran.Execute(queueJump).ContinueWith(takeLockContinuation);
+            }
+            return result.Task;
         }
         Task IStringCommands.ReleaseLock(int db, string key, bool queueJump)
         {

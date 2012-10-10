@@ -13,8 +13,12 @@ namespace BookSleeve
 
     internal abstract class MessageResult<T> : IMessageResult
     {
-        private readonly TaskCompletionSource<T> source = new TaskCompletionSource<T>();
+        private readonly TaskCompletionSource<T> source;
         public Task<T> Task { get { return source.Task; } }
+        protected MessageResult(object state = null)
+        {
+            source = new TaskCompletionSource<T>(state);
+        }
         public void Complete(RedisResult result)
         {
             if (result.IsCancellation)
@@ -52,6 +56,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultBoolean : MessageResult<bool>
     {
+        public MessageResultBoolean(object state = null) : base(state) { }
         protected override bool GetValue(RedisResult result) { return result.ValueBoolean; }
     }
     internal sealed class MessageResultString : MessageResult<string>

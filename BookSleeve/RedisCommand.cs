@@ -602,6 +602,7 @@ namespace BookSleeve
     {
         void Execute(RedisConnectionBase redisConnectionBase, ref int currentDb);
     }
+    /*
     internal class LockMessage : RedisMessage, IMultiMessage
     {
         private readonly string key, value;
@@ -690,25 +691,66 @@ namespace BookSleeve
             return message ?? "Unknown lock failure";
         }
     }
+     */ 
     internal class MultiMessage : RedisMessage, IMultiMessage
     {
         void IMultiMessage.Execute(RedisConnectionBase conn, ref int currentDb)
         {
             var pending = messages;
-            List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
-            for (int i = 0; i < pending.Length; i++)
+            int estimateCount = pending.Length;
+
+            if (ExecutePreconditions(conn, ref currentDb))
             {
-                conn.WriteMessage(ref currentDb, pending[i], newlyQueued);
+                conn.WriteRaw(ref currentDb, this); // MULTI
+                List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
+                for (int i = 0; i < pending.Length; i++)
+                {
+                    conn.WriteMessage(ref currentDb, pending[i], newlyQueued);
+                }
+                newlyQueued.TrimExcess();
+                conn.WriteMessage(ref currentDb, Execute(newlyQueued), null);
             }
-            newlyQueued.TrimExcess();
-            conn.WriteMessage(ref currentDb, Execute(newlyQueued), null);
+            else
+            {
+                // preconditions failed; ABORT
+                conn.WriteMessage(ref currentDb, RedisMessage.Create(-1, RedisLiteral.UNWATCH).ExpectOk().Critical(), null);
+                exec.Complete(RedisResult.Multi(null)); // spoof a rollback; same appearance to the caller
+            }
         }
-        public MultiMessage(RedisConnection parent, RedisMessage[] messages)
+
+        private bool ExecutePreconditions(RedisConnectionBase conn, ref int currentDb)
+        {
+            if (conditions == null || conditions.Count == 0) return true;
+            
+            Task lastTask = null;
+            foreach (var cond in conditions)
+            {
+                lastTask = cond.Task;
+                foreach (var msg in cond.CreateMessages())
+                {
+                    conn.WriteMessage(ref currentDb, msg, null);
+                }
+            }
+            conn.Flush(true); // make sure we send it all
+
+            // now need to check all the preconditions passed
+            if (lastTask != null) conn.Wait(lastTask);
+
+            foreach (var cond in conditions)
+            {
+                if (!cond.Validate()) return false;    
+            }
+
+            return true;
+        }
+        private readonly List<Condition> conditions;
+        public MultiMessage(RedisConnection parent, RedisMessage[] messages, List<Condition> conditions, object state)
             : base(-1, RedisLiteral.MULTI)
         {
-            exec = new ExecMessage(parent);
+            exec = new ExecMessage(parent, state);
+            this.conditions = conditions;
             this.messages = messages;
-            ExpectOk();
+            ExpectOk().Critical();
         }
         private RedisMessage[] messages;
         public override void Write(Stream stream)
@@ -721,28 +763,27 @@ namespace BookSleeve
             exec.SetQueued(queued);
             return exec;
         }
-        public Task Completion { get { return exec.Completion; } }
-        private readonly static byte[]
-            multi = Encoding.ASCII.GetBytes("MULTI");
+        public Task<bool> Completion { get { return exec.Completion; } }
     }
     internal class ExecMessage : RedisMessage, IMessageResult
     {
         private RedisConnection parent;
-        public ExecMessage(RedisConnection parent)
+        public ExecMessage(RedisConnection parent, object state)
             : base(-1, RedisLiteral.EXEC)
         {
             if (parent == null) throw new ArgumentNullException("parent");
+            this.completion = new TaskCompletionSource<bool>(state);
             SetMessageResult(this);
             this.parent = parent;
+            Critical();
         }
-        private readonly TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
-        private readonly static byte[]
-            exec = Encoding.ASCII.GetBytes("EXEC");
+        private readonly TaskCompletionSource<bool> completion;
+
         public override void Write(Stream stream)
         {
             WriteCommand(stream, 0);
         }
-        public Task Completion { get { return completion.Task; } }
+        public Task<bool> Completion { get { return completion.Task; } }
         private QueuedMessage[] queued;
         internal void SetQueued(List<QueuedMessage> queued)
         {
@@ -751,31 +792,54 @@ namespace BookSleeve
             this.queued = queued.ToArray();
         }
 
+        void SetInnerReplies(RedisResult result)
+        {
+            if (queued != null)
+            {
+                for (int i = 0; i < queued.Length; i++)
+                {
+                    var reply = result; // need to be willing for this to be mutated
+                    var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
+                    parent.ProcessCallbacks(ctx, reply);
+                }
+            }
+        }
         void IMessageResult.Complete(RedisResult result)
         {
             if (result.IsCancellation)
             {
                 completion.SetCanceled();
+                SetInnerReplies(result);
             }
             else if (result.IsError)
             {
                 completion.SetException(result.Error());
+                SetInnerReplies(result);
             }
             else
             {
                 try
                 {
-                    if (queued == null) throw new InvalidOperationException("Nothing was queued (null)!");
                     var items = result.ValueItems;
-                    if (items.Length != queued.Length) throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
-
-                    for (int i = 0; i < items.Length; i++)
-                    {
-                        RedisResult reply = items[i];
-                        var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
-                        parent.ProcessCallbacks(ctx, reply);
+                    if (items == null)
+                    {   // aborted
+                        SetInnerReplies(RedisResult.Cancelled);
+                        completion.SetResult(false);
                     }
-                    completion.SetResult(true);
+                    else
+                    {
+
+                        if (items.Length != (queued == null ? 0 : queued.Length))
+                            throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
+
+                        for (int i = 0; i < items.Length; i++)
+                        {
+                            RedisResult reply = items[i];
+                            var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
+                            parent.ProcessCallbacks(ctx, reply);
+                        }
+                        completion.SetResult(true);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -851,6 +915,7 @@ namespace BookSleeve
         SUBSCRIBE, SUBSTR, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
         [DbFree]
         UNSUBSCRIBE,
+        [DbFree]
         UNWATCH,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
