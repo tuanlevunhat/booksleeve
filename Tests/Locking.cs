@@ -29,7 +29,7 @@ namespace Tests
                     {
                         conn.Strings.TakeLock(2, "abc", "def", 5);
                     }
-                    conn.Wait(conn.Ping());
+                    conn.Wait(conn.Server.Ping());
                     conn.Close(false);
                     if (Interlocked.Decrement(ref count) == 0) evt.Set();
                 };

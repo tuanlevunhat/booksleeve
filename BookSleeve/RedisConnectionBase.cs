@@ -708,6 +708,37 @@ namespace BookSleeve
         internal void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
         {
 
+            CheckDb(ref db, next, queued);
+
+            if (next.Command == RedisLiteral.SELECT)
+            {
+                // dealt with above; no need to send SELECT, SELECT
+            }
+            else
+            {
+                var mm = next as IMultiMessage;
+                var tmp = next;
+                if(queued != null)
+                {
+                    if(mm != null) throw new InvalidOperationException("Cannot perform composite operations (such as transactions) inside transactions");
+                    queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
+                }
+
+                if (mm == null)
+                {
+                    RecordSent(tmp);
+                    tmp.Write(outBuffer);
+                    Interlocked.Increment(ref messagesSent);
+                }
+                else
+                {
+                    mm.Execute(this, ref db);
+                }
+            }
+        }
+
+        private void CheckDb(ref int db, RedisMessage next, IList<QueuedMessage> queued)
+        {
             if (next.Db >= 0)
             {
                 if (db != next.Db)
@@ -724,29 +755,13 @@ namespace BookSleeve
                 }
                 LogUsage(db);
             }
-
-            if (next.Command == RedisLiteral.SELECT)
-            {
-                // dealt with above; no need to send SELECT, SELECT
-            }
-            else
-            {
-                var mm = next as IMultiMessage;
-                var tmp = next;
-                if(queued != null)
-                {
-                    if(mm != null) throw new InvalidOperationException("Cannot perform composite operations (such as transactions) inside transactions");
-                    queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
-                }
-                RecordSent(tmp);
-                tmp.Write(outBuffer);
-                Interlocked.Increment(ref messagesSent);
-
-                if (mm != null)
-                {
-                    mm.Execute(this, ref db);
-                }
-            }
+        }
+        internal void WriteRaw(ref int db, RedisMessage message)
+        {
+            CheckDb(ref db, message, null);
+            RecordSent(message);
+            message.Write(outBuffer);
+            Interlocked.Increment(ref messagesSent);
         }
         internal virtual void RecordSent(RedisMessage message, bool drainFirst = false) { }
         /// <summary>
@@ -938,6 +953,7 @@ namespace BookSleeve
                 throw;
             }
         }
+
         /// <summary>
         /// Give some information about the oldest incomplete (but sent) message on the server
         /// </summary>

@@ -72,9 +72,9 @@ namespace BookSleeve
         /// <summary>
         /// Allows multiple commands to be buffered and sent to redis as a single atomic unit
         /// </summary>
-        public virtual RedisTransaction CreateTransaction()
+        public virtual RedisTransaction CreateTransaction(object state = null)
         {
-            return new RedisTransaction(this);
+            return new RedisTransaction(this, state);
         }
         private RedisSubscriberConnection subscriberChannel;
 

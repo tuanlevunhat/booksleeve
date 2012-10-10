@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 
@@ -19,9 +20,11 @@ namespace BookSleeve
         public override Version ServerVersion { get { return parent.ServerVersion; } }
 
         private RedisConnection parent;
-        internal RedisTransaction(RedisConnection parent) : base(parent)
+        private readonly object state;
+        internal RedisTransaction(RedisConnection parent, object state = null) : base(parent)
         {
             this.parent = parent;
+            this.state = state;
         }
         /// <summary>
         /// Not supported, as nested transactions are not available.
@@ -29,7 +32,7 @@ namespace BookSleeve
         [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Nested transactions are not supported", true)]
 #pragma warning disable 809
-        public override RedisTransaction CreateTransaction()
+        public override RedisTransaction CreateTransaction(object state = null)
 #pragma warning restore 809
         {
             throw new NotSupportedException("Nested transactions are not supported");
@@ -52,7 +55,7 @@ namespace BookSleeve
         /// <summary>
         /// Sends all currently buffered commands to the redis server in a single unit; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
         /// </summary>
-        public Task Execute(bool queueJump = false)
+        public Task<bool> Execute(bool queueJump = false)
         {
             var all = DequeueAll();
             if (all.Length == 0)
@@ -61,10 +64,23 @@ namespace BookSleeve
                 nix.SetResult(true);
                 return nix.Task;
             }
-            var multiMessage = new MultiMessage(parent, all);
+            var multiMessage = new MultiMessage(parent, all, conditions, state);
+            conditions = null; // wipe
             parent.EnqueueMessage(multiMessage, queueJump);
             return multiMessage.Completion;
         }
+        private List<Condition> conditions;
+        /// <summary>
+        /// Add a precondition to be enforced for this transaction
+        /// </summary>
+        public Task<bool> AddCondition(Condition condition)
+        {
+            if (condition == null) throw new ArgumentNullException("condition");
+            if (conditions == null) conditions = new List<Condition>();
+            conditions.Add(condition);
+            return condition.Task;
+        }
+
         /// <summary>
         /// Discards any buffered commands; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
         /// </summary>
