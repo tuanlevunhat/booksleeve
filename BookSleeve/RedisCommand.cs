@@ -783,6 +783,7 @@ namespace BookSleeve
         {
             WriteCommand(stream, 0);
         }
+        Task IMessageResult.Task { get { return completion.Task; } }
         public Task<bool> Completion { get { return completion.Task; } }
         private QueuedMessage[] queued;
         internal void SetQueued(List<QueuedMessage> queued)

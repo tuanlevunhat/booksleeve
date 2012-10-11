@@ -445,11 +445,11 @@ namespace BookSleeve
         {
             TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
             
-            using (var tran = CreateTransaction(state: result))
+            using (var tran = CreateTransaction())
             {
                 tran.AddCondition(Condition.KeyNotExists(db, key));
                 tran.Strings.Set(db, key, value, expirySeconds);
-                tran.Execute(queueJump).ContinueWith(takeLockContinuation);
+                tran.Execute(queueJump, state: result).ContinueWith(takeLockContinuation);
             }
             return result.Task;
         }
