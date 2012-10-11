@@ -8,6 +8,7 @@ namespace BookSleeve
 {
     internal abstract class RedisResult
     {
+        internal abstract bool IsNil { get; }
         internal static RedisResult Message(byte[] value) { return new MessageRedisResult(value); }
         internal static RedisResult Error(string value) { return new ErrorRedisResult(value); }
         internal static RedisResult Integer(long value) { return new Int64RedisResult(value); }
@@ -30,7 +31,8 @@ namespace BookSleeve
             return true;
         }
         public virtual Exception Error() { return new InvalidOperationException("This operation is not supported by " + GetType().Name); }
-        public virtual long ValueInt64 { get { return int.Parse(ValueString); } }
+        public virtual long ValueInt64 { get {
+            return int.Parse(ValueString); } }
         public bool ValueBoolean { get { return ValueInt64 != 0; } }
         public virtual string ValueString
         {
@@ -55,12 +57,14 @@ namespace BookSleeve
             public override long ValueInt64 { get { return value; } }
             public override string ValueString { get { return value.ToString(); } }
             public override double ValueDouble { get { return value; } }
+            internal override bool IsNil { get { return false; } }
         }
         private class MessageRedisResult : RedisResult
         {
             internal MessageRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
             public override byte[] ValueBytes { get { return value; } }
+            internal override bool IsNil { get { return value == null; } }
         }
         internal class TimingRedisResult : RedisResult
         {
@@ -71,6 +75,7 @@ namespace BookSleeve
             public override long ValueInt64{ get{return (long)(send.TotalMilliseconds + receive.TotalMilliseconds); } }
             public override string ValueString{ get{ return ValueInt64.ToString(); } }
             public override byte[] ValueBytes { get { return Encoding.UTF8.GetBytes(ValueString); } }
+            internal override bool IsNil { get { return false; } }
         }
         private class ErrorRedisResult : RedisResult
         {
@@ -80,12 +85,14 @@ namespace BookSleeve
             public override bool IsError { get { return true; } }
             public override Exception Error() { return new RedisException(message); }
             public override RedisResult[] ValueItems { get { throw Error(); } }
+            internal override bool IsNil { get { return false; } }
         }
         private class BytesRedisResult : RedisResult
         {
             internal BytesRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
             public override byte[] ValueBytes { get { return value; } }
+            internal override bool IsNil { get { return value == null; } }
         }
         public static readonly RedisResult Pass = new PassRedisResult(),
             TimeoutNotSent = new TimeoutRedisResult("Timeout; the messsage was not sent"),
@@ -95,23 +102,13 @@ namespace BookSleeve
         private class PassRedisResult : RedisResult
         {
             internal PassRedisResult() { }
+            internal override bool IsNil { get { return false; } }
         }
         private class CancellationRedisResult : RedisResult
         {
-            public override bool IsCancellation
-            {
-                get
-                {
-                    return true;
-                }
-            }
-            public override bool IsError
-            {
-                get
-                {
-                    return true;
-                }
-            }
+            public override bool IsCancellation { get { return true; } }
+            public override bool IsError { get { return true; } }
+            internal override bool IsNil { get { return false; } }
             public override Exception Error()
             {
                 return new InvalidOperationException("The message was cancelled");
@@ -124,6 +121,7 @@ namespace BookSleeve
             public override bool IsError { get { return true; } }
             public override Exception Error() { return new TimeoutException(message); }
             public override RedisResult[] ValueItems {get { throw Error(); }}
+            internal override bool IsNil { get { return false; } }
         }
 
         internal static RedisResult Multi(RedisResult[] inner)
@@ -213,6 +211,7 @@ namespace BookSleeve
         private readonly RedisResult[] items;
         public override RedisResult[] ValueItems { get { return items; } }
         public MultiRedisResult(RedisResult[] items) { this.items = items; }
+        internal override bool IsNil { get { return items == null; } }
     }
     /// <summary>
     /// An redis-related exception; this could represent a message from the server,

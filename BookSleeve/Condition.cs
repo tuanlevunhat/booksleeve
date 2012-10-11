@@ -50,7 +50,7 @@ namespace BookSleeve
         /// <summary>
         /// Enforces that the given key must have the specified value
         /// </summary>
-        public static Condition KeyEquals(int db, string key, long value)
+        public static Condition KeyEquals(int db, string key, long? value)
         {
             return new Int64EqualsCondition(db, key, null, true, value);
         }
@@ -64,7 +64,7 @@ namespace BookSleeve
         /// <summary>
         /// Enforces that the given key must not have the specified value
         /// </summary>
-        public static Condition KeyNotEquals(int db, string key, long value)
+        public static Condition KeyNotEquals(int db, string key, long? value)
         {
             return new Int64EqualsCondition(db, key, null, false, value);
         }
@@ -79,7 +79,7 @@ namespace BookSleeve
         /// <summary>
         /// Enforces that the given hash-field must have the specified value
         /// </summary>
-        public static Condition HashFieldEquals(int db, string key, string hashField, long value)
+        public static Condition HashFieldEquals(int db, string key, string hashField, long? value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
             return new Int64EqualsCondition(db, key, hashField, true, value);
@@ -95,7 +95,7 @@ namespace BookSleeve
         /// <summary>
         /// Enforces that the given hash-field must not have the specified value
         /// </summary>
-        public static Condition HashFieldNotEquals(int db, string key, string hashField, long value)
+        public static Condition HashFieldNotEquals(int db, string key, string hashField, long? value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
             return new Int64EqualsCondition(db, key, hashField, false, value);
@@ -152,7 +152,7 @@ namespace BookSleeve
             protected abstract bool ResultEquals(Task completedTask);
             protected EqualsCondition(int db, string key, string hashField, bool expectedEqual)
             {
-                if (!string.IsNullOrEmpty(key)) throw new ArgumentException("key");
+                if (string.IsNullOrEmpty(key)) throw new ArgumentException("key");
                 this.db = db;
                 this.key = key;
                 this.hashField = hashField;
@@ -178,19 +178,19 @@ namespace BookSleeve
         }
         private class Int64EqualsCondition : EqualsCondition
         {
-            public Int64EqualsCondition(int db, string key, string hashField, bool expectedEqual, long expectedValue)
+            public Int64EqualsCondition(int db, string key, string hashField, bool expectedEqual, long? expectedValue)
                 : base(db, key, hashField, expectedEqual)
             {
                 this.expectedValue = expectedValue;
             }
-            readonly long expectedValue;
+            readonly long? expectedValue;
             protected override bool ResultEquals(Task completedTask)
             {
-                return ((Task<long>)completedTask).Result == expectedValue;
+                return ((Task<long?>)completedTask).Result == expectedValue;
             }
             protected override IMessageResult CreateMessageResult(object state)
             {
-                return new MessageResultInt64(state);
+                return new MessageResultNullableInt64(state);
             }
         }
         private class ExistsCondition : Condition

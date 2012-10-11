@@ -57,6 +57,13 @@ namespace BookSleeve
         Task<string> GetString(int db, string key, bool queueJump = false);
 
         /// <summary>
+        /// Get the value of key. If the key does not exist the special value nil is returned. An error is returned if the value stored at key is not a string, because GET only handles string values.
+        /// </summary>
+        /// <returns>the value of key, or nil when key does not exist.</returns>
+        /// <remarks>http://redis.io/commands/get</remarks>
+        Task<long?> GetInt64(int db, string key, bool queueJump = false);
+
+        /// <summary>
         /// Returns the substring of the string value stored at key, determined by the offsets start and end (both are inclusive).
         /// </summary>
         /// <remarks>Negative offsets can be used in order to provide an offset starting from the end of the string. So -1 means the last character, -2 the penultimate and so forth. The function handles out of range requests by limiting the resulting range to the actual length of the string.</remarks>
@@ -105,6 +112,12 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/set</remarks>
         Task Set(int db, string key, string value, bool queueJump = false);
+
+        /// <summary>
+        /// Set key to hold the string value. If key already holds a value, it is overwritten, regardless of its type.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/set</remarks>
+        Task Set(int db, string key, long value, bool queueJump = false);
 
         /// <summary>
         /// Set key to hold the string value. If key already holds a value, it is overwritten, regardless of its type.
@@ -297,6 +310,10 @@ namespace BookSleeve
         {
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.GET, key), queueJump);
         }
+        Task<long?> IStringCommands.GetInt64(int db, string key, bool queueJump)
+        {
+            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.GET, key), queueJump);
+        }
 
         Task<byte[]> IStringCommands.Get(int db, string key, int start, int end, bool queueJump)
         {
@@ -337,6 +354,10 @@ namespace BookSleeve
         }
 
         Task IStringCommands.Set(int db, string key, string value, bool queueJump)
+        {
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
+        }
+        Task IStringCommands.Set(int db, string key, long value, bool queueJump)
         {
             return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
         }

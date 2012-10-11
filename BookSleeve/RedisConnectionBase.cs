@@ -643,13 +643,34 @@ namespace BookSleeve
         protected void OnError(string cause, Exception ex, bool isFatal)
         {
             var handler = Error;
+            var agg = ex as AggregateException;
             if (handler == null)
             {
-                Trace.WriteLine(ex.Message, cause);
+                if (agg != null)
+                {
+                    foreach (var inner in agg.InnerExceptions)
+                    {
+                        Trace.WriteLine(inner.Message, cause);
+                    }
+                }
+                else
+                {
+                    Trace.WriteLine(ex.Message, cause);
+                }
             }
             else
             {
-                handler(this, new ErrorEventArgs(ex, cause, isFatal));
+                if (agg != null)
+                {
+                    foreach (var inner in agg.InnerExceptions)
+                    {
+                        handler(this, new ErrorEventArgs(inner, cause, isFatal));
+                    }
+                }
+                else
+                {
+                    handler(this, new ErrorEventArgs(ex, cause, isFatal));
+                }
             }
         }
         private Stream outBuffer;
@@ -840,6 +861,13 @@ namespace BookSleeve
         internal Task<string> ExecuteString(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultString();
+            message.SetMessageResult(msgResult);
+            EnqueueMessage(message, queueJump);
+            return msgResult.Task;
+        }
+        internal Task<long?> ExecuteNullableInt64(RedisMessage message, bool queueJump)
+        {
+            var msgResult = new MessageResultNullableInt64();
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
