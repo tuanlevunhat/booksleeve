@@ -602,96 +602,6 @@ namespace BookSleeve
     {
         void Execute(RedisConnectionBase redisConnectionBase, ref int currentDb);
     }
-    /*
-    internal class LockMessage : RedisMessage, IMultiMessage
-    {
-        private readonly string key, value;
-        private readonly int timeout;
-        public LockMessage(int db, string key, string value, int timeout)
-            : base(db, RedisLiteral.WATCH)
-        {
-            this.key = key;
-            this.value = value;
-            this.timeout = timeout;
-        }
-        public override void Write(Stream stream)
-        {
-            WriteCommand(stream, 1);
-            WriteUnified(stream, key);
-        }
-        internal override void Complete(RedisResult result)
-        {
-            // do nothing - this is just the WATCH; we'll spoof the reply manually from the multi-message reply
-        }
-        void IMultiMessage.Execute(RedisConnectionBase connection, ref int currentDb)
-        {
-            // note: composite command in a tight time-frame! most user-facing code won't look this bad; this is just ugly
-            // because it is infrastructure code; tough!
-
-            var existsResult = new MessageResultBoolean();
-            var existsMessage = RedisMessage.Create(Db, RedisLiteral.EXISTS, key); // watch the key; we want changes to cause abort
-            existsMessage.SetMessageResult(existsResult);
-            connection.WriteMessage(ref currentDb, existsMessage, null);
-            connection.Flush(true); // make sure it goes to the server! if we wait for it, and it is stuck
-                                    // in the buffer, we've deadlocked ourself
-
-            // now, we need to issue the rest of the composite command immediately to avoid multiplex issues,
-            // so we must wait on the EXISTS, and act accordingly
-            bool exists = connection.Wait(existsResult.Task);
-
-            if (exists)
-            {
-                // obviously locked; just unwatch and return false
-                connection.WriteMessage(ref currentDb, RedisMessage.Create(Db, RedisLiteral.UNWATCH), null);
-                base.Complete(RedisResult.Integer(0));   
-            }
-            else
-            {
-                // isn't obviously locked; try a multi/setnx/expire/exec; if someone else has touched the key, this will fail and
-                // we'll return false; otherwise, we get a lock with an expiry set
-                connection.WriteMessage(ref currentDb, RedisMessage.Create(-1, RedisLiteral.MULTI), null);
-                var pending = new List<QueuedMessage>();
-                connection.WriteMessage(ref currentDb, RedisMessage.Create(Db, RedisLiteral.SETNX, key, value), pending);
-                connection.WriteMessage(ref currentDb, RedisMessage.Create(Db, RedisLiteral.EXPIRE, key, timeout), pending);
-                var execResult = new MessageLockResult();
-                var exec = RedisMessage.Create(-1, RedisLiteral.EXEC).Critical();
-                exec.SetMessageResult(execResult);
-                execResult.Task.ContinueWith(task =>
-                {
-                    if (task.Status == TaskStatus.RanToCompletion)
-                    {
-                        base.Complete(RedisResult.Integer(task.Result ? 1 : 0));
-                    }
-                    else
-                    {
-                        base.Complete(RedisResult.Error(GetErrorMessage(task.Exception)));
-                    }
-                });
-                connection.WriteMessage(ref currentDb, exec, null);
-            }
-        }
-
-        private static string GetErrorMessage(AggregateException ex)
-        {
-            string message = null;
-            if(ex != null)
-            {
-                if (ex.InnerExceptions.Count == 1)
-                {
-                    message = ex.InnerExceptions[0].Message;
-    #if VERBOSE
-                        Trace.WriteLine(ex.InnerExceptions[0].StackTrace);
-    #endif
-                }
-                else
-                {
-                    message = ex.Message;
-                }
-            }
-            return message ?? "Unknown lock failure";
-        }
-    }
-     */ 
     internal class MultiMessage : RedisMessage, IMultiMessage
     {
         void IMultiMessage.Execute(RedisConnectionBase conn, ref int currentDb)
@@ -701,7 +611,7 @@ namespace BookSleeve
 
             if (ExecutePreconditions(conn, ref currentDb))
             {
-                conn.WriteRaw(ref currentDb, this); // MULTI
+                conn.WriteRaw(this); // MULTI
                 List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
                 for (int i = 0; i < pending.Length; i++)
                 {
