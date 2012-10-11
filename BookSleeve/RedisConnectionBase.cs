@@ -708,7 +708,22 @@ namespace BookSleeve
         internal void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
         {
 
-            CheckDb(ref db, next, queued);
+            if (next.Db >= 0)
+            {
+                if (db != next.Db)
+                {
+                    db = next.Db;
+                    RedisMessage changeDb = RedisMessage.Create(db, RedisLiteral.SELECT, db).ExpectOk().Critical();
+                    if (queued != null)
+                    {
+                        queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
+                    }
+                    RecordSent(changeDb);
+                    changeDb.Write(outBuffer);
+                    Interlocked.Increment(ref messagesSent);
+                }
+                LogUsage(db);
+            }
 
             if (next.Command == RedisLiteral.SELECT)
             {
@@ -737,28 +752,9 @@ namespace BookSleeve
             }
         }
 
-        private void CheckDb(ref int db, RedisMessage next, IList<QueuedMessage> queued)
+        internal void WriteRaw(RedisMessage message)
         {
-            if (next.Db >= 0)
-            {
-                if (db != next.Db)
-                {
-                    db = next.Db;
-                    RedisMessage changeDb = RedisMessage.Create(db, RedisLiteral.SELECT, db).ExpectOk().Critical();
-                    if (queued != null)
-                    {
-                        queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
-                    }
-                    RecordSent(changeDb);
-                    changeDb.Write(outBuffer);
-                    Interlocked.Increment(ref messagesSent);
-                }
-                LogUsage(db);
-            }
-        }
-        internal void WriteRaw(ref int db, RedisMessage message)
-        {
-            CheckDb(ref db, message, null);
+            if (message.Db >= 0) throw new ArgumentException("message", "WriteRaw cannot be used with db-centric messages");
             RecordSent(message);
             message.Write(outBuffer);
             Interlocked.Increment(ref messagesSent);
