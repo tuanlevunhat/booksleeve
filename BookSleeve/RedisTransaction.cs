@@ -20,11 +20,10 @@ namespace BookSleeve
         public override Version ServerVersion { get { return parent.ServerVersion; } }
 
         private RedisConnection parent;
-        private readonly object state;
-        internal RedisTransaction(RedisConnection parent, object state = null) : base(parent)
+        
+        internal RedisTransaction(RedisConnection parent) : base(parent)
         {
             this.parent = parent;
-            this.state = state;
         }
         /// <summary>
         /// Not supported, as nested transactions are not available.
@@ -32,7 +31,7 @@ namespace BookSleeve
         [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Nested transactions are not supported", true)]
 #pragma warning disable 809
-        public override RedisTransaction CreateTransaction(object state = null)
+        public override RedisTransaction CreateTransaction()
 #pragma warning restore 809
         {
             throw new NotSupportedException("Nested transactions are not supported");
@@ -55,7 +54,7 @@ namespace BookSleeve
         /// <summary>
         /// Sends all currently buffered commands to the redis server in a single unit; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
         /// </summary>
-        public Task<bool> Execute(bool queueJump = false)
+        public Task<bool> Execute(bool queueJump = false, object state = null)
         {
             var all = DequeueAll();
             if (all.Length == 0)

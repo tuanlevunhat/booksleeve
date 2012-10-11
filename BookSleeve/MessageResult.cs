@@ -9,12 +9,14 @@ namespace BookSleeve
     internal interface IMessageResult
     {
         void Complete(RedisResult result);
+        Task Task { get; }
     }
 
     internal abstract class MessageResult<T> : IMessageResult
     {
         private readonly TaskCompletionSource<T> source;
         public Task<T> Task { get { return source.Task; } }
+        Task IMessageResult.Task { get { return source.Task; } }
         protected MessageResult(object state = null)
         {
             source = new TaskCompletionSource<T>(state);
@@ -48,10 +50,12 @@ namespace BookSleeve
     }
     internal sealed class MessageResultDouble : MessageResult<double>
     {
+        public MessageResultDouble(object state = null) : base(state) { }
         protected override double  GetValue(RedisResult result) { return result.ValueDouble; }
     }
     internal sealed class MessageResultInt64 : MessageResult<long>
     {
+        public MessageResultInt64(object state = null) : base(state) { }
         protected override long GetValue(RedisResult result) { return result.ValueInt64; }
     }
     internal sealed class MessageResultBoolean : MessageResult<bool>
@@ -61,6 +65,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultString : MessageResult<string>
     {
+        public MessageResultString(object state = null) : base(state) { }
         protected override string GetValue(RedisResult result) { return result.ValueString; }
     }
     internal sealed class MessageResultRaw : MessageResult<RedisResult>
@@ -73,6 +78,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultBytes : MessageResult<byte[]>
     {
+        public MessageResultBytes(object state = null) : base(state) { }
         protected override byte[] GetValue(RedisResult result) { return result.ValueBytes; }
     }
     internal sealed class MessageResultMultiBytes : MessageResult<byte[][]>
