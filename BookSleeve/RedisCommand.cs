@@ -731,15 +731,14 @@ namespace BookSleeve
             {
                 try
                 {
-                    var items = result.ValueItems;
-                    if (items == null)
+                    if (result.IsNil)
                     {   // aborted
                         SetInnerReplies(RedisResult.Cancelled);
                         completion.SetResult(false);
                     }
                     else
                     {
-
+                        var items = result.ValueItems;
                         if (items.Length != (queued == null ? 0 : queued.Length))
                             throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
 

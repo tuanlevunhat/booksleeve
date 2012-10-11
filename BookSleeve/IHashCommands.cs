@@ -43,6 +43,12 @@ namespace BookSleeve
         /// </summary>
         /// <returns>the value associated with field, or nil when field is not present in the hash or key does not exist.</returns>
         /// <remarks>http://redis.io/commands/hget</remarks>
+        Task<long?> GetInt64(int db, string key, string field, bool queueJump = false);
+        /// <summary>
+        /// Returns the value associated with field in the hash stored at key.
+        /// </summary>
+        /// <returns>the value associated with field, or nil when field is not present in the hash or key does not exist.</returns>
+        /// <remarks>http://redis.io/commands/hget</remarks>
         Task<byte[]> Get(int db, string key, string field, bool queueJump = false);
         /// <summary>
         /// Returns the values associated with the specified fields in the hash stored at key. For every field that does not exist in the hash, a nil value is returned.
@@ -253,8 +259,11 @@ namespace BookSleeve
         }
         Task<string> IHashCommands.GetString(int db, string key, string field, bool queueJump)
         {
-            
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
+        }
+        Task<long?> IHashCommands.GetInt64(int db, string key, string field, bool queueJump)
+        {
+            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.HGET, key, field), queueJump);
         }
         /// <summary>
         /// Returns the value associated with field in the hash stored at key.

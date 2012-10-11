@@ -58,6 +58,11 @@ namespace BookSleeve
         public MessageResultInt64(object state = null) : base(state) { }
         protected override long GetValue(RedisResult result) { return result.ValueInt64; }
     }
+    internal sealed class MessageResultNullableInt64 : MessageResult<long?>
+    {
+        public MessageResultNullableInt64(object state = null) : base(state) { }
+        protected override long? GetValue(RedisResult result) { return result.IsNil ? (long?)null : (long?)result.ValueInt64; }
+    }
     internal sealed class MessageResultBoolean : MessageResult<bool>
     {
         public MessageResultBoolean(object state = null) : base(state) { }
