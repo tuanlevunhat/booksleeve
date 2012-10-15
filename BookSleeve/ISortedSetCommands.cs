@@ -101,7 +101,9 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/zrangebyscore</remarks>
         /// <remarks>http://redis.io/commands/zrevrangebyscore</remarks>
         /// <returns>list of elements in the specified score range (optionally with their scores).</returns>
-        Task<KeyValuePair<byte[], double>[]> Range(int db, string key, double min, double max, bool ascending = true,
+        Task<KeyValuePair<byte[], double>[]> Range(int db, string key,
+                                                   double min = double.NegativeInfinity, double max = double.PositiveInfinity,
+                                                    bool ascending = true,
                                                    bool minInclusive = true, bool maxInclusive = true,
                                                    long offset = 0, long count = long.MaxValue, bool queueJump = false);
 
@@ -329,9 +331,10 @@ namespace BookSleeve
 
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
         {
-            
             return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGEBYSCORE : RedisLiteral.ZREVRANGEBYSCORE, key,
-                RedisMessage.RedisParameter.Range(min, minInclusive), RedisMessage.RedisParameter.Range(max, maxInclusive), RedisLiteral.WITHSCORES), queueJump);
+                ascending ? RedisMessage.RedisParameter.Range(min, minInclusive) : RedisMessage.RedisParameter.Range(max, maxInclusive),
+                ascending ? RedisMessage.RedisParameter.Range(max, maxInclusive) : RedisMessage.RedisParameter.Range(min, minInclusive),
+                RedisLiteral.WITHSCORES, RedisLiteral.LIMIT, offset, count), queueJump);
         }
         /// <summary>
         /// See SortedSets.GetRange

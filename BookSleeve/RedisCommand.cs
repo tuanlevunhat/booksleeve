@@ -267,6 +267,11 @@ namespace BookSleeve
         }
         private static string ToString(double value)
         {
+            if (double.IsInfinity(value))
+            {
+                if(double.IsPositiveInfinity(value)) return "+inf";
+                if(double.IsNegativeInfinity(value)) return "-inf";
+            }
             return value.ToString("G", CultureInfo.InvariantCulture);
         }
         protected static void WriteRaw(Stream stream, long value)
@@ -829,7 +834,7 @@ namespace BookSleeve
         UNWATCH,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
-        NO,ONE,WITHSCORES,BEFORE,AFTER,AGGREGATE,WEIGHTS,SUM,MIN,MAX
+        NO,ONE,WITHSCORES,LIMIT,BEFORE,AFTER,AGGREGATE,WEIGHTS,SUM,MIN,MAX
         
     }
 }

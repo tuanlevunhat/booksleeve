@@ -48,7 +48,12 @@ namespace BookSleeve
         public virtual RedisResult[] ValueItems { get { return null; } }
         public virtual bool IsError { get { return false; } }
         public virtual bool IsCancellation { get { return false; } }
-        public virtual double ValueDouble { get { return double.Parse(ValueString, CultureInfo.InvariantCulture); } }
+        public virtual double ValueDouble { get {
+            string s = ValueString;
+            if (string.Equals(s, "-inf", StringComparison.OrdinalIgnoreCase)) return double.NegativeInfinity;
+            if (string.Equals(s, "inf", StringComparison.OrdinalIgnoreCase)) return double.PositiveInfinity;
+            return double.Parse(s, CultureInfo.InvariantCulture);
+        } }
 
         private class Int64RedisResult : RedisResult
         {
