@@ -321,20 +321,39 @@ namespace BookSleeve
         }
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, long start, long stop, bool ascending, bool queueJump)
         {            
-            return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start, stop, RedisLiteral.WITHSCORES), queueJump);
+            return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start,
+                (stop == long.MaxValue ? -1 : stop), RedisLiteral.WITHSCORES), queueJump);
         }
 
         Task<KeyValuePair<string, double>[]> ISortedSetCommands.RangeString(int db, string key, long start, long stop, bool ascending, bool queueJump)
         {
-            return ExecuteStringDoublePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start, stop, RedisLiteral.WITHSCORES), queueJump);
+            return ExecuteStringDoublePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start,
+                (stop == long.MaxValue ? -1 : stop), RedisLiteral.WITHSCORES), queueJump);
         }
 
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
         {
-            return ExecutePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGEBYSCORE : RedisLiteral.ZREVRANGEBYSCORE, key,
-                ascending ? RedisMessage.RedisParameter.Range(min, minInclusive) : RedisMessage.RedisParameter.Range(max, maxInclusive),
-                ascending ? RedisMessage.RedisParameter.Range(max, maxInclusive) : RedisMessage.RedisParameter.Range(min, minInclusive),
-                RedisLiteral.WITHSCORES, RedisLiteral.LIMIT, offset, count), queueJump);
+            RedisMessage msg;
+            if (minInclusive && maxInclusive && double.IsNegativeInfinity(min) && double.IsPositiveInfinity(max) && offset >= 0 && count != 0)
+            { // considering entire set; can be done more efficiently with ZRANGE/ZREVRANGE
+                msg = RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, offset,
+                    (count < 0 || count == long.MaxValue) ? -1 : (offset + count - 1), RedisLiteral.WITHSCORES);
+            }
+            else if (offset == 0 && (count < 0 || count == long.MaxValue))
+            { // no need for a LIMIT
+                msg = RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGEBYSCORE : RedisLiteral.ZREVRANGEBYSCORE, key,
+                    ascending ? RedisMessage.RedisParameter.Range(min, minInclusive) : RedisMessage.RedisParameter.Range(max, maxInclusive),
+                    ascending ? RedisMessage.RedisParameter.Range(max, maxInclusive) : RedisMessage.RedisParameter.Range(min, minInclusive),
+                    RedisLiteral.WITHSCORES);
+            }
+            else
+            {
+                msg = RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGEBYSCORE : RedisLiteral.ZREVRANGEBYSCORE, key,
+                    ascending ? RedisMessage.RedisParameter.Range(min, minInclusive) : RedisMessage.RedisParameter.Range(max, maxInclusive),
+                    ascending ? RedisMessage.RedisParameter.Range(max, maxInclusive) : RedisMessage.RedisParameter.Range(min, minInclusive),
+                    RedisLiteral.WITHSCORES, RedisLiteral.LIMIT, offset, (count < 0 || count == long.MaxValue) ? -1 : count);
+            }
+            return ExecutePairs(msg, queueJump);
         }
         /// <summary>
         /// See SortedSets.GetRange
