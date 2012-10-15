@@ -30,8 +30,11 @@ namespace Tests
             var newVal = (oldVal ?? 0) + 1;
             using (var tran = connection.CreateTransaction())
             { // check hasn't changed
+
+#pragma warning disable 4014
                 tran.AddCondition(Condition.KeyEquals(db, key, oldVal));
                 tran.Strings.Set(db, key, newVal);
+#pragma warning restore 4014
                 if (!await tran.Execute()) return null; // aborted
                 return newVal;
             }    

@@ -45,6 +45,7 @@ namespace BookSleeve
         /// </summary>
         public static Condition KeyEquals(int db, string key, string value)
         {
+            if (value == null) return KeyNotExists(db, key);
             return new StringEqualsCondition(db, key, null, true, value);
         }
         /// <summary>
@@ -52,6 +53,7 @@ namespace BookSleeve
         /// </summary>
         public static Condition KeyEquals(int db, string key, long? value)
         {
+            if (value == null) return KeyNotExists(db, key);
             return new Int64EqualsCondition(db, key, null, true, value);
         }
         /// <summary>
@@ -59,6 +61,7 @@ namespace BookSleeve
         /// </summary>
         public static Condition KeyNotEquals(int db, string key, string value)
         {
+            if (value == null) return KeyExists(db, key);
             return new StringEqualsCondition(db, key, null, false, value);
         }
         /// <summary>
@@ -66,6 +69,7 @@ namespace BookSleeve
         /// </summary>
         public static Condition KeyNotEquals(int db, string key, long? value)
         {
+            if (value == null) return KeyExists(db, key);
             return new Int64EqualsCondition(db, key, null, false, value);
         }
         /// <summary>
@@ -74,6 +78,7 @@ namespace BookSleeve
         public static Condition HashFieldEquals(int db, string key, string hashField, string value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
+            if (value == null) return HashFieldNotExists(db, key, hashField);
             return new StringEqualsCondition(db, key, hashField, true, value);
         }
         /// <summary>
@@ -82,6 +87,7 @@ namespace BookSleeve
         public static Condition HashFieldEquals(int db, string key, string hashField, long? value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
+            if (value == null) return HashFieldNotExists(db, key, hashField);
             return new Int64EqualsCondition(db, key, hashField, true, value);
         }
         /// <summary>
@@ -90,6 +96,7 @@ namespace BookSleeve
         public static Condition HashFieldNotEquals(int db, string key, string hashField, string value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
+            if (value == null) return HashFieldExists(db, key, hashField);
             return new StringEqualsCondition(db, key, hashField, false, value);
         }
         /// <summary>
@@ -98,6 +105,7 @@ namespace BookSleeve
         public static Condition HashFieldNotEquals(int db, string key, string hashField, long? value)
         {
             if (string.IsNullOrEmpty(hashField)) throw new ArgumentException("hashField");
+            if (value == null) return HashFieldExists(db, key, hashField);
             return new Int64EqualsCondition(db, key, hashField, false, value);
         }
 

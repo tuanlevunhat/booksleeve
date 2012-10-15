@@ -2,6 +2,7 @@
 using NUnit.Framework;
 using System.Linq;
 using System;
+using System.Threading;
 namespace Tests
 {
     [TestFixture]
@@ -698,6 +699,8 @@ namespace Tests
                 found1 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
                 found2 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
                 var found3 = conn.Lists.BlockingRemoveLastAndAddFirst(1, "source", "target", 1);
+                Thread.Sleep(100); // make sure those commands at least get queued before conn2 starts monkeying
+
                 conn2.Lists.AddFirst(1, "source", "def");
                 conn2.Lists.AddFirst(1, "source", "ghi");
                 Assert.AreEqual("abc", Encoding.UTF8.GetString(found0.Result));

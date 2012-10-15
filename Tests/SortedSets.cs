@@ -3,6 +3,7 @@ using NUnit.Framework;
 using System;
 using System.Text;
 using BookSleeve;
+using System.Collections.Generic;
 
 namespace Tests
 {
@@ -45,6 +46,33 @@ namespace Tests
             return key;
         }
         [Test]
+        public void GetAll()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                double minActual, maxActual;
+                string key = SeedRange(conn, out minActual, out maxActual);
+
+                var all = conn.Wait(conn.SortedSets.Range(0, key, 0.0, 1.0));
+                Assert.AreEqual(50, all.Length, "all between 0.0 and 1.0");
+
+                var subset = conn.Wait(conn.SortedSets.Range(0, key, 0.0, 1.0, offset: 2, count: 46));
+                Assert.AreEqual(46, subset.Length);
+
+                var subVals = new HashSet<double>(subset.Select(x => x.Value));
+
+                Assert.IsFalse(subVals.Contains(all[0].Value));
+                Assert.IsFalse(subVals.Contains(all[1].Value));
+                Assert.IsFalse(subVals.Contains(all[48].Value));
+                Assert.IsFalse(subVals.Contains(all[49].Value));
+                for (int i = 2; i < 48; i++)
+                {
+                    Assert.IsTrue(subVals.Contains(all[i].Value));
+                }
+            }
+        }
+
+        [Test]
         public void FindMinMax()
         {
             using (var conn = Config.GetUnsecuredConnection())
@@ -52,10 +80,8 @@ namespace Tests
                 double minActual, maxActual;
                 string key = SeedRange(conn, out minActual, out maxActual);
 
-                var min = conn.SortedSets.Range(0, key,
-                    ascending: true, count: 1);
-                var max = conn.SortedSets.Range(0, key,
-                    ascending: false, count: 1);
+                var min = conn.SortedSets.Range(0, key, ascending: true, count: 1);
+                var max = conn.SortedSets.Range(0, key, ascending: false, count: 1);
 
                 var minScore = conn.Wait(min).Single().Value;
                 var maxScore = conn.Wait(max).Single().Value;

@@ -505,12 +505,12 @@ namespace BookSleeve
         }
         Task<string[]> IListCommands.RangeString(int db, string key, int start, int stop, bool queueJump)
         {
-            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.LRANGE, key, start, stop), queueJump);
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.LRANGE, key, start, (stop == int.MaxValue ? -1 : stop)), queueJump);
         }
 
         Task<byte[][]> IListCommands.Range(int db, string key, int start, int stop, bool queueJump)
         {
-            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.LRANGE, key, start, stop), queueJump);
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.LRANGE, key, start, (stop == int.MaxValue ? -1 : stop)), queueJump);
         }
 
 
