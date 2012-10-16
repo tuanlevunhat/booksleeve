@@ -1,7 +1,7 @@
 ﻿using System;
 using NUnit.Framework;
 using System.Text;
-
+using System.Linq;
 namespace Tests
 {
     [TestFixture]
@@ -211,6 +211,47 @@ namespace Tests
                 Assert.IsTrue(result == "abc" || result == "def");
                 result = Decode(conn.Sets.GetRandom(3, "set").Result);
                 Assert.IsTrue(result == "abc" || result == "def");
+            }
+        }
+
+        [Test]
+        public void GetRandomMulti()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                if (conn.Features.MultipleRandom)
+                {
+                    conn.Keys.Remove(3, "set");
+
+                    Assert.AreEqual(0, conn.Sets.GetRandomString(3, "set", 2).Result.Length);
+                    Assert.AreEqual(0, conn.Sets.GetRandom(3, "set", 2).Result.Length);
+
+                    conn.Sets.Add(3, "set", "abc");
+                    var a1 = conn.Sets.GetRandomString(3, "set", 2).Result;
+                    var a2 = conn.Sets.GetRandom(3, "set", 2).Result;
+                    Assert.AreEqual(1, a1.Length);
+                    Assert.AreEqual(1, a2.Length);
+                    Assert.AreEqual("abc", a1[0]);
+                    Assert.AreEqual("abc", Decode(a2[0]));
+
+                    conn.Sets.Add(3, "set", Encode("def"));
+                    var a3 = conn.Sets.GetRandomString(3, "set", 3).Result;
+                    var a4 = Array.ConvertAll(conn.Sets.GetRandom(3, "set", 3).Result, Decode);
+
+                    Assert.AreEqual(2, a3.Length);
+                    Assert.AreEqual(2, a4.Length);
+                    Assert.Contains("abc", a3);
+                    Assert.Contains("def", a3);
+                    Assert.Contains("abc", a4);
+                    Assert.Contains("def", a4);
+
+                    var a5 = conn.Sets.GetRandomString(3, "set", -3).Result;
+                    var a6 = Array.ConvertAll(conn.Sets.GetRandom(3, "set", -3).Result, Decode);
+                    Assert.AreEqual(3, a5.Length);
+                    Assert.AreEqual(3, a6.Length);
+                    Assert.IsTrue(a5.All(x => x == "abc" || x == "def"));
+                    Assert.IsTrue(a6.All(x => x == "abc" || x == "def"));
+                }
             }
         }
 
