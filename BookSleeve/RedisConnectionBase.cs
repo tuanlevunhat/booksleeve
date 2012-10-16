@@ -223,9 +223,19 @@ namespace BookSleeve
         /// <summary>
         /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
         /// </summary>
+        /// <remarks>http://redis.io/commands/info</remarks>
         public Task<string> GetInfo(bool queueJump = false)
         {
-            return ExecuteString(RedisMessage.Create(-1, RedisLiteral.INFO), queueJump);
+            return GetInfo(null, queueJump);
+        }
+        /// <summary>
+        /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/info</remarks>
+        public Task<string> GetInfo(string category, bool queueJump = false)
+        {
+            var msg = string.IsNullOrEmpty(category) ? RedisMessage.Create(-1, RedisLiteral.INFO) : RedisMessage.Create(-1, RedisLiteral.INFO, category);
+            return ExecuteString(msg, queueJump);
         }
         static Dictionary<string, string> ParseInfo(string result)
         {
