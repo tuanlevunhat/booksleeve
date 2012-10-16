@@ -43,6 +43,13 @@ namespace BookSleeve
         Task<long> Increment(int db, string key, long value = 1, bool queueJump = false);
 
         /// <summary>
+        /// Increments the number stored at key by increment. If the key does not exist, it is set to 0 before performing the operation. An error is returned if the key contains a value of the wrong type or contains a string that is not representable as integer. This operation is limited to 64 bit signed integers.
+        /// </summary>
+        /// <returns> the value of key after the increment</returns>
+        /// <remarks>http://redis.io/commands/incrbyfloat</remarks>
+        Task<double> Increment(int db, string key, double value, bool queueJump = false);
+
+        /// <summary>
         /// Get the value of key. If the key does not exist the special value nil is returned. An error is returned if the value stored at key is not a string, because GET only handles string values.
         /// </summary>
         /// <returns>the value of key, or nil when key does not exist.</returns>
@@ -282,6 +289,11 @@ namespace BookSleeve
         {
             return IncrementImpl(db, key, value, queueJump);
         }
+        Task<double> IStringCommands.Increment(int db, string key, double value, bool queueJump)
+        {
+            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.INCRBYFLOAT, key, value), queueJump);            
+        }
+
         Task<long> IncrementImpl(int db, string key, long value, bool queueJump)
         {
             switch(value)

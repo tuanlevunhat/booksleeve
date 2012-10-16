@@ -265,7 +265,7 @@ namespace BookSleeve
         {
             return value.ToString(CultureInfo.InvariantCulture);
         }
-        private static string ToString(double value)
+        internal static string ToString(double value)
         {
             if (double.IsInfinity(value))
             {
@@ -807,7 +807,7 @@ namespace BookSleeve
         [DbFree]
         EXEC, EXISTS, EXPIRE, EXPIREAT,
         [DbFree]
-        FLUSHALL, FLUSHDB, GETBIT, GETRANGE, GETSET, HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HKEYS, HLEN, HMGET, HMSET, HSET, HSETNX, HVALS, INCR, INCRBY,
+        FLUSHALL, FLUSHDB, GETBIT, GETRANGE, GETSET, HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HINCRBYFLOAT, HKEYS, HLEN, HMGET, HMSET, HSET, HSETNX, HVALS, INCR, INCRBY, INCRBYFLOAT,
         [DbFree]
         INFO, KEYS, LASTSAVE, LINDEX, LINSERT, LLEN, LPOP, LPUSH, LPUSHX, LRANGE, LREM, LSET, LTRIM, MGET,
         [DbFree]

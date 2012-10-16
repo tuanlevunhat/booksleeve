@@ -25,6 +25,12 @@ namespace BookSleeve
         {
             this.parent = parent;
         }
+
+        /// <summary>
+        /// Gets the underlying connection being used for this transaction
+        /// </summary>
+        public RedisConnection Connection { get { return parent; } }
+
         /// <summary>
         /// Not supported, as nested transactions are not available.
         /// </summary>

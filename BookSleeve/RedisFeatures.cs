@@ -28,7 +28,8 @@ namespace BookSleeve
                                          v2_1_3 = new Version("2.1.3"),
                                          v2_1_8 = new Version("2.1.8"),
                                          v2_2_0 = new Version("2.2.0"),
-                                         v2_4_0 = new Version("2.4.0");
+                                         v2_4_0 = new Version("2.4.0"),
+                                         v2_5_7 = new Version("2.5.7");
         /// <summary>
         /// Is the PERSIST operation supported?
         /// </summary>
@@ -57,6 +58,10 @@ namespace BookSleeve
         /// Does SADD support varadic usage?
         /// </summary>
         public bool SetVaradicAddRemove { get { return version >= v2_4_0; } }
+        /// <summary>
+        /// Does INCRBYFLOAT / HINCRBYFLOAT exist?
+        /// </summary>
+        public bool IncrementFloat { get { return version >= v2_5_7; } }
         /// <summary>
         /// Create a string representation of the available features
         /// </summary>

@@ -49,11 +49,14 @@ namespace BookSleeve
         public virtual bool IsError { get { return false; } }
         public virtual bool IsCancellation { get { return false; } }
         public virtual double ValueDouble { get {
-            string s = ValueString;
-            if (string.Equals(s, "-inf", StringComparison.OrdinalIgnoreCase)) return double.NegativeInfinity;
-            if (string.Equals(s, "inf", StringComparison.OrdinalIgnoreCase)) return double.PositiveInfinity;
-            return double.Parse(s, CultureInfo.InvariantCulture);
+            return ParseDouble(ValueString);            
         } }
+        internal static double ParseDouble(string value)
+        {
+            if (string.Equals(value, "-inf", StringComparison.OrdinalIgnoreCase)) return double.NegativeInfinity;
+            if (string.Equals(value, "inf", StringComparison.OrdinalIgnoreCase)) return double.PositiveInfinity;
+            return double.Parse(value, CultureInfo.InvariantCulture);
+        }
 
         private class Int64RedisResult : RedisResult
         {
