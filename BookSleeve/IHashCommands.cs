@@ -78,6 +78,14 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/hincrby</remarks>
         Task<long> Increment(int db, string key, string field, int value = 1, bool queueJump = false);
         /// <summary>
+        /// Increments the number stored at field in the hash stored at key by increment. If key does not exist, a new key holding a hash is created. If field does not exist or holds a string that cannot be interpreted as integer, the value is set to 0 before the operation is performed.
+        /// </summary>
+        /// <remarks>The range of values supported by HINCRBY is limited to 64 bit signed integers.</remarks>
+        /// <returns>the value at field after the increment operation.</returns>
+        /// <remarks>http://redis.io/commands/hincrby</remarks>
+        Task<double> Increment(int db, string key, string field, double value, bool queueJump = false);
+
+        /// <summary>
         /// Returns all field names in the hash stored at key.
         /// </summary>
         /// <returns>list of fields in the hash, or an empty list when key does not exist.</returns>
@@ -167,9 +175,11 @@ namespace BookSleeve
         }
         Task<long> IHashCommands.Increment(int db, string key, string field, int value, bool queueJump)
         {
-            
-
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.HINCRBY, key, field, value), queueJump);
+        }
+        Task<double> IHashCommands.Increment(int db, string key, string field, double value, bool queueJump)
+        {
+            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.HINCRBYFLOAT, key, field, value), queueJump);
         }
 
         /// <summary>

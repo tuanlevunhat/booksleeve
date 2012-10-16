@@ -20,8 +20,8 @@ namespace Tests
             };
         }
 
-        const string host = "127.0.0.1";
-        const int unsecuredPort = 6379, securedPort = 6380;
+        const string host = "192.168.40.145"; // vmware 2.6 //"127.0.0.1";
+        const int unsecuredPort = 6380, securedPort = 6381;
 
         internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
         {

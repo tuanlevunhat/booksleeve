@@ -118,7 +118,7 @@ namespace BookSleeve
         private Condition() { }
 
         internal abstract IEnumerable<RedisMessage> CreateMessages();
-        internal static bool ShouldSetResult(Task task, TaskCompletionSource<bool> source)
+        internal static bool ShouldSetResult<T>(Task task, TaskCompletionSource<T> source)
         {
             if(task.IsFaulted) {
                 source.TrySetException(task.Exception);

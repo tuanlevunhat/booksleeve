@@ -17,10 +17,28 @@ namespace Tests
                 for (int i = 1; i < 1000; i++)
                 {
                     Assert.AreEqual(i, conn.Hashes.Increment(5, "hash-test", "a", 1).Result);
-                    Assert.AreEqual(-1 * i, conn.Hashes.Increment(5, "hash-test", "b", -1).Result);
+                    Assert.AreEqual(-i, conn.Hashes.Increment(5, "hash-test", "b", -1).Result);
                 }
             }
         }
+
+        [Test]
+        public void TestIncrByFloat()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
+            {
+                if (conn.Features.IncrementFloat)
+                {
+                    conn.Keys.Remove(5, "hash-test");
+                    for (int i = 1; i < 1000; i++)
+                    {
+                        Assert.AreEqual((double)i, conn.Hashes.Increment(5, "hash-test", "a", 1.0).Result);
+                        Assert.AreEqual((double)(-i), conn.Hashes.Increment(5, "hash-test", "b", -1.0).Result);
+                    }
+                }
+            }
+        }
+
 
         [Test]
         public void TestGetAll()

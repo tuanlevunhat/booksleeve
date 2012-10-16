@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using NUnit.Framework;
 using System.Text;
+using System;
 
 namespace Tests
 {
@@ -128,6 +129,39 @@ namespace Tests
                 Assert.AreEqual(2, conn.Wait(v6));
                 Assert.AreEqual("2", conn.Wait(s));
             }
+        }
+        [Test]
+        public void IncrDecrFloat()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
+            {
+                if (conn.Features.IncrementFloat)
+                {
+                    conn.Keys.Remove(2, "incr");
+
+                    conn.Strings.Set(2, "incr", "2");
+                    var v1 = conn.Strings.Increment(2, "incr", 1.1);
+                    var v2 = conn.Strings.Increment(2, "incr", 5.0);
+                    var v3 = conn.Strings.Increment(2, "incr", -2.0);
+                    var v4 = conn.Strings.Increment(2, "incr", -1.0);
+                    var v5 = conn.Strings.Increment(2, "incr", -5.0);
+                    var v6 = conn.Strings.Increment(2, "incr", 2.0);
+
+                    var s = conn.Strings.GetString(2, "incr");
+
+                    AssertNearlyEqual(3.1, conn.Wait(v1));
+                    AssertNearlyEqual(8.1, conn.Wait(v2));
+                    AssertNearlyEqual(6.1, conn.Wait(v3));
+                    AssertNearlyEqual(5.1, conn.Wait(v4));
+                    AssertNearlyEqual(0.1, conn.Wait(v5));
+                    AssertNearlyEqual(2.1, conn.Wait(v6));
+                    Assert.AreEqual("2.1", conn.Wait(s));
+                }
+            }
+        }
+        static void AssertNearlyEqual(double x, double y)
+        {
+            if (Math.Abs(x - y) > 0.000001) Assert.AreEqual(x, y);
         }
         [Test]
         public void GetRange()

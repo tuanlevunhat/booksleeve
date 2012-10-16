@@ -396,11 +396,11 @@ namespace Tests
         {
             using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
             {
-                conn.Server.FlushDb(20);
-                conn.Strings.Set(20, "abc", "def");
-                conn.Strings.Set(20, "abd", "ghi");
-                conn.Strings.Set(20, "aef", "jkl");
-                var arr = conn.Wait(conn.Keys.Find(20, "ab*"));
+                conn.Server.FlushDb(5);
+                conn.Strings.Set(5, "abc", "def");
+                conn.Strings.Set(5, "abd", "ghi");
+                conn.Strings.Set(5, "aef", "jkl");
+                var arr = conn.Wait(conn.Keys.Find(5, "ab*"));
                 Assert.AreEqual(2, arr.Length);
                 Assert.Contains("abc", arr);
                 Assert.Contains("abd", arr);
@@ -412,11 +412,11 @@ namespace Tests
         {
             using(var conn = Config.GetUnsecuredConnection(allowAdmin:true))
             {
-                conn.Server.FlushDb(20);
-                var empty = conn.Keys.GetLength(20);
+                conn.Server.FlushDb(5);
+                var empty = conn.Keys.GetLength(5);
                 for (int i = 0; i < 10; i++ )
-                    conn.Strings.Set(20, "abc" + i, "def" + i);
-                var withData = conn.Keys.GetLength(20);
+                    conn.Strings.Set(5, "abc" + i, "def" + i);
+                var withData = conn.Keys.GetLength(5);
 
                 Assert.AreEqual(0, conn.Wait(empty));
                 Assert.AreEqual(10, conn.Wait(withData));
