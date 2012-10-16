@@ -171,6 +171,18 @@ namespace BookSleeve
         /// <returns>the randomly selected element, or nil when key does not exist.</returns>
         /// <remarks>http://redis.io/commands/srandmember</remarks>
         Task<byte[]> GetRandom(int db, string key, bool queueJump = false);
+        /// <summary>
+        /// Return an array of count distinct elements if count is positive. If called with a negative count the behavior changes and the command is allowed to return the same element multiple times. In this case the numer of returned elements is the absolute value of the specified count.
+        /// </summary>
+        /// <returns>the randomly selected element, or nil when key does not exist.</returns>
+        /// <remarks>http://redis.io/commands/srandmember</remarks>
+        Task<string[]> GetRandomString(int db, string key, int count, bool queueJump = false);
+        /// <summary>
+        /// Return an array of count distinct elements if count is positive. If called with a negative count the behavior changes and the command is allowed to return the same element multiple times. In this case the numer of returned elements is the absolute value of the specified count.
+        /// </summary>
+        /// <returns>the randomly selected element, or nil when key does not exist.</returns>
+        /// <remarks>http://redis.io/commands/srandmember</remarks>
+        Task<byte[][]> GetRandom(int db, string key, int count, bool queueJump = false);
 
         /// <summary>
         /// Remove member from the set stored at key. If member is not a member of this set, no operation is performed.
@@ -530,15 +542,23 @@ namespace BookSleeve
         }
 
         Task<string> ISetCommands.GetRandomString(int db, string key, bool queueJump)
-        {
-            
+        {   
             return ExecuteString(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key), queueJump);
         }
 
         Task<byte[]> ISetCommands.GetRandom(int db, string key, bool queueJump)
-        {
-            
+        {    
             return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key), queueJump);
+        }
+
+        Task<string[]> ISetCommands.GetRandomString(int db, string key, int count, bool queueJump)
+        {
+            return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key, count), queueJump);
+        }
+
+        Task<byte[][]> ISetCommands.GetRandom(int db, string key, int count, bool queueJump)
+        {
+            return ExecuteMultiBytes(RedisMessage.Create(db, RedisLiteral.SRANDMEMBER, key, count), queueJump);
         }
 
         /// <summary>
