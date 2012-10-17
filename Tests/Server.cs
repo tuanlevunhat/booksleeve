@@ -54,6 +54,27 @@ namespace Tests
         }
 
         [Test]
+        public void ClientList()
+        {
+            using (var killMe = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                killMe.Wait(killMe.Strings.GetString(7, "kill me quick"));
+                var clients = conn.Wait(conn.Server.ListClients());
+                var target = clients.Single(x => x.Database == 7);
+                conn.Wait(conn.Server.KillClient(target.Address));
+                Assert.IsTrue(clients.Length > 0);
+
+                try
+                {
+                    killMe.Wait(killMe.Strings.GetString(7, "kill me quick"));
+                    Assert.Fail("Should have been dead");
+                }
+                catch(Exception) { }
+            }
+        }
+
+        [Test]
         public void TestKeepAlive()
         {
             string oldValue = null;

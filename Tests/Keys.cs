@@ -227,16 +227,16 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
             {
-                conn.Server.FlushDb(7);
-                var key1 = conn.Keys.Random(7);
-                conn.Strings.Set(7, "random1", "random1");
-                var key2 = conn.Keys.Random(7);
+                conn.Server.FlushDb(6);
+                var key1 = conn.Keys.Random(6);
+                conn.Strings.Set(6, "random1", "random1");
+                var key2 = conn.Keys.Random(6);
                 for (int i = 2; i < 100; i++)
                 {
                     string key = "random" + i;
-                    conn.Strings.Set(7, key, key);
+                    conn.Strings.Set(6, key, key);
                 }
-                var key3 = conn.Keys.Random(7);
+                var key3 = conn.Keys.Random(6);
 
                 Assert.IsNull(conn.Wait(key1));
                 Assert.AreEqual("random1", conn.Wait(key2));

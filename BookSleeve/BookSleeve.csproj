@@ -37,6 +37,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ClientInfo.cs" />
     <Compile Include="Condition.cs" />
     <Compile Include="ConnectionUtils.cs" />
     <Compile Include="IScriptingCommands.cs">
