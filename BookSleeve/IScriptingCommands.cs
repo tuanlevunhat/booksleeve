@@ -177,7 +177,7 @@ namespace BookSleeve
                     {
                         // compute the hash and ensure it is loaded
                         hash = ComputeHash(script);
-                        ExecuteBytes(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), queueJump: true);
+                        ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), queueJump: true);
                         scriptCache[script] = hash;
                     }
                 }
