@@ -85,6 +85,7 @@ namespace BookSleeve
     internal sealed class MessageResultScript : MessageResult<object>
     {
         private readonly RedisConnection connection;
+        private readonly bool inferStrings;
         protected override void ProcessError(RedisResult result)
         {
             try {
@@ -99,12 +100,13 @@ namespace BookSleeve
             }
             base.ProcessError(result);
         }
-        public MessageResultScript(RedisConnection connection, object state = null) : base(state) {
+        public MessageResultScript(RedisConnection connection, bool inferStrings, object state = null) : base(state) {
             this.connection = connection;
+            this.inferStrings = inferStrings;
         }
         protected override object GetValue(RedisResult result)
         {
-            return result.Parse();
+            return result.Parse(inferStrings);
         }
 
     }

@@ -54,8 +54,20 @@ namespace Tests
             {
                 if (conn == null) return;
                 conn.Strings.Set(0, "foo", "bar");
-                var result = conn.Wait(conn.Scripting.Eval(0, "return redis.call('get', KEYS[1])", new[] { "foo" }, null));
+                var result = (string)conn.Wait(conn.Scripting.Eval(0, "return redis.call('get', KEYS[1])", new[] { "foo" }, null));
                 Assert.AreEqual("bar", result);
+            }
+        }
+
+        [Test]
+        public void DisableStringInference()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return;
+                conn.Strings.Set(0, "foo", "bar");
+                var result = (byte[])conn.Wait(conn.Scripting.Eval(0, "return redis.call('get', KEYS[1])", new[] { "foo" }, null, inferStrings: false));
+                Assert.AreEqual("bar", Encoding.UTF8.GetString(result));
             }
         }
 
