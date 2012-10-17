@@ -1,8 +1,8 @@
 ﻿
 using System;
-using System.Threading.Tasks;
-using System.ComponentModel;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Threading.Tasks;
 namespace BookSleeve
 {
     /// <summary>
@@ -56,6 +56,12 @@ namespace BookSleeve
         /// The form SLAVEOF NO ONE will stop replication, turning the server into a MASTER, but will not discard the replication. So, if the old master stops working, it is possible to turn the slave into a master and set the application to use this new master in read/write. Later when the other Redis server is fixed, it can be reconfigured to work as a slave.
         /// </summary>
         Task MakeMaster();
+
+        /// <summary>
+        /// Flush the Lua scripts cache; this can damage existing connections that expect the flush to behave normally, and should be used with caution.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/script-flush</remarks>
+        Task FlushScriptCache();
     }
     partial class RedisConnection : IServerCommands
     {
@@ -68,6 +74,11 @@ namespace BookSleeve
             get { return this; }
         }
 
+        void CheckAdmin()
+        {
+            if (!allowAdmin) throw new InvalidOperationException("This command is not available unless the connection is created with admin-commands enabled");
+        }
+
         /// <summary>
         /// Delete all the keys of the currently selected DB.
         /// </summary>
@@ -78,13 +89,16 @@ namespace BookSleeve
         }
         Task IServerCommands.FlushDb(int db)
         {
-            if (allowAdmin)
-            {
-                return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("Flush is not enabled");
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
         }
+
+        Task IServerCommands.FlushScriptCache()
+        {
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.FLUSH).ExpectOk(), false);
+        }
+
         /// <summary>
         /// Delete all the keys of all the existing databases, not just the currently selected one.
         /// </summary>
@@ -96,31 +110,19 @@ namespace BookSleeve
 
         Task IServerCommands.FlushAll()
         {
-            if (allowAdmin)
-            {
-                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.FLUSHALL).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("Flush is not enabled");
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.FLUSHALL).ExpectOk().Critical(), false);
         }
 
         Task IServerCommands.MakeMaster()
         {
-            if (allowAdmin)
-            {
-                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("MakeMaster is not enabled");
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, RedisLiteral.NO, RedisLiteral.ONE).ExpectOk().Critical(), false);
         }
         Task IServerCommands.MakeSlave(string host, int port)
         {
-            if (allowAdmin)
-            {
-                return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, host, port).ExpectOk().Critical(), false);
-            }
-            else
-                throw new InvalidOperationException("MakeSlave is not enabled");
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, host, port).ExpectOk().Critical(), false);
         }
 
         /// <summary>
@@ -147,15 +149,8 @@ namespace BookSleeve
 
         Task IServerCommands.SetConfig(string name, string value)
         {
-            if (allowAdmin)
-            {
-                return
-                    ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.CONFIG, RedisLiteral.SET, name, value).ExpectOk(),
-                                false);
-            } else
-            {
-                throw new InvalidOperationException("SetConfig is not enabled");
-            }
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.CONFIG, RedisLiteral.SET, name, value).ExpectOk(), false);
         }
     }
 }

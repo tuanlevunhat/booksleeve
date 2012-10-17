@@ -8,6 +8,7 @@ namespace BookSleeve
 {
     internal abstract class RedisResult
     {
+        public abstract object Parse();
         internal abstract bool IsNil { get; }
         internal static RedisResult Message(byte[] value) { return new MessageRedisResult(value); }
         internal static RedisResult Error(string value) { return new ErrorRedisResult(value); }
@@ -60,6 +61,10 @@ namespace BookSleeve
 
         private class Int64RedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return value;
+            }
             internal Int64RedisResult(long value) { this.value = value; }
             private readonly long value;
             public override long ValueInt64 { get { return value; } }
@@ -69,6 +74,10 @@ namespace BookSleeve
         }
         private class MessageRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return ValueString;
+            }
             internal MessageRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
             public override byte[] ValueBytes { get { return value; } }
@@ -76,6 +85,10 @@ namespace BookSleeve
         }
         internal class TimingRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return ValueInt64;
+            }
             private readonly TimeSpan send, receive;
             internal TimingRedisResult(TimeSpan send, TimeSpan receive) { this.send = send; this.receive = receive; }
             internal TimeSpan Send { get { return send; } }
@@ -87,7 +100,10 @@ namespace BookSleeve
         }
         private class ErrorRedisResult : RedisResult
         {
-
+            public override object Parse()
+            {
+                return Error();
+            }
             internal ErrorRedisResult(string message) { this.message = message; }
             private readonly string message;
             public override bool IsError { get { return true; } }
@@ -97,6 +113,21 @@ namespace BookSleeve
         }
         private class BytesRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                try {
+                    string speculative = Encoding.UTF8.GetString(value);
+                    byte[] tmp = Encoding.UTF8.GetBytes(speculative);
+                    if (tmp.Length != value.Length) return value;
+                    for (int i = 0; i < tmp.Length; i++)
+                    {
+                        if (tmp[i] != value[i]) return value;
+                    }
+                    return speculative;
+                } catch {
+                    return value;
+                }
+            }
             internal BytesRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
             public override byte[] ValueBytes { get { return value; } }
@@ -109,11 +140,19 @@ namespace BookSleeve
 
         private class PassRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return true;
+            }
             internal PassRedisResult() { }
             internal override bool IsNil { get { return false; } }
         }
         private class CancellationRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return Error();
+            }
             public override bool IsCancellation { get { return true; } }
             public override bool IsError { get { return true; } }
             internal override bool IsNil { get { return false; } }
@@ -124,6 +163,10 @@ namespace BookSleeve
         }
         private class TimeoutRedisResult : RedisResult
         {
+            public override object Parse()
+            {
+                return Error();
+            }
             private readonly string message;
             public TimeoutRedisResult(string message) { this.message = message; }
             public override bool IsError { get { return true; } }
@@ -216,6 +259,15 @@ namespace BookSleeve
     }
     internal class MultiRedisResult : RedisResult
     {
+        public override object Parse()
+        {
+            object[] results = new object[items.Length];
+            for (int i = 0; i < items.Length; i++)
+            {
+                results[i] = items[i].Parse();
+            }
+            return results;
+        }
         private readonly RedisResult[] items;
         public override RedisResult[] ValueItems { get { return items; } }
         public MultiRedisResult(RedisResult[] items) { this.items = items; }

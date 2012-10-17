@@ -584,6 +584,37 @@ namespace BookSleeve
                     return value.ToString();
                 }
             }
+
+            internal static RedisParameter Create(object value)
+            {
+                if (value == null) throw new ArgumentNullException("value");
+                switch (Type.GetTypeCode(value.GetType()))
+                {
+                    case TypeCode.String:
+                        return (string)value;
+                    case TypeCode.Single:
+                        return (float)value;
+                    case TypeCode.Double:
+                        return (double)value;
+                    case TypeCode.Byte:
+                        return (byte)value;
+                    case TypeCode.SByte:
+                        return (sbyte)value;
+                    case TypeCode.Int16:
+                        return (short)value;
+                    case TypeCode.Int32:
+                        return (int)value;
+                    case TypeCode.Int64:
+                        return (long)value;
+                    case TypeCode.Boolean:
+                        return (bool)value ? 1 : 0;
+                    default:
+                        var blob = value as byte[];
+                        if (blob != null) return blob;
+                        throw new ArgumentException("Data-type not supported: " + value.GetType());
+
+                }
+            }
         }
     }
     internal class QueuedMessage : RedisMessage
@@ -803,7 +834,7 @@ namespace BookSleeve
         [DbFree]
         DISCARD,
         [DbFree]
-        ECHO,
+        ECHO, EVAL, EVALSHA,
         [DbFree]
         EXEC, EXISTS, EXPIRE, EXPIREAT,
         [DbFree]
@@ -823,7 +854,10 @@ namespace BookSleeve
         [DbFree]
         PUNSUBSCRIBE,
         [DbFree]
-        QUIT, RANDOMKEY, RENAME, RENAMENX, RPOP, RPOPLPUSH, RPUSH, RPUSHX, SADD, SAVE, SCARD, SDIFF, SDIFFSTORE, SELECT, SETBIT, SETEX, SETNX, SETRANGE, SHUTDOWN, SINTER, SINTERSTORE, SISMEMBER,
+        QUIT, RANDOMKEY, RENAME, RENAMENX, RPOP, RPOPLPUSH, RPUSH, RPUSHX, SADD, SAVE, SCARD,
+        [DbFree]
+        SCRIPT,
+        SDIFF, SDIFFSTORE, SELECT, SETBIT, SETEX, SETNX, SETRANGE, SHUTDOWN, SINTER, SINTERSTORE, SISMEMBER,
         [DbFree]
         SLAVEOF, SLOWLOG, SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
         [DbFree]
@@ -834,7 +868,7 @@ namespace BookSleeve
         UNWATCH,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
-        NO,ONE,WITHSCORES,LIMIT,BEFORE,AFTER,AGGREGATE,WEIGHTS,SUM,MIN,MAX
+        NO,ONE,WITHSCORES,LIMIT,LOAD,BEFORE,AFTER,AGGREGATE,WEIGHTS,SUM,MIN,MAX,FLUSH
         
     }
 }

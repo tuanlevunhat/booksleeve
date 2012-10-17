@@ -60,6 +60,7 @@
     <Compile Include="Performance.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="redis-sharp.cs" />
+    <Compile Include="Scripting.cs" />
     <Compile Include="Strings.cs" />
     <Compile Include="Hashes.cs" />
     <Compile Include="Lists.cs" />

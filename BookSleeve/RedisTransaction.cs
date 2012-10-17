@@ -25,12 +25,19 @@ namespace BookSleeve
         {
             this.parent = parent;
         }
-
-        /// <summary>
-        /// Gets the underlying connection being used for this transaction
-        /// </summary>
-        public RedisConnection Connection { get { return parent; } }
-
+        internal override Task Prepare(string[] scripts)
+        {
+            // do the SCRIPT LOAD outside of the transaction, since we don't
+            // want to get odd race conditions
+            return parent.Prepare(scripts);
+        }
+        internal override string GetScriptHash(string script)
+        {
+            // do the SCRIPT LOAD outside of the transaction, since we don't
+            // want to get odd race conditions
+            return parent.GetScriptHash(script);
+        }
+        
         /// <summary>
         /// Not supported, as nested transactions are not available.
         /// </summary>
