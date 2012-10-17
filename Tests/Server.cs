@@ -2,6 +2,7 @@
 using BookSleeve;
 using NUnit.Framework;
 using System.Threading;
+using System;
 
 namespace Tests
 {
@@ -16,6 +17,39 @@ namespace Tests
                 var pairs = db.Wait(db.Server.GetConfig("*"));
                 Assert.Greater(1, 0); // I always get double-check which arg is which
                 Assert.Greater(pairs.Count, 0);
+            }
+        }
+
+        [Test, ExpectedException(typeof(TimeoutException), ExpectedMessage = "The operation has timed out; the connection is not open")]
+        public void TimeoutMessageNotOpened()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: false))
+            {
+                conn.Wait(conn.Strings.Get(0, "abc"));
+            }
+        }
+
+        [Test, ExpectedException(typeof(TimeoutException), ExpectedMessage = "The operation has timed out.")]
+        public void TimeoutMessageNoDetail()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: true))
+            {
+                conn.IncludeDetailInTimeouts = false;
+                conn.Keys.Remove(0, "noexist");
+                conn.Lists.BlockingRemoveFirst(0, new[] { "noexist" }, 5);
+                conn.Wait(conn.Strings.Get(0, "abc"));
+            }
+        }
+
+        [Test, ExpectedException(typeof(TimeoutException), ExpectedMessage = "The operation has timed out; possibly blocked by: 0: BLPOP \"noexist\" 5")]
+        public void TimeoutMessageWithDetail()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: true))
+            {
+                conn.IncludeDetailInTimeouts = true;
+                conn.Keys.Remove(0, "noexist");
+                conn.Lists.BlockingRemoveFirst(0, new[] { "noexist" }, 5);
+                conn.Wait(conn.Strings.Get(0, "abc"));
             }
         }
 
