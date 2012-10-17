@@ -20,7 +20,7 @@ namespace BookSleeve
         /// limitations - be sure to review the documentation.
         /// </summary>
         /// <remarks>http://redis.io/commands/eval</remarks>
-        Task<object> Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache = true, bool queueJump = false);
+        Task<object> Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache = true, bool inferStrings = true, bool queueJump = false);
 
         /// <summary>
         /// Ensures that the given script exists
@@ -109,7 +109,7 @@ namespace BookSleeve
 
             return result.Task;
         }
-        Task<object> IScriptingCommands.Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache, bool queueJump)
+        Task<object> IScriptingCommands.Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache, bool inferStrings, bool queueJump)
         {
             if (string.IsNullOrEmpty(script)) throw new ArgumentNullException("script");
             var args = new RedisMessage.RedisParameter[2 + (keyArgs == null ? 0 : keyArgs.Length) + (valueArgs == null ? 0 : valueArgs.Length)];
@@ -132,20 +132,20 @@ namespace BookSleeve
             if (!useCache)
             {
                 args[0] = script;
-                return ExecuteScript(RedisMessage.Create(db, RedisLiteral.EVAL, args), queueJump);
+                return ExecuteScript(RedisMessage.Create(db, RedisLiteral.EVAL, args), inferStrings, queueJump);
             }
 
             // note this does a SCRIPT LOAD if it is the first time it is seen on this connection
             args[0] = GetScriptHash(script);
-            return ExecuteScript(RedisMessage.Create(db, RedisLiteral.EVALSHA, args), queueJump);
+            return ExecuteScript(RedisMessage.Create(db, RedisLiteral.EVALSHA, args), inferStrings, queueJump);
         }
         internal void ResetScriptCache()
         {
             lock (scriptCache) { scriptCache.Clear(); }
         }
-        internal Task<object> ExecuteScript(RedisMessage message, bool queueJump)
+        internal Task<object> ExecuteScript(RedisMessage message, bool inferStrings, bool queueJump)
         {
-            var msgResult = new MessageResultScript(this);
+            var msgResult = new MessageResultScript(this, inferStrings);
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;

@@ -8,7 +8,7 @@ namespace BookSleeve
 {
     internal abstract class RedisResult
     {
-        public abstract object Parse();
+        public abstract object Parse(bool inferStrings);
         internal abstract bool IsNil { get; }
         internal static RedisResult Message(byte[] value) { return new MessageRedisResult(value); }
         internal static RedisResult Error(string value) { return new ErrorRedisResult(value); }
@@ -61,7 +61,7 @@ namespace BookSleeve
 
         private class Int64RedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return value;
             }
@@ -74,7 +74,7 @@ namespace BookSleeve
         }
         private class MessageRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return ValueString;
             }
@@ -85,7 +85,7 @@ namespace BookSleeve
         }
         internal class TimingRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return ValueInt64;
             }
@@ -100,7 +100,7 @@ namespace BookSleeve
         }
         private class ErrorRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return Error();
             }
@@ -113,20 +113,25 @@ namespace BookSleeve
         }
         private class BytesRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
-                try {
-                    string speculative = Encoding.UTF8.GetString(value);
-                    byte[] tmp = Encoding.UTF8.GetBytes(speculative);
-                    if (tmp.Length != value.Length) return value;
-                    for (int i = 0; i < tmp.Length; i++)
+                if (inferStrings)
+                {
+                    try
                     {
-                        if (tmp[i] != value[i]) return value;
+                        string speculative = Encoding.UTF8.GetString(value);
+                        byte[] tmp = Encoding.UTF8.GetBytes(speculative);
+                        if (tmp.Length != value.Length) return value;
+                        for (int i = 0; i < tmp.Length; i++)
+                        {
+                            if (tmp[i] != value[i]) return value;
+                        }
+                        return speculative;
                     }
-                    return speculative;
-                } catch {
-                    return value;
+                    catch
+                    { /* try only! */ }
                 }
+                return value;
             }
             internal BytesRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
@@ -140,7 +145,7 @@ namespace BookSleeve
 
         private class PassRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return true;
             }
@@ -149,7 +154,7 @@ namespace BookSleeve
         }
         private class CancellationRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return Error();
             }
@@ -163,7 +168,7 @@ namespace BookSleeve
         }
         private class TimeoutRedisResult : RedisResult
         {
-            public override object Parse()
+            public override object Parse(bool inferStrings)
             {
                 return Error();
             }
@@ -259,12 +264,12 @@ namespace BookSleeve
     }
     internal class MultiRedisResult : RedisResult
     {
-        public override object Parse()
+        public override object Parse(bool inferStrings)
         {
             object[] results = new object[items.Length];
             for (int i = 0; i < items.Length; i++)
             {
-                results[i] = items[i].Parse();
+                results[i] = items[i].Parse(inferStrings);
             }
             return results;
         }
