@@ -14,6 +14,10 @@ namespace BookSleeve
 
     internal abstract class MessageResult<T> : IMessageResult
     {
+        protected virtual void ProcessError(RedisResult result)
+        {
+            source.SetException(result.Error());
+        }
         private readonly TaskCompletionSource<T> source;
         public Task<T> Task { get { return source.Task; } }
         Task IMessageResult.Task { get { return source.Task; } }
@@ -29,7 +33,7 @@ namespace BookSleeve
             }
             else if (result.IsError)
             {
-                source.SetException(result.Error());
+                ProcessError(result);
             }
             else
             {
@@ -72,6 +76,32 @@ namespace BookSleeve
     {
         public MessageResultString(object state = null) : base(state) { }
         protected override string GetValue(RedisResult result) { return result.ValueString; }
+    }
+    internal sealed class MessageResultScript : MessageResult<object>
+    {
+        private readonly RedisConnection connection;
+        protected override void ProcessError(RedisResult result)
+        {
+            try {
+                var msg = result.Error().Message;
+                if (msg.StartsWith("NOSCRIPT"))
+                {   // only way of unloading is to unload all ("SCRIPT FLUSH")... so our
+                    // existing cache is now completely toast
+                    connection.ResetScriptCache();
+                }
+            } catch {
+                /* best efforts only */
+            }
+            base.ProcessError(result);
+        }
+        public MessageResultScript(RedisConnection connection, object state = null) : base(state) {
+            this.connection = connection;
+        }
+        protected override object GetValue(RedisResult result)
+        {
+            return result.Parse();
+        }
+
     }
     internal sealed class MessageResultRaw : MessageResult<RedisResult>
     {

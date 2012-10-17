@@ -39,6 +39,9 @@
   <ItemGroup>
     <Compile Include="Condition.cs" />
     <Compile Include="ConnectionUtils.cs" />
+    <Compile Include="IScriptingCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
     <Compile Include="IServerCommands.cs">
       <DependentUpon>RedisConnection.cs</DependentUpon>
     </Compile>

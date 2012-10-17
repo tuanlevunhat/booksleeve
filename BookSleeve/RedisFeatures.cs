@@ -64,6 +64,10 @@ namespace BookSleeve
         /// </summary>
         public bool IncrementFloat { get { return version >= v2_5_7; } }
         /// <summary>
+        /// Does EVAL / EVALSHA / etc exist?
+        /// </summary>
+        public bool Scripting { get { return version >= v2_5_7; } }
+        /// <summary>
         /// Does SRANDMEMBER support "count"?
         /// </summary>
         public bool MultipleRandom { get { return version >= v2_5_14; } }
