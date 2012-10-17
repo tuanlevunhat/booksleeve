@@ -30,6 +30,7 @@ namespace BookSleeve
                                          v2_2_0 = new Version("2.2.0"),
                                          v2_4_0 = new Version("2.4.0"),
                                          v2_5_7 = new Version("2.5.7"),
+                                         v2_5_10 = new Version("2.5.10"),
                                          v2_5_14 = new Version("2.5.14");
         /// <summary>
         /// Is the PERSIST operation supported?
@@ -71,6 +72,11 @@ namespace BookSleeve
         /// Does SRANDMEMBER support "count"?
         /// </summary>
         public bool MultipleRandom { get { return version >= v2_5_14; } }
+
+        /// <summary>
+        /// Does BITOP / BITCOUNT exist?
+        /// </summary>
+        public bool BitwiseOperations { get { return version >= v2_5_10; } }
         /// <summary>
         /// Create a string representation of the available features
         /// </summary>

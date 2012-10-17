@@ -16,17 +16,17 @@ namespace BookSleeve
         private static readonly RedisLiteral[] dbFree;
         static RedisMessage()
         {
-            var arr = Enum.GetValues(typeof (RedisLiteral));
+            var arr = Enum.GetValues(typeof(RedisLiteral));
             literals = new byte[arr.Length][];
-            foreach(RedisLiteral literal in arr)
+            foreach (RedisLiteral literal in arr)
             {
-                literals[(int) literal] = Encoding.ASCII.GetBytes(literal.ToString().ToUpperInvariant());
+                literals[(int)literal] = Encoding.ASCII.GetBytes(literal.ToString().ToUpperInvariant());
             }
             List<RedisLiteral> tmp = new List<RedisLiteral>();
-            var fields = typeof (RedisLiteral).GetFields(BindingFlags.Public | BindingFlags.Static);
-            for(int i = 0 ; i < fields.Length ; i++)
+            var fields = typeof(RedisLiteral).GetFields(BindingFlags.Public | BindingFlags.Static);
+            for (int i = 0; i < fields.Length; i++)
             {
-                if(fields[i].IsDefined(typeof(DbFreeAttribute), false)) tmp.Add((RedisLiteral)fields[i].GetValue(null));
+                if (fields[i].IsDefined(typeof(DbFreeAttribute), false)) tmp.Add((RedisLiteral)fields[i].GetValue(null));
             }
             dbFree = tmp.ToArray();
         }
@@ -53,7 +53,8 @@ namespace BookSleeve
             if (expected == RedisLiteral.None)
             {
                 expected = result;
-            } else
+            }
+            else
             {
                 throw new InvalidOperationException();
             }
@@ -63,7 +64,7 @@ namespace BookSleeve
         {
             get
             {
-                return expected == RedisLiteral.None ? null : literals[(int) expected];
+                return expected == RedisLiteral.None ? null : literals[(int)expected];
             }
         }
         private IMessageResult messageResult;
@@ -96,15 +97,15 @@ namespace BookSleeve
         protected RedisMessage(int db, RedisLiteral command)
         {
             bool isDbFree = false;
-            for (int i = 0; i < dbFree.Length; i++ )
+            for (int i = 0; i < dbFree.Length; i++)
             {
-                if(dbFree[i] == command)
+                if (dbFree[i] == command)
                 {
                     isDbFree = true;
                     break;
                 }
             }
-            if(isDbFree)
+            if (isDbFree)
             {
                 if (db >= 0) throw new ArgumentOutOfRangeException("db", "A db is not required for " + command);
             }
@@ -135,7 +136,7 @@ namespace BookSleeve
         public static RedisMessage Create(int db, RedisLiteral command, string arg0, string[] args)
         {
             if (args == null) return Create(db, command, arg0);
-            switch(args.Length)
+            switch (args.Length)
             {
                 case 0:
                     return Create(db, command, arg0);
@@ -175,7 +176,7 @@ namespace BookSleeve
         public static RedisMessage Create(int db, RedisLiteral command, params RedisParameter[] args)
         {
             if (args == null) return new RedisMessageNix(db, command);
-            switch(args.Length)
+            switch (args.Length)
             {
                 case 0: return new RedisMessageNix(db, command);
                 case 1: return new RedisMessageUni(db, command, args[0]);
@@ -196,10 +197,11 @@ namespace BookSleeve
 #if VERBOSE
                 Trace.WriteLine("> " + command);
 #endif
-                stream.WriteByte((byte) '*');
+                stream.WriteByte((byte)'*');
                 WriteRaw(stream, argCount + 1);
                 WriteUnified(stream, command);
-            } catch
+            }
+            catch
             {
 
                 throw;
@@ -269,8 +271,8 @@ namespace BookSleeve
         {
             if (double.IsInfinity(value))
             {
-                if(double.IsPositiveInfinity(value)) return "+inf";
-                if(double.IsNegativeInfinity(value)) return "-inf";
+                if (double.IsPositiveInfinity(value)) return "+inf";
+                if (double.IsNegativeInfinity(value)) return "-inf";
             }
             return value.ToString("G", CultureInfo.InvariantCulture);
         }
@@ -301,7 +303,7 @@ namespace BookSleeve
         {
             public RedisMessageNix(int db, RedisLiteral command)
                 : base(db, command)
-            {}
+            { }
             public override void Write(Stream stream)
             {
                 WriteCommand(stream, 0);
@@ -310,7 +312,8 @@ namespace BookSleeve
         sealed class RedisMessageUni : RedisMessage
         {
             private readonly RedisParameter arg0;
-            public RedisMessageUni(int db, RedisLiteral command, RedisParameter arg0) : base(db, command)
+            public RedisMessageUni(int db, RedisLiteral command, RedisParameter arg0)
+                : base(db, command)
             {
                 this.arg0 = arg0;
             }
@@ -330,7 +333,7 @@ namespace BookSleeve
             public RedisMessageUniString(int db, RedisLiteral command, string arg0)
                 : base(db, command)
             {
-                if(arg0 == null) throw new ArgumentNullException("arg0");
+                if (arg0 == null) throw new ArgumentNullException("arg0");
                 this.arg0 = arg0;
             }
             public override void Write(Stream stream)
@@ -374,7 +377,7 @@ namespace BookSleeve
             {
                 if (arg0 == null) throw new ArgumentNullException("arg0");
                 if (args == null) throw new ArgumentNullException("args");
-                for (int i = 0; i < args.Length; i++ )
+                for (int i = 0; i < args.Length; i++)
                 {
                     if (args[i] == null) throw new ArgumentNullException("args:" + i);
                 }
@@ -385,7 +388,7 @@ namespace BookSleeve
             {
                 WriteCommand(stream, 1 + args.Length);
                 WriteUnified(stream, arg0);
-                for (int i = 0; i < args.Length; i++ )
+                for (int i = 0; i < args.Length; i++)
                     WriteUnified(stream, args[i]);
             }
             public override string ToString()
@@ -465,13 +468,14 @@ namespace BookSleeve
         sealed class RedisMessageMulti : RedisMessage
         {
             private readonly RedisParameter[] args;
-            public RedisMessageMulti(int db, RedisLiteral command, RedisParameter[] args) : base(db, command)
+            public RedisMessageMulti(int db, RedisLiteral command, RedisParameter[] args)
+                : base(db, command)
             {
                 this.args = args;
             }
             public override void Write(Stream stream)
             {
-                if(args == null)
+                if (args == null)
                 {
                     WriteCommand(stream, 0);
                 }
@@ -499,7 +503,7 @@ namespace BookSleeve
             public static implicit operator RedisParameter(double value) { return new RedisDoubleParameter(value); }
             public static RedisParameter Range(long value, bool inclusive)
             {
-                if(inclusive) return new RedisInt64Parameter(value);
+                if (inclusive) return new RedisInt64Parameter(value);
                 return new RedisStringParameter("(" + RedisMessage.ToString(value));
             }
             public static RedisParameter Range(double value, bool inclusive)
@@ -545,7 +549,7 @@ namespace BookSleeve
                 private readonly byte[] value;
                 public RedisBlobParameter(byte[] value)
                 {
-                    if(value == null) throw new ArgumentNullException("value");
+                    if (value == null) throw new ArgumentNullException("value");
                     this.value = value;
                 }
                 public override void Write(Stream stream)
@@ -667,7 +671,7 @@ namespace BookSleeve
         private bool ExecutePreconditions(RedisConnectionBase conn, ref int currentDb)
         {
             if (conditions == null || conditions.Count == 0) return true;
-            
+
             Task lastTask = null;
             foreach (var cond in conditions)
             {
@@ -684,7 +688,7 @@ namespace BookSleeve
 
             foreach (var cond in conditions)
             {
-                if (!cond.Validate()) return false;    
+                if (!cond.Validate()) return false;
             }
 
             return true;
@@ -820,17 +824,20 @@ namespace BookSleeve
     }
 
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
-    sealed internal class DbFreeAttribute : Attribute{}
+    sealed internal class DbFreeAttribute : Attribute { }
 
     enum RedisLiteral
     {
         None = 0,
         // responses
-        OK,QUEUED,PONG,
+        OK, QUEUED, PONG,
         // commands (extracted from http://redis.io/commands)
         APPEND,
         [DbFree]
-        AUTH, BGREWRITEAOF, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH, [DbFree] CONFIG, GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
+        AUTH, BGREWRITEAOF, BITCOUNT, BITOP, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH,
+        [DbFree]
+        CONFIG,
+        GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
         [DbFree]
         DISCARD,
         [DbFree]
@@ -868,7 +875,7 @@ namespace BookSleeve
         UNWATCH,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
-        NO,ONE,WITHSCORES,LIMIT,LOAD,BEFORE,AFTER,AGGREGATE,WEIGHTS,SUM,MIN,MAX,FLUSH
-        
+        NO, ONE, WITHSCORES, LIMIT, LOAD, BEFORE, AFTER, AGGREGATE, WEIGHTS, SUM, MIN, MAX, FLUSH, AND, OR, NOT, XOR
+
     }
 }
