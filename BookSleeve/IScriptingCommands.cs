@@ -83,7 +83,7 @@ namespace BookSleeve
                         string hash = fetch[i].Item1, script = fetch[i].Item2;
                         if (existResults[i].ValueInt64 == 0)
                         {   // didn't exist
-                            last = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script).ExpectOk(), true);
+                            last = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), true);
                         }
                         // at this point, either it *already* existed, or we've issued a queue-jumping LOAD command,
                         // so all *subsequent* calles can reliably assume that it will exist on the server from now on
@@ -177,7 +177,7 @@ namespace BookSleeve
                     {
                         // compute the hash and ensure it is loaded
                         hash = ComputeHash(script);
-                        ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script).ExpectOk(), queueJump: true);
+                        ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), queueJump: true);
                         scriptCache[script] = hash;
                     }
                 }
