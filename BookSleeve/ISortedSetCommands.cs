@@ -374,11 +374,11 @@ namespace BookSleeve
         }
         Task<long?> ISortedSetCommands.Rank(int db, string key, string member, bool ascending, bool queueJump)
         {
-            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
+            return ExecuteNullableInt64(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANK : RedisLiteral.ZREVRANK, key, member), queueJump);
         }
         Task<long?> ISortedSetCommands.Rank(int db, string key, byte[] member, bool ascending, bool queueJump)
         {
-            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
+            return ExecuteNullableInt64(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANK : RedisLiteral.ZREVRANK, key, member), queueJump);
         }
         Task<double?> ISortedSetCommands.Score(int db, string key, string member, bool queueJump)
         {
