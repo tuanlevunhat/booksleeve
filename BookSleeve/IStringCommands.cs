@@ -236,6 +236,39 @@ namespace BookSleeve
         Task<bool> SetBit(int db, string key, long offset, bool value, bool queueJump = false);
 
         /// <summary>
+        /// Count the number of set bits (population counting) in a string.
+        /// By default all the bytes contained in the string are examined. It is possible to specify the counting operation only in an interval passing the additional arguments start and end.
+        /// Like for the GETRANGE command start and end can contain negative values in order to index bytes starting from the end of the string, where -1 is the last byte, -2 is the penultimate, and so forth.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/bitcount</remarks>
+        Task<long> CountSetBits(int db, string key, long start = 0, long count = -1, bool queueJump = false);
+
+        /// <summary>
+        /// Perform a bitwise AND operation between multiple keys (containing string values) and store the result in the destination key.
+        /// </summary>
+        /// <returns>The size of the string stored in the destination key, that is equal to the size of the longest input string.</returns>
+        /// <remarks>http://redis.io/commands/bitop</remarks>
+        Task<long> BitwiseAnd(int db, string destination, string[] keys, bool queueJump = false);
+        /// <summary>
+        /// Perform a bitwise OR operation between multiple keys (containing string values) and store the result in the destination key.
+        /// </summary>
+        /// <returns>The size of the string stored in the destination key, that is equal to the size of the longest input string.</returns>
+        /// <remarks>http://redis.io/commands/bitop</remarks>
+        Task<long> BitwiseOr(int db, string destination, string[] keys, bool queueJump = false);
+        /// <summary>
+        /// Perform a bitwise XOR operation between multiple keys (containing string values) and store the result in the destination key.
+        /// </summary>
+        /// <returns>The size of the string stored in the destination key, that is equal to the size of the longest input string.</returns>
+        /// <remarks>http://redis.io/commands/bitop</remarks>
+        Task<long> BitwiseXOr(int db, string destination, string[] keys, bool queueJump = false);
+        /// <summary>
+        /// Perform a bitwise NOT operation on a key (containing a string value) and store the result in the destination key.
+        /// </summary>
+        /// <returns>The size of the string stored in the destination key, that is equal to the size of the longest input string.</returns>
+        /// <remarks>http://redis.io/commands/bitop</remarks>
+        Task<long> BitwiseNot(int db, string destination, string key, bool queueJump = false);
+
+        /// <summary>
         /// This is a composite helper command, to help with using redis as a lock provider. This is achieved
         /// as a string key/value pair with timeout. If the lock does not exist (or has expired), then a new string key is
         /// created (with the supplied duration), and <c>true</c> is returned to indicate success. If the lock
@@ -464,6 +497,42 @@ namespace BookSleeve
         Task<bool> IStringCommands.SetBit(int db, string key, long offset, bool value, bool queueJump)
         {
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SETBIT, key, offset, value ? 1L : 0L), queueJump);
+        }
+        Task<long> IStringCommands.CountSetBits(int db, string key, long start, long end, bool queueJump)
+        {
+            return ExecuteInt64(start == 0 && end == -1
+                ? RedisMessage.Create(db, RedisLiteral.BITCOUNT, key) 
+                : RedisMessage.Create(db, RedisLiteral.BITCOUNT, key, start, end), queueJump);
+        }
+
+        Task<long> IStringCommands.BitwiseAnd(int db, string destination, string[] keys, bool queueJump)
+        {
+            return BitOp(db, RedisLiteral.AND, destination, keys, queueJump);
+        }
+        Task<long> IStringCommands.BitwiseOr(int db, string destination, string[] keys, bool queueJump)
+        {
+            return BitOp(db, RedisLiteral.OR, destination, keys, queueJump);
+        }
+        Task<long> IStringCommands.BitwiseXOr(int db, string destination, string[] keys, bool queueJump)
+        {
+            return BitOp(db, RedisLiteral.XOR, destination, keys, queueJump);
+        }
+        private Task<long> BitOp(int db, RedisLiteral operation, string destination, string[] keys, bool queueJump)
+        {
+            if (keys == null) throw new ArgumentNullException("keys");
+            if (keys.Length == 0) throw new ArgumentException("keys");
+            var args = new RedisMessage.RedisParameter[keys.Length + 2];
+            args[0] = operation;
+            args[1] = destination;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                args[i + 2] = keys[i];
+            }
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.BITOP, args), queueJump);
+        }
+        Task<long> IStringCommands.BitwiseNot(int db, string destination, string key, bool queueJump)
+        {
+            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.BITOP, RedisLiteral.NOT, destination, key), queueJump);
         }
 
         // minimise delegate creations via a single static delegate instance

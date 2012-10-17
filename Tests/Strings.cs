@@ -2,7 +2,7 @@
 using NUnit.Framework;
 using System.Text;
 using System;
-
+using System.Linq;
 namespace Tests
 {
     [TestFixture]
@@ -179,6 +179,57 @@ namespace Tests
             }
         }
 
+        [Test]
+        public void BitCount()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
+            {
+                conn.Strings.Set(0, "mykey", "foobar");
+                var r1 = conn.Strings.CountSetBits(0, "mykey");
+                var r2 = conn.Strings.CountSetBits(0, "mykey", 0, 0);
+                var r3 = conn.Strings.CountSetBits(0, "mykey", 1, 1);
+
+                Assert.AreEqual(26, conn.Wait(r1));
+                Assert.AreEqual(4, conn.Wait(r2));
+                Assert.AreEqual(6, conn.Wait(r3));
+            }
+        }
+
+        [Test]
+        public void BitOp()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                if (conn.Features.BitwiseOperations)
+                {
+                    conn.Strings.Set(0, "key1", new byte[] { 3 });
+                    conn.Strings.Set(0, "key2", new byte[] { 6 });
+                    conn.Strings.Set(0, "key3", new byte[] { 12 });
+
+                    var len_and = conn.Strings.BitwiseAnd(0, "and", new[] { "key1", "key2", "key3" });
+                    var len_or = conn.Strings.BitwiseOr(0, "or", new[] { "key1", "key2", "key3" });
+                    var len_xor = conn.Strings.BitwiseXOr(0, "xor", new[] { "key1", "key2", "key3" });
+                    var len_not = conn.Strings.BitwiseNot(0, "not", "key1");
+
+                    Assert.AreEqual(1, conn.Wait(len_and));
+                    Assert.AreEqual(1, conn.Wait(len_or));
+                    Assert.AreEqual(1, conn.Wait(len_xor));
+                    Assert.AreEqual(1, conn.Wait(len_not));
+
+                    var r_and = conn.Wait(conn.Strings.Get(0, "and")).Single();
+                    var r_or = conn.Wait(conn.Strings.Get(0, "or")).Single();
+                    var r_xor = conn.Wait(conn.Strings.Get(0, "xor")).Single();
+                    var r_not = conn.Wait(conn.Strings.Get(0, "not")).Single();
+
+                    Assert.AreEqual((byte)(3 & 6 & 12), r_and);
+                    Assert.AreEqual((byte)(3 | 6 | 12), r_or);
+                    Assert.AreEqual((byte)(3 ^ 6 ^ 12), r_xor);
+                    Assert.AreEqual(unchecked((byte)(~3)), r_not);
+                }
+
+            }
+
+        }
         static byte[] Encode(string value) { return Encoding.UTF8.GetBytes(value); }
         static string Decode(byte[] value) { return Encoding.UTF8.GetString(value); }
     }
