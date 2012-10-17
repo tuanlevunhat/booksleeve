@@ -112,5 +112,40 @@ namespace Tests
                 conn.Wait(conn.Scripting.Prepare(scripts));
             }
         }
+        [Test]
+        public void NonAsciiScripts()
+        {
+            using (var conn = GetScriptConn())
+            {
+                const string evil = "return '僕'";
+                if (conn == null) return;
+
+                var task = conn.Scripting.Prepare(evil);
+                conn.Wait(task);
+                var result = conn.Wait(conn.Scripting.Eval(0, evil, null, null));
+                Assert.AreEqual("僕", result);
+            }
+        }
+
+        [Test]
+        public void ChangeDbInScript()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return;
+
+                conn.Strings.Set(1, "foo", "db 1");
+                conn.Strings.Set(2, "foo", "db 2");
+
+                var evalResult = conn.Scripting.Eval(2, @"redis.call('select', 1)
+return redis.call('get','foo')", null, null);
+                var getResult = conn.Strings.GetString(2, "foo");
+
+                Assert.AreEqual("db 1", conn.Wait(evalResult));
+                // now, our connection thought it was in db 2, but the script changed to db 1
+                Assert.AreEqual("db 2", conn.Wait(getResult));
+                
+            }
+        }
     }
 }

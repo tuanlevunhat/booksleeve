@@ -775,6 +775,18 @@ namespace BookSleeve
                     RecordSent(tmp);
                     tmp.Write(outBuffer);
                     Interlocked.Increment(ref messagesSent);
+                    switch (tmp.Command)
+                    {
+                        // scripts can change database
+                        case RedisLiteral.EVAL:
+                        case RedisLiteral.EVALSHA:
+                        // transactions can be aborted without running the inner commands (SELECT) that have been written
+                        case RedisLiteral.DISCARD:
+                        case RedisLiteral.EXEC:
+                            // we can't trust the current database; whack it
+                            db = -1;
+                            break;
+                    }
                 }
                 else
                 {
