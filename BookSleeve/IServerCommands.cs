@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Net;
 using System.Threading.Tasks;
 namespace BookSleeve
 {
@@ -62,6 +63,17 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/script-flush</remarks>
         Task FlushScriptCache();
+        /// <summary>
+        /// The CLIENT LIST command returns information and statistics about the client connections server in a mostly human readable format.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/client-list</remarks>
+        Task<ClientInfo[]> ListClients();
+
+        /// <summary>
+        /// The CLIENT KILL command closes a given client connection identified by ip:port.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/client-kill</remarks>
+        Task KillClient(string address);
     }
     partial class RedisConnection : IServerCommands
     {
@@ -97,6 +109,28 @@ namespace BookSleeve
         {
             CheckAdmin();
             return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.FLUSH).ExpectOk(), false);
+        }
+
+        Task IServerCommands.KillClient(string address)
+        {
+            if (string.IsNullOrEmpty(address)) throw new ArgumentNullException("address");
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.CLIENT, RedisLiteral.KILL, address).ExpectOk(), false);
+        }
+        Task<ClientInfo[]> IServerCommands.ListClients()
+        {
+            CheckAdmin();
+            TaskCompletionSource<ClientInfo[]> result = new TaskCompletionSource<ClientInfo[]>();
+            ExecuteString(RedisMessage.Create(-1, RedisLiteral.CLIENT, RedisLiteral.LIST), false).ContinueWith(
+                task =>
+                {
+                    if (Condition.ShouldSetResult(task, result)) try
+                    {
+                        result.TrySetResult(ClientInfo.Parse(task.Result));
+                    }
+                    catch (Exception ex) { result.TrySetException(ex); }
+                });
+            return result.Task;
         }
 
         /// <summary>

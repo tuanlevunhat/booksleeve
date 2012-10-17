@@ -99,12 +99,12 @@ namespace Tests
 
                     shouldMatch[guid] = value;
 
-                    var x = conn.Hashes.Increment(7, key, guid.ToString(), value).Result; // Kill Async
+                    var x = conn.Hashes.Increment(6, key, guid.ToString(), value).Result; // Kill Async
                 }
 
                 foreach (var k in shouldMatch.Keys)
                 {
-                    var inRedis = conn.Hashes.Get(7, key, k.ToString()).Result;
+                    var inRedis = conn.Hashes.Get(6, key, k.ToString()).Result;
                     var num = int.Parse(Encoding.ASCII.GetString(inRedis));
 
                     Assert.AreEqual(shouldMatch[k], num);
