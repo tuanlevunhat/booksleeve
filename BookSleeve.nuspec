@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.1.0.12</version>
+    <version>1.2.0.0</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <description>Fully asynchronous Redis client, capable of pipelined operations; this acts as a multiplexer, allowing high-performance parallel usage of a single connection (or few connections) without being blocked on each separate request. All core redis opeations are supported. This library can also be used from C# 5.0/async very effectively.</description>
@@ -10,6 +10,12 @@
     <licenseUrl>http://booksleeve.googlecode.com/hg/license.txt</licenseUrl>
     <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
+    <releaseNotes>
+      * 1.2.0.0 - BREAKING CHANGE: SortedSets.{Rank|Score} now return nullable values
+      *         - adds bindings for redis 2.6 commands
+      *         - now strong-named
+      *         - cumulative bug-fixes
+    </releaseNotes>
   </metadata>
   <files>
     <file src="BookSleeve\bin\Release\*.*" target="lib" />
