@@ -113,27 +113,28 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/zrank</remarks>
         /// <remarks>http://redis.io/commands/zrevrank</remarks>
         /// <returns>If member exists in the sorted set, Integer reply: the rank of member. If member does not exist in the sorted set or key does not exist, Bulk reply: nil.</returns>
-        Task<long> Rank(int db, string key, string member, bool ascending = true, bool queueJump = false);
+        Task<long?> Rank(int db, string key, string member, bool ascending = true, bool queueJump = false);
         /// <summary>
         /// Returns the rank of member in the sorted set stored at key, with the scores ordered from low to high. The rank (or index) is 0-based, which means that the member with the lowest score has rank 0.
         /// </summary>
         /// <remarks>http://redis.io/commands/zrank</remarks>
         /// <remarks>http://redis.io/commands/zrevrank</remarks>
         /// <returns>If member exists in the sorted set, Integer reply: the rank of member. If member does not exist in the sorted set or key does not exist, Bulk reply: nil.</returns>
-        Task<long> Rank(int db, string key, byte[] member, bool ascending = true, bool queueJump = false);
+        Task<long?> Rank(int db, string key, byte[] member, bool ascending = true, bool queueJump = false);
 
         /// <summary>
         /// Returns the score of member in the sorted set at key. If member does not exist in the sorted set, or key does not exist, nil is returned.
         /// </summary>
         /// <remarks>http://redis.io/commands/zscore</remarks>
         /// <returns>the score of member (a double precision floating point number), represented as string.</returns>
-        Task<double> Score(int db, string key, string member, bool queueJump = false);
+        Task<double?> Score(int db, string key, string member, bool queueJump = false);
         /// <summary>
         /// Returns the score of member in the sorted set at key. If member does not exist in the sorted set, or key does not exist, nil is returned.
         /// </summary>
         /// <remarks>http://redis.io/commands/zscore</remarks>
         /// <returns>the score of member (a double precision floating point number), represented as string.</returns>
-        Task<double> Score(int db, string key, byte[] member, bool queueJump = false);
+        Task<double?> Score(int db, string key, byte[] member, bool queueJump = false);
+
         /// <summary>
         /// Removes the specified members from the sorted set stored at key. Non existing members are ignored.
         /// An error is returned when key exists and does not hold a sorted set.
@@ -371,29 +372,24 @@ namespace BookSleeve
         {
             return SortedSets.Range(db, key, start, stop, true, queueJump);
         }
-        Task<long> ISortedSetCommands.Rank(int db, string key, string member, bool ascending, bool queueJump)
+        Task<long?> ISortedSetCommands.Rank(int db, string key, string member, bool ascending, bool queueJump)
         {
-            
-            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
+            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
         }
-        Task<long> ISortedSetCommands.Rank(int db, string key, byte[] member, bool ascending, bool queueJump)
+        Task<long?> ISortedSetCommands.Rank(int db, string key, byte[] member, bool ascending, bool queueJump)
         {
-            
-            return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
+            return ExecuteNullableInt64(RedisMessage.Create(db, RedisLiteral.ZRANK, key, member), queueJump);
         }
-        Task<double> ISortedSetCommands.Score(int db, string key, string member, bool queueJump)
+        Task<double?> ISortedSetCommands.Score(int db, string key, string member, bool queueJump)
         {
-            
-            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
+            return ExecuteNullableDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
         }
-        Task<double> ISortedSetCommands.Score(int db, string key, byte[] member, bool queueJump)
+        Task<double?> ISortedSetCommands.Score(int db, string key, byte[] member, bool queueJump)
         {
-            
-            return ExecuteDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
+            return ExecuteNullableDouble(RedisMessage.Create(db, RedisLiteral.ZSCORE, key, member), queueJump);
         }
         Task<bool> ISortedSetCommands.Remove(int db, string key, string member, bool queueJump)
-        {
-            
+        {   
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.ZREM, key, member), queueJump);
         }
 

@@ -184,14 +184,17 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
             {
-                conn.Strings.Set(0, "mykey", "foobar");
-                var r1 = conn.Strings.CountSetBits(0, "mykey");
-                var r2 = conn.Strings.CountSetBits(0, "mykey", 0, 0);
-                var r3 = conn.Strings.CountSetBits(0, "mykey", 1, 1);
+                if (conn.Features.BitwiseOperations)
+                {
+                    conn.Strings.Set(0, "mykey", "foobar");
+                    var r1 = conn.Strings.CountSetBits(0, "mykey");
+                    var r2 = conn.Strings.CountSetBits(0, "mykey", 0, 0);
+                    var r3 = conn.Strings.CountSetBits(0, "mykey", 1, 1);
 
-                Assert.AreEqual(26, conn.Wait(r1));
-                Assert.AreEqual(4, conn.Wait(r2));
-                Assert.AreEqual(6, conn.Wait(r3));
+                    Assert.AreEqual(26, conn.Wait(r1));
+                    Assert.AreEqual(4, conn.Wait(r2));
+                    Assert.AreEqual(6, conn.Wait(r3));
+                }
             }
         }
 
@@ -229,6 +232,17 @@ namespace Tests
 
             }
 
+        }
+
+        [Test]
+        public void RangeString()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Strings.Set(0, "my key", "hello world");
+                var result = conn.Strings.GetString(0, "my key", 2, 6);
+                Assert.AreEqual("llo w", conn.Wait(result));
+            }
         }
         static byte[] Encode(string value) { return Encoding.UTF8.GetBytes(value); }
         static string Decode(byte[] value) { return Encoding.UTF8.GetString(value); }

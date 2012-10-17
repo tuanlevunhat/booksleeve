@@ -22,6 +22,48 @@ namespace Tests
                 Assert.AreEqual(value, conn.Wait(range).Single().Value);
             }
         }
+        [Test]
+        public void RangeString() // http://code.google.com/p/booksleeve/issues/detail?id=18
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                const double value = 634614442154715;
+                conn.SortedSets.Add(3, "zset", "abc", value);
+                var range = conn.SortedSets.RangeString(3, "zset", 0, -1);
+
+                Assert.AreEqual(value, conn.Wait(range).Single().Value);
+            }
+        }
+
+        [Test]
+        public void Score() // http://code.google.com/p/booksleeve/issues/detail?id=23
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(0, "abc");
+                conn.SortedSets.Add(0, "abc", "def", 1.0);
+                var s1 = conn.SortedSets.Score(0, "abc", "def");
+                var s2 = conn.SortedSets.Score(0, "abc", "ghi");
+
+                Assert.AreEqual(1.0, conn.Wait(s1));
+                Assert.IsNull(conn.Wait(s2));
+            }
+        }
+
+        [Test]
+        public void Rank() // http://code.google.com/p/booksleeve/issues/detail?id=23
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(0, "abc");
+                conn.SortedSets.Add(0, "abc", "def", 1.0);
+                var r1 = conn.SortedSets.Rank(0, "abc", "def");
+                var r2 = conn.SortedSets.Rank(0, "abc", "ghi");
+
+                Assert.AreEqual(0, conn.Wait(r1));
+                Assert.IsNull(conn.Wait(r2));
+            }
+        }
 
         static string SeedRange(RedisConnection connection, out double min, out double max)
         {
