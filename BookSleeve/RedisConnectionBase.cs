@@ -894,7 +894,13 @@ namespace BookSleeve
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
-
+        internal Task<double?> ExecuteNullableDouble(RedisMessage message, bool queueJump, object state = null)
+        {
+            var msgResult = new MessageResultNullableDouble(state);
+            message.SetMessageResult(msgResult);
+            EnqueueMessage(message, queueJump);
+            return msgResult.Task;
+        }
         internal Task<byte[][]> ExecuteMultiBytes(RedisMessage message, bool queueJump)
         {
             var msgResult = new MessageResultMultiBytes();
