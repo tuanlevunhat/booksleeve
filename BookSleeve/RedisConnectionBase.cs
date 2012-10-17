@@ -1015,6 +1015,10 @@ namespace BookSleeve
         }
         private TimeoutException CreateTimeout()
         {
+            if (state != (int)ConnectionState.Open)
+            {
+                return new TimeoutException("The operation has timed out; the connection is not open");
+            }
             if(IncludeDetailInTimeouts)
             {
                 string compete = GetTimeoutSummary();
