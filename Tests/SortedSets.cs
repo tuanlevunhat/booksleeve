@@ -57,11 +57,22 @@ namespace Tests
             {
                 conn.Keys.Remove(0, "abc");
                 conn.SortedSets.Add(0, "abc", "def", 1.0);
-                var r1 = conn.SortedSets.Rank(0, "abc", "def");
-                var r2 = conn.SortedSets.Rank(0, "abc", "ghi");
+                conn.SortedSets.Add(0, "abc", "jkl", 2.0);
+                var a1 = conn.SortedSets.Rank(0, "abc", "def", ascending: true);
+                var a2 = conn.SortedSets.Rank(0, "abc", "ghi", ascending: true);
+                var a3 = conn.SortedSets.Rank(0, "abc", "jkl", ascending: true);
 
-                Assert.AreEqual(0, conn.Wait(r1));
-                Assert.IsNull(conn.Wait(r2));
+                var d1 = conn.SortedSets.Rank(0, "abc", "def", ascending: false);
+                var d2 = conn.SortedSets.Rank(0, "abc", "ghi", ascending: false);
+                var d3 = conn.SortedSets.Rank(0, "abc", "jkl", ascending: false);
+
+                Assert.AreEqual(0, conn.Wait(a1));
+                Assert.IsNull(conn.Wait(a2));
+                Assert.AreEqual(1, conn.Wait(a3));
+
+                Assert.AreEqual(1, conn.Wait(d1));
+                Assert.IsNull(conn.Wait(d2));
+                Assert.AreEqual(0, conn.Wait(d3));
             }
         }
 
