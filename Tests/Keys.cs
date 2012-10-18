@@ -252,6 +252,34 @@ namespace Tests
         }
 
         [Test]
+        public void Sort()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(1, "sort");
+                conn.Lists.AddLast(1, "sort", "10");
+                conn.Lists.AddLast(1, "sort", "3");
+                conn.Lists.AddLast(1, "sort", "1.1");
+                conn.Lists.AddLast(1, "sort", "2");
+                var a = conn.Keys.SortString(1, "sort");
+                var b = conn.Keys.SortString(1, "sort", ascending: false, offset: 1, count: 2);
+                var c = conn.Keys.SortString(1, "sort", alpha: true);
+                var d = conn.Keys.SortAndStore(1, "sort-store", "sort");
+                var e = conn.Lists.RangeString(1, "sort-store", 0, -1);
+                var f = conn.Lists.RangeString(1, "sort", 0, -1);
+
+                Assert.AreEqual("1.1;2;3;10",string.Join(";", conn.Wait(a)));
+                Assert.AreEqual("3;2",string.Join(";", conn.Wait(b)));
+                Assert.AreEqual("1.1;10;2;3",string.Join(";", conn.Wait(c)));
+                Assert.AreEqual(4, conn.Wait(d));
+                Assert.AreEqual("1.1;2;3;10", string.Join(";", conn.Wait(e)));
+                Assert.AreEqual("10;3;1.1;2", string.Join(";", conn.Wait(f)));
+
+            }
+
+        }
+
+        [Test]
         public void ItemType()
         {
             using (var conn = Config.GetUnsecuredConnection())

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 
@@ -95,6 +96,20 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/dbsize</remarks>
         Task<long> GetLength(int db, bool queueJump = false);
+
+        /// <summary>
+        /// Returns or stores the elements contained in the list, set or sorted set at key. By default, sorting is numeric and elements are compared by their value interpreted as double precision floating point number. 
+        /// </summary>
+        /// <remarks>http://redis.io/commands/sort</remarks>
+        Task<string[]> SortString(int db, string key, string byPattern = null, string[] getPattern = null,
+                    long offset = 0, long count = -1, bool alpha = false, bool ascending = true, bool queueJump = false);
+
+        /// <summary>
+        /// Returns or stores the elements contained in the list, set or sorted set at key. By default, sorting is numeric and elements are compared by their value interpreted as double precision floating point number. 
+        /// </summary>
+        /// <remarks>http://redis.io/commands/sort</remarks>
+        Task<long> SortAndStore(int db, string destination, string key, string byPattern = null, string[] getPattern = null,
+                    long offset = 0, long count = -1, bool alpha = false, bool ascending = true, bool queueJump = false);
     }
 
     partial class RedisConnection : IKeyCommands
@@ -245,6 +260,60 @@ namespace BookSleeve
         Task<long> IKeyCommands.GetLength(int db, bool queueJump)
         {
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.DBSIZE), queueJump);
+        }
+
+        static RedisMessage CreateSortMessage(int db, string key, string byPattern, string[] getPattern,
+                    long offset, long count, bool alpha, bool ascending, string storeKey)
+        {
+            var items = new List<RedisMessage.RedisParameter> { key };
+
+            if (!string.IsNullOrEmpty(byPattern))
+            {
+                items.Add(RedisLiteral.BY);
+                items.Add(byPattern);
+            }
+
+            if (offset != 0 || (count != -1 && count != long.MaxValue))
+            {
+                items.Add(RedisLiteral.LIMIT);
+                items.Add(offset);
+                items.Add(count);
+            }
+
+            if (getPattern != null)
+            {
+                foreach (var pattern in getPattern)
+                {
+                    if (!string.IsNullOrEmpty(pattern))
+                    {
+                        items.Add(RedisLiteral.GET);
+                        items.Add(pattern);
+                    }
+                }
+            }
+
+            if (!ascending) items.Add(RedisLiteral.DESC);
+            if (alpha) items.Add(RedisLiteral.ALPHA);
+
+            if (!string.IsNullOrEmpty(storeKey))
+            {
+                items.Add(RedisLiteral.STORE);
+                items.Add(storeKey);
+            }
+            return RedisMessage.Create(db, RedisLiteral.SORT, items.ToArray());
+        }
+
+        Task<string[]> IKeyCommands.SortString(int db, string key, string byPattern, string[] getPattern,
+                    long offset, long count, bool alpha, bool ascending, bool queueJump)
+        {
+            var msg = CreateSortMessage(db, key, byPattern, getPattern, offset, count, alpha, ascending, null);
+            return ExecuteMultiString(msg, queueJump);
+        }
+        Task<long> IKeyCommands.SortAndStore(int db, string destination, string key, string byPattern, string[] getPattern,
+                    long offset, long count, bool alpha, bool ascending, bool queueJump)
+        {
+            var msg = CreateSortMessage(db, key, byPattern, getPattern, offset, count, alpha, ascending, destination);
+            return ExecuteInt64(msg, queueJump);
         }
     }
 }
