@@ -104,10 +104,16 @@ namespace BookSleeve
             {
                 return Error();
             }
-            internal ErrorRedisResult(string message) { this.message = message; }
+            internal ErrorRedisResult(string message) { this.message = message ?? ""; }
             private readonly string message;
             public override bool IsError { get { return true; } }
-            public override Exception Error() { return new RedisException(message); }
+            public override Exception Error() {
+                if (message.StartsWith("READONLY"))
+                {
+                    return new RedisReadonlySlaveException(message);
+                }
+                return new RedisException(message);
+            }
             public override RedisResult[] ValueItems { get { throw Error(); } }
             internal override bool IsNil { get { return false; } }
         }
@@ -279,11 +285,11 @@ namespace BookSleeve
         internal override bool IsNil { get { return items == null; } }
     }
     /// <summary>
-    /// An redis-related exception; this could represent a message from the server,
+    /// A redis-related exception; this could represent a message from the server,
     /// or a protocol error talking to the server.
     /// </summary>
     [Serializable]
-    public sealed class RedisException : Exception
+    public class RedisException : Exception
     {
         /// <summary>
         /// Create a new RedisException
@@ -297,8 +303,33 @@ namespace BookSleeve
         /// Create a new RedisException
         /// </summary>
         public RedisException(string message, Exception innerException) : base(message, innerException) { }
-        private RedisException(SerializationInfo info, StreamingContext context)  : base(info, context) {}
+        /// <summary>
+        /// Create a new RedisException
+        /// </summary>
+        protected RedisException(SerializationInfo info, StreamingContext context)  : base(info, context) {}
     }
+    /// <summary>
+    /// A redis-related exception, where an attempt has been made to change a value on a readonly slave (2.6 or above)
+    /// </summary>
+    [Serializable]
+    public sealed class RedisReadonlySlaveException : RedisException
+    {
+        /// <summary>
+        /// Create a new RedisReadonlySlaveException 
+        /// </summary>
+        public RedisReadonlySlaveException () { }
+        /// <summary>
+        /// Create a new RedisReadonlySlaveException 
+        /// </summary>
+        public RedisReadonlySlaveException (string message) : base(message) { }
+        /// <summary>
+        /// Create a new RedisReadonlySlaveException 
+        /// </summary>
+        public RedisReadonlySlaveException (string message, Exception innerException) : base(message, innerException) { }
+        private RedisReadonlySlaveException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+    }
+
+
 
     internal enum MessageState
     {

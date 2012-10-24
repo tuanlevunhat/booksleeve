@@ -19,8 +19,15 @@ namespace BookSleeve
         /// </summary>
         public static string SelectConfiguration(string configuration, out string[] availableEndpoints, TextWriter log = null)
         {
+            return SelectConfiguration(configuration, out availableEndpoints, null, log);
+        }
+        /// <summary>
+        /// Inspect the provided configration, and connect to the available servers to report which server is the preferred/active node.
+        /// </summary>
+        public static string SelectConfiguration(string configuration, out string[] availableEndpoints, string tieBreakerKey = null, TextWriter log = null)
+        {
             string selected;
-            using (SelectAndCreateConnection(configuration, log, out selected, out availableEndpoints, false)) { }
+            using (SelectAndCreateConnection(configuration, log, out selected, out availableEndpoints, false, null, tieBreakerKey)) { }
             return selected;
         }
         /// <summary>
@@ -28,9 +35,18 @@ namespace BookSleeve
         /// </summary>
         public static RedisConnection Connect(string configuration, TextWriter log = null)
         {
+            // historically, it would auto-master by default
+            return Connect(configuration, true, null, log);
+        }
+
+        /// <summary>
+        /// Inspect the provided configration, and connect to the preferred/active node after checking what nodes are available.
+        /// </summary>
+        public static RedisConnection Connect(string configuration, bool autoMaster, string tieBreakerKey = null, TextWriter log = null)
+        {
             string selectedConfiguration;
             string[] availableEndpoints;
-            return SelectAndCreateConnection(configuration, log, out selectedConfiguration, out availableEndpoints, true);
+            return SelectAndCreateConnection(configuration, log, out selectedConfiguration, out availableEndpoints, autoMaster, null, tieBreakerKey);
         }
 
         /// <summary>
@@ -48,13 +64,20 @@ namespace BookSleeve
         /// </summary>
         public static void SwitchMaster(string configuration, string newMaster, TextWriter log = null)
         {
+            SwitchMaster(configuration, newMaster, null, log);
+        }
+        /// <summary>
+        /// Using the configuration available, and after checking which nodes are available, switch the master node and broadcast this change.
+        /// </summary>
+        public static void SwitchMaster(string configuration, string newMaster, string tieBreakerKey = null, TextWriter log = null)
+        {
             string newConfig;
             string[] availableEndpoints;
 
-            SelectAndCreateConnection(configuration, log, out newConfig, out availableEndpoints, false, newMaster);
+            SelectAndCreateConnection(configuration, log, out newConfig, out availableEndpoints, false, newMaster, tieBreakerKey);
         }
 
-        const string RedisMasterChangedChannel = "__Booksleeve_MasterChanged", TieBreakerKey = "__Booksleeve_TieBreak";
+        const string RedisMasterChangedChannel = "__Booksleeve_MasterChanged";
 
         /// <summary>
         /// Prompt all clients to reconnect.
@@ -148,8 +171,10 @@ namespace BookSleeve
         }
 
         internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=";
-        private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null)
+        
+        private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
+            if (tieBreakerKey == null) tieBreakerKey = "__Booksleeve_TieBreak"; // default tie-breaker key
             int syncTimeout;
             bool allowAdmin;
             if(log == null) log = new StringWriter();
@@ -192,7 +217,7 @@ namespace BookSleeve
                         log.WriteLine("Opening connection to {0}:{1}...", host, port);
                         conn.Open();
                         var info = conn.GetInfo();
-                        var tiebreak = conn.Strings.GetString(0, TieBreakerKey);
+                        var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
                         connections.Add(conn);
                         infos.Add(info);
                         tiebreakers.Add(tiebreak);
@@ -372,7 +397,8 @@ namespace BookSleeve
                         {
                             log.WriteLine("Promoting to master: {0}:{1}...", preferred.Host, preferred.Port);
                             preferred.Wait(preferred.Server.MakeMaster());
-                            preferred.Strings.Set(0, TieBreakerKey, newMaster);
+                            // if this is a master, we expect set/publish to work, even on 2.6
+                            preferred.Strings.Set(0, tieBreakerKey, newMaster);
                             preferred.Wait(preferred.Publish(RedisMasterChangedChannel, newMaster));
                         }
                         catch (Exception ex)
@@ -390,12 +416,18 @@ namespace BookSleeve
                                 try
                                 {
                                     log.WriteLine("Enslaving: {0}:{1}...", conn.Host, conn.Port);
-                                    // set the tie-breaker **first** in case of problems
-                                    conn.Strings.Set(0, TieBreakerKey, newMaster);
+
+                                    // try to set the tie-breaker **first** in case of problems
+                                    var didSet = conn.Strings.Set(0, tieBreakerKey, newMaster);
                                     // and broadcast to anyone who thinks this is the master
-                                    conn.Publish(RedisMasterChangedChannel, newMaster);
+                                    var didPublish = conn.Publish(RedisMasterChangedChannel, newMaster);
                                     // now make it a slave
-                                    conn.Wait(conn.Server.MakeSlave(preferred.Host, preferred.Port));
+                                    var didEnslave = conn.Server.MakeSlave(preferred.Host, preferred.Port);
+                                    // these are best-effort only; from 2.6, readonly slave servers may reject these commands
+                                    try { conn.Wait(didSet); } catch {}
+                                    try { conn.Wait(didPublish); } catch {}
+                                    // but this one we'll log etc
+                                    conn.Wait(didEnslave);
                                 }
                                 catch (Exception ex)
                                 {
