@@ -60,6 +60,72 @@ namespace Tests
         }
 
         [Test]
+        public void MultiIncrWithoutReplies()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return; // not 2.6
+
+                const int DB = 0; // any database number
+                // prime some initial values
+                conn.Keys.Remove(DB, new[] { "a", "b", "c" });
+                conn.Strings.Increment(DB, "b");
+                conn.Strings.Increment(DB, "c");
+                conn.Strings.Increment(DB, "c");
+
+                // run the script, passing "a", "b", "c", "c" to
+                // increment a & b by 1, c twice
+                var result = conn.Scripting.Eval(DB,
+                    @"for i,key in ipairs(KEYS) do redis.call('incr', key) end",
+                    new[] { "a", "b", "c", "c" }, // <== aka "KEYS" in the script
+                    null); // <== aka "ARGV" in the script
+
+                // check the incremented values
+                var a = conn.Strings.GetInt64(DB, "a");
+                var b = conn.Strings.GetInt64(DB, "b");
+                var c = conn.Strings.GetInt64(DB, "c");
+
+                Assert.IsNull(conn.Wait(result), "result");
+                Assert.AreEqual(1, conn.Wait(a), "a");
+                Assert.AreEqual(2, conn.Wait(b), "b");
+                Assert.AreEqual(4, conn.Wait(c), "c");
+            }
+        }
+
+        [Test]
+        public void MultiIncrByWithoutReplies()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return; // not 2.6
+
+                const int DB = 0; // any database number
+                // prime some initial values
+                conn.Keys.Remove(DB, new[] { "a", "b", "c" });
+                conn.Strings.Increment(DB, "b");
+                conn.Strings.Increment(DB, "c");
+                conn.Strings.Increment(DB, "c");
+
+                // run the script, passing "a", "b", "c" and 1,2,3
+                // increment a & b by 1, c twice
+                var result = conn.Scripting.Eval(DB,
+                    @"for i,key in ipairs(KEYS) do redis.call('incrby', key, ARGV[i]) end",
+                    new[] { "a", "b", "c" }, // <== aka "KEYS" in the script
+                    new object[] {1,1,2}); // <== aka "ARGV" in the script
+
+                // check the incremented values
+                var a = conn.Strings.GetInt64(DB, "a");
+                var b = conn.Strings.GetInt64(DB, "b");
+                var c = conn.Strings.GetInt64(DB, "c");
+
+                Assert.IsNull(conn.Wait(result), "result");
+                Assert.AreEqual(1, conn.Wait(a), "a");
+                Assert.AreEqual(2, conn.Wait(b), "b");
+                Assert.AreEqual(4, conn.Wait(c), "c");
+            }
+        }
+
+        [Test]
         public void DisableStringInference()
         {
             using (var conn = GetScriptConn())
