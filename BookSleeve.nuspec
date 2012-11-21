@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.2.0.2</version>
+    <version>1.2.0.3</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <summary>Efficient, fully asynchronous Redis client</summary>
