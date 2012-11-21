@@ -255,13 +255,13 @@ namespace BookSleeve
                 switch (breakerScores.Count)
                 {
                     case 0:
-                        log.WriteLine("No tie-breakers found");
+                        log.WriteLine("No tie-breakers found ({0})", tieBreakerKey);
                         break;
                     case 1:
-                        log.WriteLine("Tie-breaker is unanimous: {0}", breakerScores.Keys.Single());
+                        log.WriteLine("Tie-breaker ({0}) is unanimous: {1}", tieBreakerKey, breakerScores.Keys.Single());
                         break;
                     default:
-                        log.WriteLine("Ambiguous tie-breakers:");
+                        log.WriteLine("Ambiguous tie-breakers ({0}):", tieBreakerKey);
                         foreach (var kvp in breakerScores.OrderByDescending(x => x.Value))
                         {
                             log.WriteLine("\t{0}: {1}", kvp.Key, kvp.Value);
