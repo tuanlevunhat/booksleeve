@@ -21,7 +21,18 @@ namespace Tests
                 }
             }
         }
-
+        [Test]
+        public void TestIncrementOnHashThatDoesntExist()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.Keys.Remove(0, "keynotexist");
+                var result1 = conn.Wait(conn.Hashes.Increment(0, "keynotexist", "fieldnotexist", 1));
+                var result2 = conn.Wait(conn.Hashes.Increment(0, "keynotexist", "anotherfieldnotexist", 1));
+                Assert.AreEqual(1, result1);
+                Assert.AreEqual(1, result2);
+            }
+        }
         [Test]
         public void TestIncrByFloat()
         {

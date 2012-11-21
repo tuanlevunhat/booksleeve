@@ -4,6 +4,7 @@ using System;
 using System.Text;
 using BookSleeve;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Tests
 {
@@ -267,6 +268,32 @@ namespace Tests
                 Assert.AreEqual(1, s[0].Value);
                 Assert.AreEqual(2, s[1].Value);
                 Assert.AreEqual(3, s[2].Value);
+            }
+        }
+
+        [Test]
+        public void TestZUNIONSTORElimit()
+        {
+            const int SIZE = 10000;
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                for (int i = 0; i < SIZE; i++)
+                {
+                    string key = "z_" + i;
+                    conn.Keys.Remove(0, key);
+                    for (int j = 0; j < 5; j++)
+                        conn.SortedSets.Add(0, key, "s" + j.ToString(), j);
+                }
+                conn.Wait(conn.Server.Ping());
+
+                List<Task> results = new List<Task>(SIZE);
+                for (int i = 0; i < SIZE; i+=100)
+                {
+                    string[] keys = Enumerable.Range(0,i+1).Select(x => "z_" + x).ToArray();
+                    results.Add(conn.SortedSets.UnionAndStore(0, "zu_" + i, keys, RedisAggregate.Max));
+                }
+                foreach (var task in results)
+                    conn.WaitAll(task);
             }
         }
     }

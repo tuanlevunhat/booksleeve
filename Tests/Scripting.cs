@@ -60,6 +60,28 @@ namespace Tests
         }
 
         [Test]
+        public void HackyGetPerf()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return;
+                conn.Strings.Set(0, "foo", "bar");
+                var key = Guid.NewGuid().ToString(); // 
+                var result = (long)conn.Wait(conn.Scripting.Eval(0, @"
+redis.call('psetex', KEYS[1], 60000, 'timing')
+for i = 1,100000 do
+    redis.call('set', 'ignore','abc')
+end
+local timeTaken = 60000 - redis.call('pttl', KEYS[1])
+redis.call('del', KEYS[1])
+return timeTaken
+", new[] { key }, null));
+                Console.WriteLine(result);
+                Assert.IsTrue(result > 0);
+            }
+        }
+
+        [Test]
         public void MultiIncrWithoutReplies()
         {
             using (var conn = GetScriptConn())
