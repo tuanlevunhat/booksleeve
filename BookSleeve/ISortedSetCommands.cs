@@ -178,16 +178,16 @@ namespace BookSleeve
         Task<long> RemoveRange(int db, string key, double min, double max, bool minInclusive = true, bool maxInclusive = true, bool queueJump = false);
 
         /// <summary>
-        /// Intersects the sorted sets at setsToIntersect to a new sortedset at resultSetKey
+        /// Computes the intersection of numkeys sorted sets given by the specified keys, and stores the result in destination.
         /// </summary>
-        /// <remarks>If destination already exists, it is overwritten.</remarks>
+        /// <remarks>http://redis.io/commands/zinterstore</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
         Task<long> IntersectAndStore(int db, string destionation, string[] keys, RedisAggregate aggregate = RedisAggregate.Sum, bool queueJump = false);
 
         /// <summary>
-        /// Intersects the sorted sets at setsToIntersect to a new sortedset at resultSetKey
+        /// Computes the union of numkeys sorted sets given by the specified keys, and stores the result in destination. It is mandatory to provide the number of input keys (numkeys) before passing the input keys and the other (optional) arguments.
         /// </summary>
-        /// <remarks>If destination already exists, it is overwritten.</remarks>
+        /// <remarks>http://redis.io/commands/zunionstore</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
         Task<long> UnionAndStore(int db, string destination, string[] keys, RedisAggregate aggregate = RedisAggregate.Sum, bool queueJump = false);
     }
