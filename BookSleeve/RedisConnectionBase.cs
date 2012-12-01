@@ -181,7 +181,6 @@ namespace BookSleeve
                 redisStream.ReadTimeout = redisStream.WriteTimeout = ioTimeout;
 
 
-
                 Thread thread = new Thread(Outgoing);
                 thread.IsBackground = true;
                 thread.Name = "Redis:outgoing";
@@ -204,6 +203,18 @@ namespace BookSleeve
                         if (parsed.TryGetValue("redis_version", out s) && TryParseVersion(s, out version))
                         {
                             this.ServerVersion = version;
+                        }
+                        if (parsed.TryGetValue("redis_mode", out s) && s == "sentinel")
+                        {
+                            ServerType = BookSleeve.ServerType.Sentinel;
+                        }
+                        else if (parsed.TryGetValue("role", out s) && s != null)
+                        {
+                            switch (s)
+                            {
+                                case "master": ServerType = BookSleeve.ServerType.Master; break;
+                                case "slave": ServerType = BookSleeve.ServerType.Slave; break;
+                            }
                         }
                         Interlocked.CompareExchange(ref state, (int)ConnectionState.Open, (int)ConnectionState.Opening);
                     }
@@ -909,9 +920,9 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
-        internal Task<string[]> ExecuteMultiString(RedisMessage message, bool queueJump)
+        internal Task<string[]> ExecuteMultiString(RedisMessage message, bool queueJump, object state = null)
         {
-            var msgResult = new MessageResultMultiString();
+            var msgResult = new MessageResultMultiString(state);
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
@@ -1075,6 +1086,35 @@ namespace BookSleeve
             return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
 
+        /// <summary>
+        /// What type of connection is this
+        /// </summary>
+        public ServerType ServerType { get; protected internal set; }
+
+    }
+
+    /// <summary>
+    /// What type of server does this represent
+    /// </summary>
+    public enum ServerType
+    {
+        /// <summary>
+        /// The server is not yet connected, or is not recognised
+        /// </summary>
+        Unknown = 0,
+        /// <summary>
+        /// The server is a master node, suitable for read and write
+        /// </summary>
+        Master = 1,
+        /// <summary>
+        /// The server is a replication slave, suitable for read
+        /// </summary>
+        Slave = 2,
+        /// <summary>
+        /// The server is a sentinel, used for anutomated configuration
+        /// and failover
+        /// </summary>
+        Sentinel = 3
     }
 }
 

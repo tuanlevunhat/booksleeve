@@ -81,6 +81,7 @@ namespace BookSleeve
         private RedisSubscriberConnection SubscriberFactory()
         {
             var conn = new RedisSubscriberConnection(Host, Port, IOTimeout, Password, 100);
+            conn.ServerType = this.ServerType;
             conn.Error += OnError;
             conn.Open();
             return conn;
@@ -317,6 +318,35 @@ namespace BookSleeve
             {
                 return base.OutstandingCount + GetSentCount();
             }
+        }
+
+        internal Task<Tuple<string,int>> QuerySentinelMaster(string serviceName)
+        {
+           if(string.IsNullOrEmpty(serviceName)) throw new ArgumentNullException("serviceName");
+           TaskCompletionSource<Tuple<string,int>> taskSource = new TaskCompletionSource<Tuple<string,int>>();
+           ExecuteMultiString(RedisMessage.Create(-1, RedisLiteral.SENTINEL, "get-master-addr-by-name", serviceName), false, taskSource)
+                .ContinueWith(task =>
+                {
+                    var state = (TaskCompletionSource<Tuple<string, int>>)task.AsyncState;
+                    if (Condition.ShouldSetResult(task, state))
+                    {
+                        var arr = task.Result;
+                        int i;
+                        if (arr == null)
+                        {
+                            state.SetResult(null);
+                        }
+                        else if (arr.Length == 2 && int.TryParse(arr[1], out i))
+                        {
+                            state.SetResult(Tuple.Create(arr[0], i));
+                        }
+                        else
+                        {
+                            state.SetException(new InvalidOperationException("Invalid sentinel result: " + string.Join(",", arr)));
+                        }
+                    }
+                });
+           return taskSource.Task;
         }
     }
 }
