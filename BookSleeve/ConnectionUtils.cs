@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -133,10 +134,11 @@ namespace BookSleeve
             return competing[0].Node;
         }
 
-        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin)
+        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin, out string serviceName)
         {
             syncTimeout = 1000;
             allowAdmin = false;
+            serviceName = null;
 
             // break it down by commas
             var arr = configuration.Split(',');
@@ -154,13 +156,18 @@ namespace BookSleeve
                     if (option.StartsWith(SyncTimeoutPrefix))
                     {
                         int tmp;
-                        if (int.TryParse(option.Substring(idx + 1), out tmp)) syncTimeout = tmp;
+                        if (int.TryParse(option.Substring(idx + 1).Trim(), out tmp)) syncTimeout = tmp;
                         continue;
                     }
-                    if (option.StartsWith(AllowAdminPrefix))
+                    else if (option.StartsWith(AllowAdminPrefix))
                     {
                         bool tmp;
-                        if (bool.TryParse(option.Substring(idx + 1), out tmp)) allowAdmin = tmp;
+                        if (bool.TryParse(option.Substring(idx + 1).Trim(), out tmp)) allowAdmin = tmp;
+                        continue;
+                    }
+                    else if (option.StartsWith(ServiceNamePrefix))
+                    {
+                        serviceName = option.Substring(idx + 1).Trim();
                         continue;
                     }
                 }
@@ -170,20 +177,22 @@ namespace BookSleeve
             return options.ToArray();
         }
 
-        internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=";
+        internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=", ServiceNamePrefix = "serviceName=";
         
         private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
             if (tieBreakerKey == null) tieBreakerKey = "__Booksleeve_TieBreak"; // default tie-breaker key
             int syncTimeout;
             bool allowAdmin;
+            string serviceName;
             if(log == null) log = new StringWriter();
-            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin);
+            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName);
             if (!string.IsNullOrWhiteSpace(newMaster)) allowAdmin = true; // need this to diddle the slave/master config
 
             log.WriteLine("{0} unique nodes specified", arr.Length);
             log.WriteLine("sync timeout: {0}ms, admin commands: {1}", syncTimeout,
                           allowAdmin ? "enabled" : "disabled");
+            if(!string.IsNullOrEmpty(serviceName)) log.WriteLine("service: {0}", serviceName);
             if (arr.Length == 0)
             {
                 log.WriteLine("No nodes to consider");
@@ -251,6 +260,103 @@ namespace BookSleeve
                     }
                     catch { /* if a node is down, that's fine too */ }
                 }
+
+                // see if any of our nodes are sentinels that know about the named service
+                List<Tuple<RedisConnection, Task<Tuple<string, int>>>> sentinelNodes = null;
+                foreach (var conn in connections)
+                { // the "wait" we did during tie-breaker detection means we should now know what each server is
+                    if (conn.ServerType == ServerType.Sentinel)
+                    {
+                        if (string.IsNullOrEmpty(serviceName))
+                        {
+                            log.WriteLine("Sentinel discovered, but no serviceName was specified; ignoring {0}:{1}", conn.Host, conn.Port);
+                        }
+                        else
+                        {
+                            log.WriteLine("Querying sentinel {0}:{1} for {2}...", conn.Host, conn.Port, serviceName);
+                            if (sentinelNodes == null) sentinelNodes = new List<Tuple<RedisConnection, Task<Tuple<string, int>>>>();
+                            sentinelNodes.Add(Tuple.Create(conn, conn.QuerySentinelMaster(serviceName)));
+                        }
+                    }
+                }
+
+                // wait for sentinel results, if any
+                if(sentinelNodes != null)
+                {
+                    var discoveredPairs = new Dictionary<Tuple<string, int>, int>();
+                    foreach(var pair in sentinelNodes)
+                    {
+                        var conn = pair.Item1;
+                        try {
+                            var master = conn.Wait(pair.Item2);
+                            if(master == null)
+                            {
+                                log.WriteLine("Sentinel {0}:{1} is not configured for {2}", conn.Host, conn.Port, serviceName);
+                            }
+                            else
+                            {
+                                log.WriteLine("Sentinel {0}:{1} nominates {2}:{3}", conn.Host, conn.Port, master.Item1, master.Item2);
+                                int count;
+                                if (discoveredPairs.TryGetValue(master, out count)) count = 0;
+                                discoveredPairs[master] = count + 1;
+                            }
+                        } catch (Exception ex) {
+                            log.WriteLine("Error from sentinel {0}:{1} - {2}", conn.Host, conn.Port, ex.Message);
+                        }
+                    }
+                    Tuple<string, int> finalChoice;
+                    switch (discoveredPairs.Count)
+                    {
+                        case 0:
+                            log.WriteLine("No sentinels nominated a master; unable to connect");
+                            finalChoice = null;
+                            break;
+                        case 1:
+                            finalChoice = discoveredPairs.Single().Key;
+                            log.WriteLine("Sentinels nominated unanimous master: {0}:{1}", finalChoice.Item1, finalChoice.Item2);
+                            break;
+                        default:
+                            finalChoice = discoveredPairs.OrderByDescending(kvp => kvp.Value).First().Key;
+                            log.WriteLine("Sentinels nominated multiple masters; choosing arbitrarily: {0}:{1}", finalChoice.Item1, finalChoice.Item2);
+                            break;
+                    }
+
+                    if (finalChoice != null)
+                    {
+                        RedisConnection toBeDisposed = null;
+                        try
+                        { // good bet that in this scenario the input didn't specify any actual redis servers, so we'll assume open a new one
+                            log.WriteLine("Opening nominated master: {0}:{1}...", finalChoice.Item1, finalChoice.Item2);
+                            toBeDisposed = new RedisConnection(finalChoice.Item1, finalChoice.Item2, allowAdmin: allowAdmin, syncTimeout: syncTimeout);
+                            toBeDisposed.Wait(toBeDisposed.Open());
+                            if (toBeDisposed.ServerType == ServerType.Master)
+                            {
+                                var tmp = toBeDisposed;
+                                toBeDisposed = null; // so we don't dispose it
+                                selectedConfiguration = tmp.Host + ":" + tmp.Port;
+                                availableEndpoints = new string[] { selectedConfiguration };
+                                return tmp;
+                            }
+                            else
+                            {
+                                log.WriteLine("Server is {0} instead of a master", toBeDisposed.ServerType);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            log.WriteLine("Error: {0}", ex.Message);
+                        }
+                        finally
+                        { // dispose if something went sour
+                            using (toBeDisposed) { }
+                        }
+                    }
+                    // something went south; BUT SENTINEL WINS TRUMPS; quit now
+                    selectedConfiguration = null;
+                    availableEndpoints = new string[0];
+                    return null;
+                }
+
                 // check for tie-breakers (i.e. when we store which is the master)
                 switch (breakerScores.Count)
                 {

@@ -1,11 +1,47 @@
-﻿using NUnit.Framework;
+﻿using BookSleeve;
+using NUnit.Framework;
 using System;
+using System.Diagnostics;
+using System.IO;
 
 namespace Tests
 {
     [TestFixture]
     public class Connections // http://redis.io/commands#connection
     {
+        [Test]
+        public void TestConnectViaSentinel()
+        {
+            string[] endpoints;
+            StringWriter sw = new StringWriter();
+            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:26379,serviceName=mymaster", out endpoints, sw);
+            string log = sw.ToString();
+            Console.WriteLine(log);
+            Assert.AreEqual("192.168.0.19:6379", selected);
+        }
+        [Test]
+        public void TestConnectViaSentinelInvalidServiceName()
+        {
+            string[] endpoints;
+            StringWriter sw = new StringWriter();
+            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:26379,serviceName=garbage", out endpoints, sw);
+            string log = sw.ToString();
+            Console.WriteLine(log);
+            Assert.IsNull(selected);
+        }
+        [Test]
+        public void TestDirectConnect()
+        {
+            string[] endpoints;
+            StringWriter sw = new StringWriter();
+            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:6379", out endpoints, sw);
+            string log = sw.ToString();
+            Console.WriteLine(log);
+            Assert.AreEqual("192.168.0.19:6379", selected);
+
+        }
+
+
         // AUTH is already tested by secured connection
 
         // QUIT is implicit in dispose

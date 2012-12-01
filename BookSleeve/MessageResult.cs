@@ -116,6 +116,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultMultiString : MessageResult<string[]>
     {
+        public MessageResultMultiString(object state = null) : base(state) { }
         protected override string[] GetValue(RedisResult result) { return result.ValueItemsString(); }
     }
     internal sealed class MessageResultBytes : MessageResult<byte[]>
