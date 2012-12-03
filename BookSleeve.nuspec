@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.2.0.4</version>
+    <version>1.2.0.5</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <summary>Efficient, fully asynchronous Redis client</summary>
@@ -12,6 +12,7 @@
     <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
     <releaseNotes>
+      * 1.2.0.5 - Bug-fixes: large integer parsing
       * 1.2.0.4 - ConnectionUtils now supports sentinel
       * 1.2.0.3 - show current tie-breaker key in ConnectionUtils
       * 1.2.0.2 - added additional ConnectionUtils overloads to control master/slave behavior more granularly

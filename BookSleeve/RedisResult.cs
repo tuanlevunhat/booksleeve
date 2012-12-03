@@ -32,8 +32,7 @@ namespace BookSleeve
             return true;
         }
         public virtual Exception Error() { return new InvalidOperationException("This operation is not supported by " + GetType().Name); }
-        public virtual long ValueInt64 { get {
-            return int.Parse(ValueString); } }
+        public virtual long ValueInt64 { get { return long.Parse(ValueString); } }
         public bool ValueBoolean { get { return ValueInt64 != 0; } }
         public virtual string ValueString
         {

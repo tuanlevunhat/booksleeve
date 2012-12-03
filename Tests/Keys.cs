@@ -28,6 +28,18 @@ namespace Tests
         }
 
         [Test]
+        public void TestLargeIntegers()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                const long expected = 20L * int.MaxValue;
+                conn.Strings.Set(0, "large-int", expected);
+                var result = conn.Strings.GetInt64(0, "large-int");
+                Assert.AreEqual(expected, conn.Wait(result));
+            }
+        }
+
+        [Test]
         public void TestDeleteInvalidKey()
         {
             using (var conn = Config.GetUnsecuredConnection())
