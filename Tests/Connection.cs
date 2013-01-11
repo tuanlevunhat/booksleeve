@@ -52,9 +52,23 @@ namespace Tests
                 conn.Wait(conn.Open());
                 if (conn.Features.ClientName)
                 {
-                    var clients = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                    var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                    Assert.IsNotNull(client);
                 }
-
+            }
+        }
+        [Test]
+        public void TestNameViaConnect()
+        {
+            string name = Guid.NewGuid().ToString().Replace("-","");
+            using (var conn = ConnectionUtils.Connect("127.0.0.1,name=" + name))
+            {
+                Assert.AreEqual(name, conn.Name);
+                if (conn.Features.ClientName)
+                {
+                    var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                    Assert.IsNotNull(client);
+                }
             }
         }
 

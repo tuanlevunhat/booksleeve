@@ -195,8 +195,9 @@ namespace BookSleeve
         /// </summary>
         public Task Open()
         {
-            if (Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.Shiny) != (int)ConnectionState.Shiny)
-                throw new InvalidOperationException(); // not shiny
+            int foundState;
+            if ((foundState = Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.Shiny)) != (int)ConnectionState.Shiny)
+                throw new InvalidOperationException("Connection is " + (ConnectionState)foundState); // not shiny
             try
             {
                 OnOpening();

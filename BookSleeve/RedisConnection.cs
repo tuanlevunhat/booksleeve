@@ -81,6 +81,7 @@ namespace BookSleeve
         private RedisSubscriberConnection SubscriberFactory()
         {
             var conn = new RedisSubscriberConnection(Host, Port, IOTimeout, Password, 100);
+            conn.Name = Name;
             conn.ServerType = this.ServerType;
             conn.Error += OnError;
             conn.Open();
