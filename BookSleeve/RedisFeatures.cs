@@ -92,5 +92,10 @@ namespace BookSleeve
         /// Is LINSERT available?
         /// </summary>
         public bool ListInsert { get { return version >= v2_1_1; } }
+
+        /// <summary>
+        /// Is CLIENT SETNAME available?
+        /// </summary>
+        public bool ClientName { get { return false; } }
     }
 }

@@ -838,6 +838,8 @@ namespace BookSleeve
         [DbFree]
         CLIENT,
         [DbFree]
+        SETNAME,
+        [DbFree]
         CONFIG,
         GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
         [DbFree]

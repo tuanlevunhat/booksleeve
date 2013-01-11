@@ -1,5 +1,6 @@
 ﻿using BookSleeve;
 using NUnit.Framework;
+using System.Linq;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -41,6 +42,21 @@ namespace Tests
 
         }
 
+        [Test]
+        public void TestName()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))
+            {
+                string name = Guid.NewGuid().ToString().Replace("-","");
+                conn.Name = name;
+                conn.Wait(conn.Open());
+                if (conn.Features.ClientName)
+                {
+                    var clients = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                }
+
+            }
+        }
 
         // AUTH is already tested by secured connection
 
