@@ -134,11 +134,11 @@ namespace BookSleeve
             return competing[0].Node;
         }
 
-        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin, out string serviceName)
+        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin, out string serviceName, out string clientName)
         {
             syncTimeout = 1000;
             allowAdmin = false;
-            serviceName = null;
+            clientName = serviceName = null;
 
             // break it down by commas
             var arr = configuration.Split(',');
@@ -170,6 +170,11 @@ namespace BookSleeve
                         serviceName = option.Substring(idx + 1).Trim();
                         continue;
                     }
+                    else if (option.StartsWith(ClientNamePrefix))
+                    {
+                        clientName = option.Substring(idx + 1).Trim();
+                        continue;
+                    }
                 }
 
                 options.Add(trimmed);
@@ -177,7 +182,8 @@ namespace BookSleeve
             return options.ToArray();
         }
 
-        internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=", ServiceNamePrefix = "serviceName=";
+        internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=",
+            ServiceNamePrefix = "serviceName=", ClientNamePrefix = "name=";
         
         private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
@@ -185,14 +191,16 @@ namespace BookSleeve
             int syncTimeout;
             bool allowAdmin;
             string serviceName;
+            string clientName;
             if(log == null) log = new StringWriter();
-            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName);
+            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName, out clientName);
             if (!string.IsNullOrWhiteSpace(newMaster)) allowAdmin = true; // need this to diddle the slave/master config
 
             log.WriteLine("{0} unique nodes specified", arr.Length);
             log.WriteLine("sync timeout: {0}ms, admin commands: {1}", syncTimeout,
                           allowAdmin ? "enabled" : "disabled");
-            if(!string.IsNullOrEmpty(serviceName)) log.WriteLine("service: {0}", serviceName);
+            if (!string.IsNullOrEmpty(serviceName)) log.WriteLine("service: {0}", serviceName);
+            if (!string.IsNullOrEmpty(clientName)) log.WriteLine("client: {0}", clientName);
             if (arr.Length == 0)
             {
                 log.WriteLine("No nodes to consider");
@@ -222,7 +230,7 @@ namespace BookSleeve
                         int port = 6379, tmp;
                         if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out tmp)) port = tmp;
                         conn = new RedisConnection(host, port, syncTimeout: syncTimeout, allowAdmin: allowAdmin);
-
+                        conn.Name = clientName;
                         log.WriteLine("Opening connection to {0}:{1}...", host, port);
                         conn.Open();
                         var info = conn.GetInfo();
