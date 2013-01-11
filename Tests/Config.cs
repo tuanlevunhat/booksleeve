@@ -20,7 +20,7 @@ namespace Tests
             };
         }
 
-        const string host = "192.168.0.19"; // vmware 2.6 //"127.0.0.1";
+        const string host = "127.0.0.1"; //"192.168.0.10"; // vmware 2.6 //"127.0.0.1";
         const int unsecuredPort = 6379, securedPort = 6381;
         //const int unsecuredPort = 6380, securedPort = 6381;
 

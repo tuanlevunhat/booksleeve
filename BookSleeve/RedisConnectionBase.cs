@@ -45,6 +45,35 @@ namespace BookSleeve
         /// Features available to the redis server
         /// </summary>
         public virtual RedisFeatures Features { get { return features; } }
+        
+        private string name;
+        /// <summary>
+        /// Specify a name for this connection (displayed via Server.ListClients / CLIENT LIST)
+        /// </summary>
+        public string Name
+        {
+            get { return name; }
+            set
+            {
+                if (value != null)
+                {
+                    // apply same validation that Redis does
+                    char c;
+                    for (int i = 0; i < value.Length; i++)
+                        if ((c = value[i]) < '!' || c > '~')
+                            throw new ArgumentException("Client names cannot contain spaces, newlines or special characters.", "Name");
+                }
+                if (State == ConnectionState.Shiny)
+                {
+                    this.name = value;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Name can only be set on new connections");
+                }
+            }
+        }
+
         /// <summary>
         /// The version of the connected redis server
         /// </summary>
@@ -214,6 +243,14 @@ namespace BookSleeve
                             {
                                 case "master": ServerType = BookSleeve.ServerType.Master; break;
                                 case "slave": ServerType = BookSleeve.ServerType.Slave; break;
+                            }
+                            if(!string.IsNullOrEmpty(name))
+                            {
+                                var tmp = Features;
+                                if (tmp != null && tmp.ClientName)
+                                {
+                                    ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.CLIENT, RedisLiteral.SETNAME, name), true);
+                                }
                             }
                         }
                         Interlocked.CompareExchange(ref state, (int)ConnectionState.Open, (int)ConnectionState.Opening);
