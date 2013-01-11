@@ -37,6 +37,7 @@ namespace BookSleeve
                             case "age": client.AgeSeconds = int.Parse(value, CultureInfo.InvariantCulture); break;
                             case "idle": client.IdleSeconds = int.Parse(value, CultureInfo.InvariantCulture); break;
                             case "db": client.Database = int.Parse(value, CultureInfo.InvariantCulture); break;
+                            case "name": client.Name = value; break;
                             case "sub": client.SubscriptionCount = int.Parse(value, CultureInfo.InvariantCulture); break;
                             case "psub": client.PatternSubscriptionCount = int.Parse(value, CultureInfo.InvariantCulture); break;
                             case "multi": client.TransactionCommandLength = int.Parse(value, CultureInfo.InvariantCulture); break;
@@ -126,6 +127,11 @@ namespace BookSleeve
         ///  last command played
         /// </summary>
         public string LastCommand { get; private set; }
+
+        /// <summary>
+        /// The name allocated to this connection, if any
+        /// </summary>
+        public string Name { get; private set; }
     }
     /// <summary>
     /// The client flags can be a combination of:
