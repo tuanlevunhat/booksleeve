@@ -61,7 +61,7 @@ namespace Tests
         public void TestNameViaConnect()
         {
             string name = Guid.NewGuid().ToString().Replace("-","");
-            using (var conn = ConnectionUtils.Connect("127.0.0.1,name=" + name))
+            using (var conn = ConnectionUtils.Connect("192.168.0.10,allowAdmin=true,name=" + name))
             {
                 Assert.AreEqual(name, conn.Name);
                 if (conn.Features.ClientName)

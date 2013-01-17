@@ -73,7 +73,7 @@ namespace BookSleeve
         /// </summary>
         public override string ToString()
         {
-            return Address + ": " + Database + "@" + LastCommand;
+            return string.IsNullOrWhiteSpace(Name) ? Address : (Address + " - " + Name);
         }
 
         /// <summary>
