@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -132,6 +133,8 @@ namespace BookSleeve
         }
         static bool TryParseVersion(string value, out Version version)
         {  // .NET 4.0 has Version.TryParse, but 3.5 CP does not
+            var match = Regex.Match(value, "^[0-9.]+");
+            if (match.Success) value = match.Value;
             try
             {
                 version = new Version(value);
