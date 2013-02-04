@@ -400,16 +400,16 @@ namespace BookSleeve
 
         Task IStringCommands.Set(int db, string key, string value, bool queueJump)
         {
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value), queueJump);
         }
         Task IStringCommands.Set(int db, string key, long value, bool queueJump)
         {
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value), queueJump);
         }
 
         Task IStringCommands.Set(int db, string key, byte[] value, bool queueJump)
         {
-            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value).ExpectOk(), queueJump);
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.SET, key, value), queueJump);
         }
 
         Task IStringCommands.Set(int db, string key, string value, long expirySeconds, bool queueJump)
