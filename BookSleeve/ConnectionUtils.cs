@@ -143,14 +143,14 @@ namespace BookSleeve
             // break it down by commas
             var arr = configuration.Split(',');
             var options = new List<string>();
-            foreach (var option in arr)
+            foreach (var paddedOption in arr)
             {
-                var trimmed = option.Trim();
+                var option = paddedOption.Trim();
 
-                if (string.IsNullOrWhiteSpace(trimmed) || options.Contains(trimmed)) continue;
+                if (string.IsNullOrWhiteSpace(option) || options.Contains(option)) continue;
 
                 // check for special tokens
-                int idx = trimmed.IndexOf('=');
+                int idx = option.IndexOf('=');
                 if (idx > 0)
                 {
                     if (option.StartsWith(SyncTimeoutPrefix))
@@ -177,7 +177,7 @@ namespace BookSleeve
                     }
                 }
 
-                options.Add(trimmed);
+                options.Add(option);
             }
             return options.ToArray();
         }
