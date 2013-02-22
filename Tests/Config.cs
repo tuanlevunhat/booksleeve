@@ -71,6 +71,11 @@ namespace Tests
             }
         }
 
+        internal static void AssertNearlyEqual(double x, double y)
+        {
+            if (Math.Abs(x - y) > 0.00001) Assert.AreEqual(x, y);
+        }
+
         [Test]
         public void CanOpenSecuredConnection()
         {

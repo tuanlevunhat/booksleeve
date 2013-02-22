@@ -74,6 +74,12 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/client-kill</remarks>
         Task KillClient(string address);
+
+        /// <summary>
+        /// The INFO command returns information and statistics about the server in a format that is simple to parse by computers and easy to read by humans.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/info</remarks>
+        Task<Dictionary<string, string>> GetInfo(string section = null, bool queueJump = false);
     }
     partial class RedisConnection : IServerCommands
     {
@@ -103,6 +109,15 @@ namespace BookSleeve
         {
             CheckAdmin();
             return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.FLUSHDB).ExpectOk().Critical(), false);
+        }
+
+        Task<Dictionary<string, string>> IServerCommands.GetInfo(string section, bool queueJump)
+        {
+            var msg = string.IsNullOrEmpty(section) ? RedisMessage.Create(-1, RedisLiteral.INFO) : RedisMessage.Create(-1, RedisLiteral.INFO, section);
+            return ExecuteString(msg, queueJump).ContinueWith(t =>
+            {
+                return RedisConnectionBase.ParseInfo(t.Result);
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
         }
 
         Task IServerCommands.FlushScriptCache()

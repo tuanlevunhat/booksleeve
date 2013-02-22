@@ -14,7 +14,7 @@ namespace Tests
         [Test]
         public void TestManualIncr()
         {
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(syncTimeout: 120000)) // big timeout while debugging
             {
                 conn.Keys.Remove(0, "foo");
                 Assert.AreEqual(1, conn.Wait(ManualIncr(conn, 0, "foo")));

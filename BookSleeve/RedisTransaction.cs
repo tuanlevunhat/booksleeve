@@ -64,6 +64,7 @@ namespace BookSleeve
         {
             throw new InvalidOperationException("A transaction is linked to the parent connection, and does not require opening");
         }
+
         /// <summary>
         /// Sends all currently buffered commands to the redis server in a single unit; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
         /// </summary>
@@ -72,15 +73,16 @@ namespace BookSleeve
             var all = DequeueAll();
             if (all.Length == 0)
             {
-                TaskCompletionSource<bool> nix = new TaskCompletionSource<bool>();
-                nix.SetResult(true);
-                return nix.Task;
+                return AlwaysTrue;
             }
             var multiMessage = new MultiMessage(parent, all, conditions, state);
             conditions = null; // wipe
             parent.EnqueueMessage(multiMessage, queueJump);
             return multiMessage.Completion;
         }
+
+        
+
         private List<Condition> conditions;
         /// <summary>
         /// Add a precondition to be enforced for this transaction

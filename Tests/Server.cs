@@ -113,15 +113,15 @@ namespace Tests
             using(var sec = Config.GetUnsecuredConnection(true, true, true))
             {
                 var makeSlave = sec.Server.MakeSlave(unsec.Host, unsec.Port);
-                var info = sec.Wait(sec.GetInfo());
+                var info = sec.Wait(sec.Server.GetInfo());
                 sec.Wait(makeSlave);
-                Assert.IsTrue(info.Contains("role:slave"), "slave");
-                Assert.IsTrue(info.Contains("master_host:" + unsec.Host), "host");
-                Assert.IsTrue(info.Contains("master_port:" + unsec.Port), "port");
+                Assert.AreEqual("slave", info["role"], "slave");
+                Assert.AreEqual(unsec.Host, info["master_host"], "host");
+                Assert.AreEqual(unsec.Port, info["master_port"], "port");
                 var makeMaster = sec.Server.MakeMaster();
-                info = sec.Wait(sec.GetInfo());
+                info = sec.Wait(sec.Server.GetInfo());
                 sec.Wait(makeMaster);
-                Assert.IsTrue(info.Contains("role:master"), "master");
+                Assert.AreEqual("master", info["role"], "master");
 
             }
         }

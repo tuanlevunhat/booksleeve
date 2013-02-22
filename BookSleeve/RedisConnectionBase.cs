@@ -18,7 +18,7 @@ namespace BookSleeve
         private Socket socket;
         private NetworkStream redisStream;
 
-        private readonly MessageQueue unsent;
+        private readonly Queue<RedisMessage> unsent;
         private readonly int port, ioTimeout, syncTimeout;
         private readonly string host, password;
         /// <summary>
@@ -46,7 +46,7 @@ namespace BookSleeve
         /// Features available to the redis server
         /// </summary>
         public virtual RedisFeatures Features { get { return features; } }
-        
+
         private string name;
         /// <summary>
         /// Specify a name for this connection (displayed via Server.ListClients / CLIENT LIST)
@@ -103,7 +103,7 @@ namespace BookSleeve
             messagesSent = Interlocked.CompareExchange(ref this.messagesSent, 0, 0);
             errorMessages = Interlocked.CompareExchange(ref this.errorMessages, 0, 0);
             timeouts = Interlocked.CompareExchange(ref this.timeouts, 0, 0);
-            unsent = this.unsent.GetCount();
+            unsent = OutstandingCount;
         }
         /// <summary>
         /// Issues a basic ping/pong pair against the server, returning the latency
@@ -120,9 +120,9 @@ namespace BookSleeve
         internal RedisConnectionBase(string host, int port = 6379, int ioTimeout = -1, string password = null, int maxUnsent = int.MaxValue,
             int syncTimeout = DefaultSyncTimeout)
         {
-            if(syncTimeout <= 0) throw new ArgumentOutOfRangeException("syncTimeout");
+            if (syncTimeout <= 0) throw new ArgumentOutOfRangeException("syncTimeout");
             this.syncTimeout = syncTimeout;
-            this.unsent = new MessageQueue(maxUnsent);
+            this.unsent = new Queue<RedisMessage>();
             this.host = host;
             this.port = port;
             this.ioTimeout = ioTimeout;
@@ -170,7 +170,7 @@ namespace BookSleeve
             socket = null;
             redisStream = null;
             outBuffer = null;
-            Error = null;         
+            Error = null;
         }
         /// <summary>
         /// Called after opening a connection
@@ -191,13 +191,15 @@ namespace BookSleeve
         /// </summary>
         protected void SetKeepAlive(int seconds)
         {
-            unsent.SetKeepAlive(seconds);
+            // throw new NotImplementedException();
         }
+
         /// <summary>
         /// Attempts to open the connection to the remote server
         /// </summary>
         public Task Open()
         {
+
             int foundState;
             if ((foundState = Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.Shiny)) != (int)ConnectionState.Shiny)
                 throw new InvalidOperationException("Connection is " + (ConnectionState)foundState); // not shiny
@@ -208,16 +210,12 @@ namespace BookSleeve
                 socket.NoDelay = true;
                 socket.SendTimeout = ioTimeout;
                 socket.Connect(host, port);
-                
+
                 redisStream = new NetworkStream(socket);
                 outBuffer = new BufferedStream(redisStream, 512); // buffer up operations
                 redisStream.ReadTimeout = redisStream.WriteTimeout = ioTimeout;
-
-
-                Thread thread = new Thread(Outgoing);
-                thread.IsBackground = true;
-                thread.Name = "Redis:outgoing";
-                thread.Start();
+                hold = false;
+                OnOpened();
 
                 if (!string.IsNullOrEmpty(password)) EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.AUTH, password).ExpectOk().Critical(), true);
 
@@ -248,7 +246,7 @@ namespace BookSleeve
                                 case "master": ServerType = BookSleeve.ServerType.Master; break;
                                 case "slave": ServerType = BookSleeve.ServerType.Slave; break;
                             }
-                            if(!string.IsNullOrEmpty(name))
+                            if (!string.IsNullOrEmpty(name))
                             {
                                 var tmp = Features;
                                 if (tmp != null && tmp.ClientName)
@@ -276,6 +274,7 @@ namespace BookSleeve
         /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
         /// </summary>
         /// <remarks>http://redis.io/commands/info</remarks>
+        [Obsolete("Please use .Server.GetInfo instead")]
         public Task<string> GetInfo(bool queueJump = false)
         {
             return GetInfo(null, queueJump);
@@ -284,12 +283,13 @@ namespace BookSleeve
         /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
         /// </summary>
         /// <remarks>http://redis.io/commands/info</remarks>
+        [Obsolete("Please use .Server.GetInfo instead")]
         public Task<string> GetInfo(string category, bool queueJump = false)
         {
             var msg = string.IsNullOrEmpty(category) ? RedisMessage.Create(-1, RedisLiteral.INFO) : RedisMessage.Create(-1, RedisLiteral.INFO, category);
             return ExecuteString(msg, queueJump);
         }
-        static Dictionary<string, string> ParseInfo(string result)
+        protected static Dictionary<string, string> ParseInfo(string result)
         {
             string[] lines = result.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
             var data = new Dictionary<string, string>();
@@ -311,7 +311,13 @@ namespace BookSleeve
         /// <summary>
         /// Indicate the number of messages that have not yet been set.
         /// </summary>
-        public virtual int OutstandingCount { get { return unsent.GetCount(); } }
+        public virtual int OutstandingCount
+        {
+            get
+            {
+                lock (unsent) { return unsent.Count; }
+            }
+        }
         private readonly AsyncCallback readReplyHeader;
         /// <summary>
         /// Raised when a connection becomes closed.
@@ -323,11 +329,14 @@ namespace BookSleeve
         /// </summary>
         public void Close(bool abort)
         {
+            hold = true;
             this.abort = abort;
-            unsent.Close();
         }
         private void ReadMoreAsync()
         {
+#if VERBOSE
+            Trace.WriteLine(socketNumber + "? async");
+#endif
             bufferOffset = bufferCount = 0;
             var tmp = redisStream;
             if (tmp != null)
@@ -337,10 +346,16 @@ namespace BookSleeve
         }
         private bool ReadMoreSync()
         {
+#if VERBOSE
+            Trace.WriteLine(socketNumber + "? sync");
+#endif
             var tmp = redisStream;
             if (tmp == null) return false;
             bufferOffset = bufferCount = 0;
             int bytesRead = tmp.Read(buffer, 0, BufferSize);
+#if VERBOSE
+            Trace.WriteLine(socketNumber + "?? sync:" + bytesRead + " bytes");
+#endif
             if (bytesRead > 0)
             {
                 bufferCount = bytesRead;
@@ -365,17 +380,27 @@ namespace BookSleeve
                 {
                     bytesRead = 0; // simulate EOF
                 }
-                if (bytesRead <= 0 || redisStream == null) 
+                if (bytesRead <= 0 || redisStream == null)
                 {   // EOF
+#if VERBOSE
+                    Trace.WriteLine(socketNumber + "< EOF", "received");
+#endif
                     Shutdown("End of stream", null);
                 }
                 else
                 {
                     bool isEof = false;
                     bufferCount += bytesRead;
+                MoreDataAvailable:
                     while (bufferCount > 0)
                     {
+#if VERBOSE
+                        Trace.WriteLine(socketNumber + "< " + bufferCount + " bytes", "buffered");
+#endif
                         RedisResult result = ReadSingleResult();
+#if VERBOSE
+                        Trace.WriteLine(socketNumber + "< " + result + "; " + bufferCount + " remains", "received");
+#endif
                         Interlocked.Increment(ref messagesReceived);
                         object ctx = ProcessReply(ref result);
 
@@ -384,21 +409,26 @@ namespace BookSleeve
                             Interlocked.Increment(ref errorMessages);
                             OnError("Redis server", result.Error(), false);
                         }
-                        try
-                        {
-                            ProcessCallbacks(ctx, result);
-                        }
-                        catch (Exception ex)
-                        {
-                            OnError("Processing callbacks", ex, false);
-                        }
+
+                        var state = new Tuple<RedisConnectionBase, object, RedisResult>(this, ctx, result);
+                        Task.Factory.StartNew(processCallbacks, state, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Default);
+#if VERBOSE
+                        Trace.WriteLine(socketNumber + "check for more");
+#endif
                         isEof = false;
                         NetworkStream tmp = redisStream;
                         if (bufferCount == 0 && tmp != null && tmp.DataAvailable)
                         {
-                            isEof = !ReadMoreSync();
+                            if (ReadMoreSync())
+                            {
+                                goto MoreDataAvailable;
+                            }
+                            isEof = true;
                         }
                     }
+#if VERBOSE
+                    Trace.WriteLine(socketNumber + "@ buffer empty");
+#endif
                     if (isEof)
                     {   // EOF
                         Shutdown("End of stream", null);
@@ -406,13 +436,38 @@ namespace BookSleeve
                     else
                     {
                         ReadMoreAsync();
-                    } 
+                    }
                 }
             }
             catch (Exception ex)
             {
+#if VERBOSE
+                Trace.WriteLine(ex);
+#endif
                 Shutdown("Invalid inbound stream", ex);
-            }        
+            }
+        }
+        private static readonly Action<object> processCallbacks = ProcessCallbacks;
+        private static void ProcessCallbacks(object state)
+        {
+            var tuple = (Tuple<RedisConnectionBase, object, RedisResult>)state;
+            try
+            {
+#if VERBOSE
+                Trace.WriteLine("processing callback for: " + tuple.Item3, "callback");
+#endif
+                tuple.Item1.ProcessCallbacks(tuple.Item2, tuple.Item3);
+#if VERBOSE
+                Trace.WriteLine("processed callback", "callback");
+#endif
+            }
+            catch (Exception ex)
+            {
+#if VERBOSE
+                Trace.WriteLine(ex.Message, "callback");
+#endif
+                tuple.Item1.OnError("Processing callbacks", ex, false);
+            }
         }
         internal abstract object ProcessReply(ref RedisResult result);
         internal abstract object ProcessReply(ref RedisResult result, RedisMessage message);
@@ -437,7 +492,7 @@ namespace BookSleeve
                     RedisResult[] inner = new RedisResult[count];
                     for (int i = 0; i < count; i++)
                     {
-                        inner[i] = ReadSingleResult();                        
+                        inner[i] = ReadSingleResult();
                     }
                     return RedisResult.Multi(inner);
                 default:
@@ -474,7 +529,7 @@ namespace BookSleeve
         private static readonly byte[] empty = new byte[0];
         private int Read(byte[] scratch, int offset, int maxBytes)
         {
-            if(bufferCount > 0 || ReadMoreSync())
+            if (bufferCount > 0 || ReadMoreSync())
             {
                 int count = Math.Min(maxBytes, bufferCount);
                 Buffer.BlockCopy(buffer, bufferOffset, scratch, offset, count);
@@ -549,7 +604,7 @@ namespace BookSleeve
                 Buffer.BlockCopy(oversizedBuffer, 0, result, 0, len);
             }
 
-            
+
             return result;
         }
         int FindCrlfInBuffer()
@@ -656,7 +711,7 @@ namespace BookSleeve
             }
             return isNeg ? -value : value;
         }
- 
+
         /// <summary>
         /// Indicates the number of commands executed on a per-database basis
         /// </summary>
@@ -741,56 +796,45 @@ namespace BookSleeve
             if (all) outBuffer.Flush();
             redisStream.Flush();
         }
-        private void Outgoing()
-        {
-            try
-            {
-                OnOpened();
-                int db = 0;
-                RedisMessage next;
-                Trace.WriteLine("Redis send-pump is starting");
-                bool isHigh, shouldFlush;
-                while (unsent.TryDequeue(false, out next, out isHigh, out shouldFlush))
-                {
-                    if (abort)
-                    {
-                        CompleteMessage(next, RedisResult.Error("The system aborted before this message was sent"));
-                        continue;
-                    }
-                    if (!next.ChangeState(MessageState.NotSent, MessageState.Sent))
-                    {
-                        // already cancelled; not our problem any more...
-                        Interlocked.Increment(ref messagesCancelled);
-                        continue;
-                    }
-                    if (isHigh) Interlocked.Increment(ref queueJumpers);
-                    WriteMessage(ref db, next, null);
-                    Flush(shouldFlush);
-                    
-                }
-                Interlocked.CompareExchange(ref state, (int)ConnectionState.Closing, (int)ConnectionState.Open);
-                if (redisStream != null)
-                {
-                    var quit = RedisMessage.Create(-1, RedisLiteral.QUIT).ExpectOk().Critical();
 
-                    RecordSent(quit, !abort);
-                    quit.Write(outBuffer);
-                    outBuffer.Flush();
-                    redisStream.Flush();
-                    Interlocked.Increment(ref messagesSent);
-                }
-                Trace.WriteLine("Redis send-pump is exiting");
-            }
-            catch (Exception ex)
-            {
-                OnError("Outgoing queue", ex, true);
-            }
+        private int db = -1;
+        //private void Outgoing()
+        //{
+        //    try
+        //    {
 
-        }
+        //        int db = 0;
+        //        RedisMessage next;
+        //        Trace.WriteLine("Redis send-pump is starting");
+        //        bool isHigh, shouldFlush;
+        //        while (unsent.TryDequeue(false, out next, out isHigh, out shouldFlush))
+        //        {
+
+        //            Flush(shouldFlush);
+
+        //        }
+        //        Interlocked.CompareExchange(ref state, (int)ConnectionState.Closing, (int)ConnectionState.Open);
+        //        if (redisStream != null)
+        //        {
+        //            var quit = RedisMessage.Create(-1, RedisLiteral.QUIT).ExpectOk().Critical();
+
+        //            RecordSent(quit, !abort);
+        //            quit.Write(outBuffer);
+        //            outBuffer.Flush();
+        //            redisStream.Flush();
+        //            Interlocked.Increment(ref messagesSent);
+        //        }
+        //        Trace.WriteLine("Redis send-pump is exiting");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        OnError("Outgoing queue", ex, true);
+        //    }
+
+        //}
 
         internal void WriteMessage(ref int db, RedisMessage next, IList<QueuedMessage> queued)
         {
-
             if (next.Db >= 0)
             {
                 if (db != next.Db)
@@ -816,9 +860,9 @@ namespace BookSleeve
             {
                 var mm = next as IMultiMessage;
                 var tmp = next;
-                if(queued != null)
+                if (queued != null)
                 {
-                    if(mm != null) throw new InvalidOperationException("Cannot perform composite operations (such as transactions) inside transactions");
+                    if (mm != null) throw new InvalidOperationException("Cannot perform composite operations (such as transactions) inside transactions");
                     queued.Add((QueuedMessage)(tmp = new QueuedMessage(tmp)));
                 }
 
@@ -998,20 +1042,90 @@ namespace BookSleeve
             return msgResult.Task;
         }
 
+        private readonly object writeLock = new object();
+        private int pendingWriterCount;
+        private void WritePendingQueue()
+        {
+            RedisMessage next;
+            do
+            {
+                lock (unsent)
+                {
+                    next = unsent.Count == 0 ? null : unsent.Dequeue();
+                }
+                if (next != null)
+                {
+                    WriteMessage(next, true);
+                }
+            } while (next != null);
+        }
+        private void WriteMessage(RedisMessage message, bool isHigh)
+        {
+            if (abort)
+            {
+                CompleteMessage(message, RedisResult.Error("The system aborted before this message was sent"));
+                return;
+            }
+            if (!message.ChangeState(MessageState.NotSent, MessageState.Sent))
+            {
+                // already cancelled; not our problem any more...
+                Interlocked.Increment(ref messagesCancelled);
+                return;
+            }
+            if (isHigh) Interlocked.Increment(ref queueJumpers);
+            WriteMessage(ref db, message, null);
+        }
+        private volatile bool hold = true;
         internal void EnqueueMessage(RedisMessage message, bool queueJump)
         {
-            unsent.Enqueue(message, queueJump);
-        }
-        internal void CancelUnsent() {
-            var all = unsent.DequeueAll();
-            for (int i = 0; i < all.Length; i++)
+            Interlocked.Increment(ref pendingWriterCount);
+            if (queueJump || hold)
             {
-                RedisResult result = RedisResult.Cancelled;
-                object ctx = ProcessReply(ref result, all[i]);
-                ProcessCallbacks(ctx, result);
+                if (abort) throw new InvalidOperationException("The connection has been closed; no new messages can be delivered");
+                lock (unsent)
+                {
+                    unsent.Enqueue(message);
+                }
+                if (hold) return;
+            }
+            lock (writeLock)
+            {
+                WritePendingQueue();
+                if (!queueJump)
+                {
+                    WriteMessage(message, false);
+                    WritePendingQueue();
+                }
+                bool noPending = Interlocked.Decrement(ref pendingWriterCount) == 0;
+                Flush(noPending);
             }
         }
-        internal RedisMessage[] DequeueAll() { return unsent.DequeueAll(); }
+        internal void CancelUnsent()
+        {
+            lock (unsent)
+            {
+                while (unsent.Count != 0)
+                {
+                    var next = unsent.Dequeue();
+                    RedisResult result = RedisResult.Cancelled;
+                    object ctx = ProcessReply(ref result, next);
+                    ProcessCallbacks(ctx, result);
+                }
+            }
+        }
+        static readonly RedisMessage[] noMessages = new RedisMessage[0];
+        internal RedisMessage[] DequeueAll()
+        {
+            lock (unsent)
+            {
+                int len = unsent.Count;
+                if (len == 0) return noMessages;
+                var arr = new RedisMessage[len];
+                for (int i = 0; i < arr.Length; i++)
+                    arr[i] = unsent.Dequeue();
+                return arr;
+            }
+        }
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
         /// Once a task is completed, the result is returned.
@@ -1071,10 +1185,10 @@ namespace BookSleeve
             {
                 return new TimeoutException("The operation has timed out; the connection is not open");
             }
-            if(IncludeDetailInTimeouts)
+            if (IncludeDetailInTimeouts)
             {
                 string compete = GetTimeoutSummary();
-                if(!string.IsNullOrWhiteSpace(compete))
+                if (!string.IsNullOrWhiteSpace(compete))
                 {
                     string message = "The operation has timed out; possibly blocked by: " + compete;
                     return new TimeoutException(message);
