@@ -78,7 +78,7 @@ namespace BookSleeve
         internal virtual void Complete(RedisResult result)
         {
 #if VERBOSE
-            Trace.WriteLine("< " + command);
+            Trace.WriteLine("~ " + command, "completed");
 #endif
             var snapshot = Interlocked.Exchange(ref messageResult, null); // only run once
             ChangeState(MessageState.Sent, MessageState.Complete);
@@ -194,9 +194,6 @@ namespace BookSleeve
         {
             try
             {
-#if VERBOSE
-                Trace.WriteLine("> " + command);
-#endif
                 stream.WriteByte((byte)'*');
                 WriteRaw(stream, argCount + 1);
                 WriteUnified(stream, command);

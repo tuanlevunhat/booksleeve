@@ -60,6 +60,10 @@ namespace BookSleeve
 
         private class Int64RedisResult : RedisResult
         {
+            public override string ToString()
+            {
+                return ":" + value;
+            }
             public override object Parse(bool inferStrings)
             {
                 return value;
@@ -73,6 +77,10 @@ namespace BookSleeve
         }
         private class MessageRedisResult : RedisResult
         {
+            public override string ToString()
+            {
+                return "+" + ValueString;
+            }
             public override object Parse(bool inferStrings)
             {
                 return ValueString;
@@ -96,9 +104,17 @@ namespace BookSleeve
             public override string ValueString{ get{ return ValueInt64.ToString(); } }
             public override byte[] ValueBytes { get { return Encoding.UTF8.GetBytes(ValueString); } }
             internal override bool IsNil { get { return false; } }
+            public override string ToString()
+            {
+                return "time: " + ValueInt64 + "ms";
+            }
         }
         private class ErrorRedisResult : RedisResult
         {
+            public override string ToString()
+            {
+                return "-" + message;
+            }
             public override object Parse(bool inferStrings)
             {
                 return Error();
@@ -138,6 +154,10 @@ namespace BookSleeve
                 }
                 return value;
             }
+            public override string ToString()
+            {
+                return "${" + (value == null ? "nil" : (value.Length + " bytes")) + "}"; 
+            }
             internal BytesRedisResult(byte[] value) { this.value = value; }
             private readonly byte[] value;
             public override byte[] ValueBytes { get { return value; } }
@@ -154,11 +174,19 @@ namespace BookSleeve
             {
                 return true;
             }
+            public override string ToString()
+            {
+                return "+ok";
+            }
             internal PassRedisResult() { }
             internal override bool IsNil { get { return false; } }
         }
         private class CancellationRedisResult : RedisResult
         {
+            public override string ToString()
+            {
+                return "cancelled";
+            }
             public override object Parse(bool inferStrings)
             {
                 return Error();
@@ -173,6 +201,10 @@ namespace BookSleeve
         }
         private class TimeoutRedisResult : RedisResult
         {
+            public override string ToString()
+            {
+                return "timeout";
+            }
             public override object Parse(bool inferStrings)
             {
                 return Error();
@@ -269,6 +301,10 @@ namespace BookSleeve
     }
     internal class MultiRedisResult : RedisResult
     {
+        public override string ToString()
+        {
+            return "*{" + items.Length + " items}";
+        }
         public override object Parse(bool inferStrings)
         {
             object[] results = new object[items.Length];

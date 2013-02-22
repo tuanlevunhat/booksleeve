@@ -16,6 +16,16 @@ namespace BookSleeve
     public partial class RedisConnection : RedisConnectionBase
     {
         /// <summary>
+        /// An already-completed task that indicates success
+        /// </summary>
+        protected static readonly Task<bool> AlwaysTrue = FromResult(true);
+        static Task<T> FromResult<T>(T val)
+        {
+            TaskCompletionSource<T> source = new TaskCompletionSource<T>();
+            source.SetResult(val);
+            return source.Task;
+        }
+        /// <summary>
         /// Constants representing the different storage devices in redis
         /// </summary>
         public static class ItemTypes

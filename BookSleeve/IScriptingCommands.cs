@@ -43,8 +43,6 @@ namespace BookSleeve
         }
         internal virtual Task Prepare(string[] scripts)
         {
-            TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
-
             if (scripts == null) throw new ArgumentNullException();
             var seenHashes = new HashSet<string>();
             List<Tuple<string,string>> fetch = new List<Tuple<string,string>>(scripts.Length);
@@ -60,8 +58,7 @@ namespace BookSleeve
             if (fetch.Count == 0)
             {
                 // no point checking, since we'd still be at the mercy of ad-hoc SCRIPT FLUSH timing    
-                result.SetResult(true);
-                return result.Task; // already complete
+                return AlwaysTrue;
             }
             
             RedisMessage.RedisParameter[] args = new RedisMessage.RedisParameter[1 + fetch.Count];
@@ -72,6 +69,7 @@ namespace BookSleeve
                 args[idx++] = pair.Item1; // hash
             }
 
+            TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
             ExecuteRaw(RedisMessage.Create(-1, RedisLiteral.SCRIPT, args), false).ContinueWith(queryTask =>
             {
                 if (Condition.ShouldSetResult(queryTask, result))

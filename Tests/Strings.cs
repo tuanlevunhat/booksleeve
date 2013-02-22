@@ -149,20 +149,17 @@ namespace Tests
 
                     var s = conn.Strings.GetString(2, "incr");
 
-                    AssertNearlyEqual(3.1, conn.Wait(v1));
-                    AssertNearlyEqual(8.1, conn.Wait(v2));
-                    AssertNearlyEqual(6.1, conn.Wait(v3));
-                    AssertNearlyEqual(5.1, conn.Wait(v4));
-                    AssertNearlyEqual(0.1, conn.Wait(v5));
-                    AssertNearlyEqual(2.1, conn.Wait(v6));
+                    Config.AssertNearlyEqual(3.1, conn.Wait(v1));
+                    Config.AssertNearlyEqual(8.1, conn.Wait(v2));
+                    Config.AssertNearlyEqual(6.1, conn.Wait(v3));
+                    Config.AssertNearlyEqual(5.1, conn.Wait(v4));
+                    Config.AssertNearlyEqual(0.1, conn.Wait(v5));
+                    Config.AssertNearlyEqual(2.1, conn.Wait(v6));
                     Assert.AreEqual("2.1", conn.Wait(s));
                 }
             }
         }
-        static void AssertNearlyEqual(double x, double y)
-        {
-            if (Math.Abs(x - y) > 0.000001) Assert.AreEqual(x, y);
-        }
+        
         [Test]
         public void GetRange()
         {

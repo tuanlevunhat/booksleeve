@@ -92,6 +92,19 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/zrevrange</remarks>
         /// <returns>list of elements in the specified range (optionally with their scores).</returns>
         Task<KeyValuePair<string, double>[]> RangeString(int db, string key, long start, long stop, bool ascending = true, bool queueJump = false);
+        /// <summary>
+        /// Returns the specified range of elements in the sorted set stored at key. The elements are considered to be ordered from the lowest to the highest score. Lexicographical order is used for elements with equal score.
+        /// See ZREVRANGE when you need the elements ordered from highest to lowest score (and descending lexicographical order for elements with equal score).
+        /// Both start and stop are zero-based indexes, where 0 is the first element, 1 is the next element and so on. They can also be negative numbers indicating offsets from the end of the sorted set, with -1 being the last element of the sorted set, -2 the penultimate element and so on.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/zrange</remarks>
+        /// <remarks>http://redis.io/commands/zrevrange</remarks>
+        /// <returns>list of elements in the specified range (optionally with their scores).</returns>
+        Task<KeyValuePair<string, double>[]> RangeString(int db, string key,
+                                                   double min = double.NegativeInfinity, double max = double.PositiveInfinity,
+                                                    bool ascending = true,
+                                                   bool minInclusive = true, bool maxInclusive = true,
+                                                   long offset = 0, long count = long.MaxValue, bool queueJump = false);
 
         /// <summary>
         /// Returns all the elements in the sorted set at key with a score between min and max (including elements with score equal to min or max). The elements are considered to be ordered from low to high scores.
@@ -331,8 +344,19 @@ namespace BookSleeve
             return ExecuteStringDoublePairs(RedisMessage.Create(db, ascending ? RedisLiteral.ZRANGE : RedisLiteral.ZREVRANGE, key, start,
                 (stop == long.MaxValue ? -1 : stop), RedisLiteral.WITHSCORES), queueJump);
         }
+        Task<KeyValuePair<string, double>[]> ISortedSetCommands.RangeString(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
+        {
+            RedisMessage msg = GetRangeRequest(db, key, min, max, ascending, minInclusive, maxInclusive, offset, count);
+            return ExecuteStringDoublePairs(msg, queueJump);
+        }
 
         Task<KeyValuePair<byte[], double>[]> ISortedSetCommands.Range(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count, bool queueJump)
+        {
+            RedisMessage msg = GetRangeRequest(db, key, min, max, ascending, minInclusive, maxInclusive, offset, count);
+            return ExecutePairs(msg, queueJump);
+        }
+
+        private static RedisMessage GetRangeRequest(int db, string key, double min, double max, bool ascending, bool minInclusive, bool maxInclusive, long offset, long count)
         {
             RedisMessage msg;
             if (minInclusive && maxInclusive && double.IsNegativeInfinity(min) && double.IsPositiveInfinity(max) && offset >= 0 && count != 0)
@@ -354,7 +378,7 @@ namespace BookSleeve
                     ascending ? RedisMessage.RedisParameter.Range(max, maxInclusive) : RedisMessage.RedisParameter.Range(min, minInclusive),
                     RedisLiteral.WITHSCORES, RedisLiteral.LIMIT, offset, (count < 0 || count == long.MaxValue) ? -1 : count);
             }
-            return ExecutePairs(msg, queueJump);
+            return msg;
         }
         /// <summary>
         /// See SortedSets.GetRange
