@@ -4,6 +4,7 @@ using System.Linq;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace Tests
 {
@@ -18,6 +19,7 @@ namespace Tests
             var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:26379,serviceName=mymaster", out endpoints, sw);
             string log = sw.ToString();
             Console.WriteLine(log);
+            Assert.IsNotNull(selected, NO_SERVER);
             Assert.AreEqual("192.168.0.19:6379", selected);
         }
         [Test]
@@ -30,6 +32,8 @@ namespace Tests
             Console.WriteLine(log);
             Assert.IsNull(selected);
         }
+
+        const string NO_SERVER = "No server available";
         [Test]
         public void TestDirectConnect()
         {
@@ -38,6 +42,7 @@ namespace Tests
             var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:6379", out endpoints, sw);
             string log = sw.ToString();
             Console.WriteLine(log);
+            Assert.IsNotNull(selected, NO_SERVER);
             Assert.AreEqual("192.168.0.19:6379", selected);
 
         }
@@ -57,12 +62,64 @@ namespace Tests
                 }
             }
         }
+
+        [Test]
+        public void TestSubscriberName()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))
+            {
+                string name = Guid.NewGuid().ToString().Replace("-", "");
+                conn.Name = name;
+                conn.Wait(conn.Open());
+                if (conn.Features.ClientName)
+                {
+                    using (var subscriber = conn.GetOpenSubscriberChannel())
+                    {
+                        var evt = new ManualResetEvent(false);
+                        var tmp =  subscriber.Subscribe("test-subscriber-name", delegate
+                         {
+                             evt.Set();
+                         });
+                        subscriber.Wait(tmp);
+                        conn.Publish("test-subscriber-name", "foo");
+                        Assert.IsTrue(evt.WaitOne(1000), "event was set");
+                        var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
+                        Assert.AreEqual(2, clients.Count, "number of clients");
+                    }
+                }
+
+            }
+        }
+
+        [Test]
+        public void TestForcedSubscriberName()
+        {
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true, open: true, waitForOpen: true))
+            using (var sub = new RedisSubscriberConnection(conn.Host, conn.Port))
+            {
+                var task = sub.Subscribe("foo", delegate { });
+                string name = Guid.NewGuid().ToString().Replace("-", "");
+                sub.Name = name;
+                sub.SetServerVersion(new Version("2.6.9"), ServerType.Master);
+                sub.Wait(sub.Open());
+                sub.Wait(task);
+                Assert.AreEqual(1, sub.SubscriptionCount);
+
+                if (conn.Features.ClientName)
+                {
+                    var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
+                    Assert.AreEqual(1, clients.Count, "number of clients");
+                }
+            }
+        }
+
         [Test]
         public void TestNameViaConnect()
         {
             string name = Guid.NewGuid().ToString().Replace("-","");
             using (var conn = ConnectionUtils.Connect("192.168.0.10,allowAdmin=true,name=" + name))
             {
+                Assert.IsNotNull(conn, NO_SERVER);
                 Assert.AreEqual(name, conn.Name);
                 if (conn.Features.ClientName)
                 {
@@ -117,12 +174,12 @@ namespace Tests
         [Test]
         public void CheckCounters()
         {
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
             {
-                conn.Wait(conn.Strings.GetString(0, "select"));
+                conn.Wait(conn.Strings.GetString(0, "CheckCounters"));
                 var first = conn.GetCounters();
 
-                conn.Wait(conn.Strings.GetString(0, "select"));
+                conn.Wait(conn.Strings.GetString(0, "CheckCounters"));
                 var second = conn.GetCounters();
                 // +2 = ping + one select
                 Assert.AreEqual(first.MessagesSent + 2, second.MessagesSent, "MessagesSent");

@@ -233,7 +233,7 @@ namespace BookSleeve
                         conn.Name = clientName;
                         log.WriteLine("Opening connection to {0}:{1}...", host, port);
                         conn.Open();
-                        var info = conn.GetInfo();
+                        var info = conn.GetInfoImpl(null, false, false);
                         var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
                         connections.Add(conn);
                         infos.Add(info);

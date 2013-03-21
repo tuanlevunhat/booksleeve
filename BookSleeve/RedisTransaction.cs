@@ -25,6 +25,13 @@ namespace BookSleeve
         {
             this.parent = parent;
         }
+        /// <summary>
+        /// Should a QUIT be sent when closing the connection?
+        /// </summary>
+        protected override bool QuitOnClose
+        {
+            get { return false; }
+        }
         internal override Task Prepare(string[] scripts)
         {
             // do the SCRIPT LOAD outside of the transaction, since we don't

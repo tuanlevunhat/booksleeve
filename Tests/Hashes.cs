@@ -18,6 +18,8 @@ namespace Tests
                 {
                     Assert.AreEqual(i, conn.Hashes.Increment(5, "hash-test", "a", 1).Result);
                     Assert.AreEqual(-i, conn.Hashes.Increment(5, "hash-test", "b", -1).Result);
+                    //Assert.AreEqual(i, conn.Wait(conn.Hashes.Increment(5, "hash-test", "a", 1)));
+                    //Assert.AreEqual(-i, conn.Wait(conn.Hashes.Increment(5, "hash-test", "b", -1)));
                 }
             }
         }

@@ -30,7 +30,7 @@ namespace Tests.Issues
         const string todoKey = "todo";
 
         [Test]
-        public void Execute()
+        public void ExecuteMassiveDelete()
         {
             var watch = Stopwatch.StartNew();
             using (var conn = Config.GetUnsecuredConnection())

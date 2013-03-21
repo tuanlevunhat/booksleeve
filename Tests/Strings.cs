@@ -56,6 +56,7 @@ namespace Tests
                 Assert.AreEqual("def", Decode(conn.Wait(v2)));
             }
         }
+
         [Test]
         public void SetNotExists()
         {

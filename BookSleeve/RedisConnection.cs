@@ -68,7 +68,6 @@ namespace BookSleeve
             : base(host, port, ioTimeout, password, maxUnsent, syncTimeout)
         {
             this.allowAdmin = allowAdmin;
-            this.sent = new Queue<RedisMessage>();
         }
         /// <summary>
         /// Creates a child RedisConnection, such as for a RedisTransaction
@@ -77,7 +76,6 @@ namespace BookSleeve
             parent.Host, parent.Port, parent.IOTimeout, parent.Password, int.MaxValue, parent.SyncTimeout)
         {
             this.allowAdmin = parent.allowAdmin;
-            this.sent = new Queue<RedisMessage>();
         }
         /// <summary>
         /// Allows multiple commands to be buffered and sent to redis as a single atomic unit
@@ -92,17 +90,67 @@ namespace BookSleeve
         {
             var conn = new RedisSubscriberConnection(Host, Port, IOTimeout, Password, 100);
             conn.Name = Name;
-            conn.ServerType = this.ServerType;
+            conn.SetServerVersion(this.ServerVersion, this.ServerType);
             conn.Error += OnError;
             conn.Open();
             return conn;
         }
         /// <summary>
-        /// Configures an automatic keep-alive PING at a pre-determined interval.
+        /// Configures an automatic keep-alive PING at a pre-determined interval; this is especially
+        /// useful if CONFIG GET is not available.
         /// </summary>
-        public new void SetKeepAlive(int seconds)
+        public void SetKeepAlive(int seconds)
         {
-            base.SetKeepAlive(seconds);
+            keepAliveSeconds = seconds;
+            StopKeepAlive();
+            if (seconds > 0)
+            {
+                Trace("keep-alive", "set to {0} seconds", seconds);
+                timer = new System.Timers.Timer(seconds * 1000);
+                timer.Elapsed += (tick ?? (tick = Tick));
+                timer.Start();
+            }
+        }
+        private System.Timers.ElapsedEventHandler tick;
+        void Tick(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (State == ConnectionState.Open)
+            {
+                // ping if nothing sent in *half* the interval; for example, if keep-alive is every 3 seconds we'll
+                // send a PING if nothing was written in the last 1.5 seconds
+                int pingIfBefore = Environment.TickCount - (keepAliveSeconds * 500);
+                if (lastSentTickCount < pingIfBefore)
+                {
+                    Trace("keep-alive", "ping");
+                    PingImpl(true, duringInit: false);
+                }
+            }
+        }
+        private int lastSentTickCount;
+
+        void StopKeepAlive()
+        {
+            var tmp = timer;
+            timer = null;
+            using (tmp)
+            {
+                if (tmp != null)
+                {
+                    tmp.Stop();
+                    tmp.Close();
+                }
+            }
+        }
+        System.Timers.Timer timer;
+        int keepAliveSeconds = -1;
+
+        /// <summary>
+        /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
+        /// </summary>
+        public override void Close(bool abort)
+        {
+            StopKeepAlive();
+            base.Close(abort);
         }
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)
@@ -111,23 +159,31 @@ namespace BookSleeve
         {
             base.OnInitConnection();
 
-            var options = Server.GetConfig("timeout");
-            options.ContinueWith(x =>
+            if (keepAliveSeconds < 0) // not known
             {
-                if(x.IsFaulted)
+                var options = GetConfigImpl("timeout", true);
+                options.ContinueWith(x =>
                 {
-                    var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
-                }
-                else if(x.IsCompleted)
-                {
-                    int timeout;
-                    string text;
-                    if(x.Result.TryGetValue("timeout", out text) && int.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out timeout))
+                    if (x.IsFaulted)
                     {
-                        SetKeepAlive(timeout - 15); // allow a few seconds contingency
+                        var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
                     }
-                }
-            });
+                    else if (x.IsCompleted)
+                    {
+                        int timeout;
+                        string text;
+                        if (x.Result.TryGetValue("timeout", out text) && int.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out timeout)
+                            && timeout > 0)
+                        {
+                            SetKeepAlive(Math.Max(1, timeout - 15)); // allow a few seconds contingency
+                        }
+                        else
+                        {
+                            SetKeepAlive(0);
+                        }
+                    }
+                });
+            }
         }
 
         /// <summary>
@@ -173,65 +229,7 @@ namespace BookSleeve
             if (subscribers != null) subscribers.Dispose();
             base.Dispose();
         }
-        internal override object ProcessReply(ref RedisResult result)
-        {
-            RedisMessage message;
-            lock (sent)
-            {
-                int count = sent.Count;
-                if (count == 0) throw new RedisException("Data received with no matching message");
-                message = sent.Dequeue();
-                if (count == 1) Monitor.Pulse(sent); // in case the outbound stream is closing and needs to know we're up-to-date
-            }
-            return ProcessReply(ref result, message);
-        }
 
-        internal override object ProcessReply(ref RedisResult result, RedisMessage message)
-        {
-            byte[] expected;
-            if (!result.IsError && (expected = message.Expected) != null)
-            {
-                result = result.IsMatch(expected)
-                ? RedisResult.Pass : RedisResult.Error(result.ValueString);
-            }
-
-
-            if (result.IsError && message.MustSucceed)
-            {
-                throw new RedisException("A critical operation failed: " + message.ToString());
-            }
-            return message;
-        }
-        internal override void ProcessCallbacks(object ctx, RedisResult result)
-        {
-            CompleteMessage((RedisMessage)ctx, result);
-        }
-        /// <summary>
-        /// Invoked when the server is terminating
-        /// </summary>
-        protected override void ShuttingDown(Exception error)
-        {
-            base.ShuttingDown(error);
-            RedisMessage message;
-            RedisResult result = null;
-
-            lock (sent)
-            {
-                if (sent.Count > 0)
-                {
-                    result = RedisResult.Error(
-                        error == null ? "The server terminated before a reply was received"
-                        : ("Error processing data: " + error.Message));
-                }
-                while (sent.Count > 0)
-                { // notify clients of things that just didn't happen
-
-                    message = sent.Dequeue();
-                    CompleteMessage(message, result);
-                }
-            }
-        }
-        private readonly Queue<RedisMessage> sent;
         private readonly bool allowAdmin;
         /// <summary>
         /// Query usage metrics for this connection
@@ -249,21 +247,11 @@ namespace BookSleeve
                 (int)Wait(Server.Ping())
             );
         }
-        private int GetSentCount() { lock (sent) { return sent.Count; } }
         private DateTime opened;
         internal override void RecordSent(RedisMessage message, bool drainFirst)
         {
             base.RecordSent(message, drainFirst);
-
-            lock (sent)
-            {
-                if (drainFirst && sent.Count != 0)
-                {
-                    // drain it down; the dequeuer will wake us
-                    Monitor.Wait(sent);
-                }
-                sent.Enqueue(message);
-            }
+            lastSentTickCount = Environment.TickCount;
         }
 
 
@@ -272,12 +260,7 @@ namespace BookSleeve
         /// </summary>
         protected override string GetTimeoutSummary()
         {
-            RedisMessage msg;
-            lock (sent)
-            {
-                if (sent.Count == 0) return null;
-                msg = sent.Peek();
-            }
+            var msg = PeekSent();
             return msg.ToString();
         }
 
@@ -336,28 +319,29 @@ namespace BookSleeve
            if(string.IsNullOrEmpty(serviceName)) throw new ArgumentNullException("serviceName");
            TaskCompletionSource<Tuple<string,int>> taskSource = new TaskCompletionSource<Tuple<string,int>>();
            ExecuteMultiString(RedisMessage.Create(-1, RedisLiteral.SENTINEL, "get-master-addr-by-name", serviceName), false, taskSource)
-                .ContinueWith(task =>
-                {
-                    var state = (TaskCompletionSource<Tuple<string, int>>)task.AsyncState;
-                    if (Condition.ShouldSetResult(task, state))
-                    {
-                        var arr = task.Result;
-                        int i;
-                        if (arr == null)
-                        {
-                            state.SetResult(null);
-                        }
-                        else if (arr.Length == 2 && int.TryParse(arr[1], out i))
-                        {
-                            state.SetResult(Tuple.Create(arr[0], i));
-                        }
-                        else
-                        {
-                            state.SetException(new InvalidOperationException("Invalid sentinel result: " + string.Join(",", arr)));
-                        }
-                    }
-                });
+                .ContinueWith(querySentinelMasterCallback);
            return taskSource.Task;
         }
+        static readonly Action<Task<string[]>> querySentinelMasterCallback = task =>
+        {
+            var state = (TaskCompletionSource<Tuple<string, int>>)task.AsyncState;
+            if (Condition.ShouldSetResult(task, state))
+            {
+                var arr = task.Result;
+                int i;
+                if (arr == null)
+                {
+                    state.SetResult(null);
+                }
+                else if (arr.Length == 2 && int.TryParse(arr[1], out i))
+                {
+                    state.SetResult(Tuple.Create(arr[0], i));
+                }
+                else
+                {
+                    state.SetException(new InvalidOperationException("Invalid sentinel result: " + string.Join(",", arr)));
+                }
+            }
+        };
     }
 }

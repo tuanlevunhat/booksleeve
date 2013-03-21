@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace BookSleeve
 {
@@ -32,6 +33,14 @@ namespace BookSleeve
                         subscriptions.Add(key, handler);
                 }
             }
+        }
+
+        /// <summary>
+        /// Should a QUIT be sent when closing the connection?
+        /// </summary>
+        protected override bool QuitOnClose
+        {
+            get { return false; }
         }
         private void AddNamedSubscriptions(string[] keys, Action<string, byte[]> handler)
         {
@@ -107,22 +116,35 @@ namespace BookSleeve
             pmessage = Encoding.ASCII.GetBytes("pmessage"),
             psubscribe = Encoding.ASCII.GetBytes("psubscribe"),
             punsubscribe = Encoding.ASCII.GetBytes("punsubscribe");
-        internal override object ProcessReply(ref RedisResult result)
-        {
-            return ProcessReply(ref result, null);
-        }
-        internal override object ProcessReply(ref RedisResult result, RedisMessage message)
-        {
-            return null;
-        }
+
         private void OnMessageReceived(string subscriptionKey, string messageKey, RedisResult value)
         {
             ProcessNamedSubscription(subscriptionKey, messageKey, value);
             RaiseEvent(MessageReceived, messageKey, value);
         }
+
+        internal override object ProcessReply(ref RedisResult result)
+        {
+            RedisResult[] subItems;
+            if (!result.IsError && (subItems = result.ValueItems) != null)
+            {
+                // detect "message" and "pmessage" and don't dequeue for those
+                switch(subItems.Length)
+                {
+                    case 3: // special-case message
+                        if (subItems[0].IsMatch(message)) return null;
+                        break;
+                    case 4: // special-case pmessage
+                        if (subItems[0].IsMatch(pmessage)) return null;
+                        break;
+                }
+            }
+            return base.ProcessReply(ref result);
+        }
         internal override void ProcessCallbacks(object ctx, RedisResult result)
         {
             RedisResult[] subItems;
+            bool callBase = true;
             if (!result.IsError && (subItems = result.ValueItems) != null)
             {
                 switch(subItems.Length)
@@ -133,6 +155,7 @@ namespace BookSleeve
                         {
                             string key = subItems[1].ValueString;
                             OnMessageReceived(key, key, subItems[2]);
+                            callBase = false;
                         }
                         else if (msgType.IsMatch(subscribe) || msgType.IsMatch(unsubscribe)
                             || msgType.IsMatch(psubscribe) || msgType.IsMatch(punsubscribe))
@@ -145,10 +168,14 @@ namespace BookSleeve
                         if (subItems[0].IsMatch(pmessage))
                         {
                             OnMessageReceived(subItems[1].ValueString, subItems[2].ValueString, subItems[3]);
+                            callBase = false;
                         }
                         break;
                 }
-
+            }
+            if (callBase) // don't call down to the base for things that aren't related to outbound messages
+            {
+                base.ProcessCallbacks(ctx, result);
             }
         }
         private int subscriptionCount;
@@ -188,11 +215,11 @@ namespace BookSleeve
         /// <param name="handler">A callback to invoke when messages are received on this channel;
         /// note that the MessageReceived event will also be raised, so this callback can be null.</param>
         /// <remarks>Channels are server-wide; they are not per-database</remarks>
-        public void Subscribe(string key, Action<string, byte[]> handler = null)
+        public Task Subscribe(string key, Action<string, byte[]> handler = null)
         {
             ValidateKey(key, false);
             AddNamedSubscription(key, handler);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, key), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, key), false);
         }
         /// <summary>
         /// Subscribe to a set of channels
@@ -201,11 +228,11 @@ namespace BookSleeve
         /// <param name="handler">A callback to invoke when messages are received on these channel;
         /// note that the MessageReceived event will also be raised, so this callback can be null.</param>
         /// <remarks>Channels are server-wide; they are not per-database</remarks>
-        public void Subscribe(string[] keys, Action<string, byte[]> handler = null)
+        public Task Subscribe(string[] keys, Action<string, byte[]> handler = null)
         {
             ValidateKeys(keys, false);
             AddNamedSubscriptions(keys, handler);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Subscribe to a set of pattern (using wildcards, for exmaple "Foo*")
@@ -214,11 +241,11 @@ namespace BookSleeve
         /// <param name="handler">A callback to invoke when matching messages are received; this can be null
         /// as the MessageReceived event will also be raised</param>
         /// <remarks>Channels are server-wide, not per-database</remarks>        
-        public void PatternSubscribe(string key, Action<string, byte[]> handler = null)
+        public Task PatternSubscribe(string key, Action<string, byte[]> handler = null)
         {
             ValidateKey(key, true);
             AddNamedSubscription(key, handler);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, key), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Subscribe to a set of patterns (using wildcards, for exmaple "Foo*")
@@ -227,55 +254,55 @@ namespace BookSleeve
         /// <param name="handler">A callback to invoke when matching messages are received; this can be null
         /// as the MessageReceived event will also be raised</param>
         /// <remarks>Channels are server-wide, not per-database</remarks>
-        public void PatternSubscribe(string[] keys, Action<string, byte[]> handler = null)
+        public Task PatternSubscribe(string[] keys, Action<string, byte[]> handler = null)
         {
             ValidateKeys(keys, true);
             AddNamedSubscriptions(keys, handler);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a channel
         /// </summary>
         /// <param name="key">The channel name</param>
         /// <remarks>Channels are server-wide; they are not per-database</remarks>
-        public void Unsubscribe(string key)
+        public Task Unsubscribe(string key)
         {
             ValidateKey(key, false);
             RemoveNamedSubscription(key);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, key), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Unsubscribe from a set of channels
         /// </summary>
         /// <param name="keys">The channel names</param>
         /// <remarks>Channels are server-wide; they are not per-database</remarks>
-        public void Unsubscribe(string[] keys)
+        public Task Unsubscribe(string[] keys)
         {
             ValidateKeys(keys, false);
             RemoveNamedSubscriptions(keys);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a pattern (which must match a pattern previously subscribed)
         /// </summary>
         /// <param name="key">The pattern to unsubscribe</param>
         /// <remarks>Channels are server-wide, not per-database</remarks>
-        public void PatternUnsubscribe(string key)
+        public Task PatternUnsubscribe(string key)
         {
             ValidateKey(key, true);
             RemoveNamedSubscription(key);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, key), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, key), false);
         }
         /// <summary>
         /// Unsubscribe from a set of patterns (which must match patterns previously subscribed)
         /// </summary>
         /// <param name="keys">The patterns to unsubscribe</param>
         /// <remarks>Channels are server-wide, not per-database</remarks>
-        public void PatternUnsubscribe(string[] keys)
+        public Task PatternUnsubscribe(string[] keys)
         {
             ValidateKeys(keys, true);
             RemoveNamedSubscriptions(keys);
-            EnqueueMessage(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, keys), false);
         }
     }
 }

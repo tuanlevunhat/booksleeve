@@ -23,15 +23,17 @@ namespace Tests
             using(var listenB = Config.GetSubscriberConnection())
             using (var conn = Config.GetUnsecuredConnection())
             {
-                listenA.Subscribe("channel", delegate { });
-                listenB.Subscribe("channel", delegate { });
-                int count = 0;
-                while (listenA.SubscriptionCount == 0 || listenB.SubscriptionCount == 0)
-                {
-                    if (++count == 10) Assert.Fail();
-                    Thread.Sleep(50);
-                }
-                Assert.AreEqual(2, conn.Wait(conn.Publish("channel", "message")));
+                var t1 = listenA.Subscribe("channel", delegate { });
+                var t2 = listenB.Subscribe("channel", delegate { });
+
+                listenA.Wait(t1);
+                Assert.AreEqual(1, listenA.SubscriptionCount, "A subscriptions");
+
+                listenB.Wait(t2);
+                Assert.AreEqual(1, listenB.SubscriptionCount, "B subscriptions");
+                
+                var pub = conn.Publish("channel", "message");
+                Assert.AreEqual(2, conn.Wait(pub), "delivery count");
             }
         }
 
@@ -42,23 +44,30 @@ namespace Tests
             using (var listenB = Config.GetSubscriberConnection())
             using (var conn = Config.GetUnsecuredConnection())
             {
+                conn.Wait(conn.Server.Ping());
                 int gotA = 0, gotB = 0;
-                listenA.Subscribe("channel", (s, msg) => { if (Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
-                listenB.Subscribe("channel", (s, msg) => { if (Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
-                Thread.Sleep(50);
+                var tA = listenA.Subscribe("channel", (s, msg) => { if (Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
+                var tB = listenB.Subscribe("channel", (s, msg) => { if (Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
+                listenA.Wait(tA);
+                listenB.Wait(tB);
                 Assert.AreEqual(2, conn.Wait(conn.Publish("channel", "message")));
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotA, 0, 0));
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotB, 0, 0));
 
                 // and unsubscibe...
-                listenA.Unsubscribe("channel");
-                Thread.Sleep(50);
+                tA = listenA.Unsubscribe("channel");
+                listenA.Wait(tA);
                 Assert.AreEqual(1, conn.Wait(conn.Publish("channel", "message")));
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotA, 0, 0));
                 Assert.AreEqual(2, Interlocked.CompareExchange(ref gotB, 0, 0));
             }
+        }
+
+        private void AllowReasonableTimeToPublishAndProcess()
+        {
+            Thread.Sleep(50);
         }
 
         [Test]
@@ -69,19 +78,20 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 int gotA = 0, gotB = 0;
-                listenA.Subscribe("channel", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
-                listenB.PatternSubscribe("chann*", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
-                Thread.Sleep(50);
+                var tA = listenA.Subscribe("channel", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
+                var tB = listenB.PatternSubscribe("chann*", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
+                listenA.Wait(tA);
+                listenB.Wait(tB);
                 Assert.AreEqual(2, conn.Wait(conn.Publish("channel", "message")));
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotA, 0, 0));
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotB, 0, 0));
 
                 // and unsubscibe...
-                listenB.PatternUnsubscribe("chann*");
-                Thread.Sleep(50);
+                tB = listenB.PatternUnsubscribe("chann*");
+                listenB.Wait(tB);
                 Assert.AreEqual(1, conn.Wait(conn.Publish("channel", "message")));
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(2, Interlocked.CompareExchange(ref gotA, 0, 0));
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotB, 0, 0));
             }
@@ -94,24 +104,24 @@ namespace Tests
             using(var sub = Config.GetSubscriberConnection())
             {
                 int x = 0, y = 0;
-                sub.Subscribe("abc", delegate { Interlocked.Increment(ref x); });
-                sub.PatternSubscribe("ab*", delegate { Interlocked.Increment(ref y); });
-                Thread.Sleep(50);
+                var t1 = sub.Subscribe("abc", delegate { Interlocked.Increment(ref x); });
+                var t2 = sub.PatternSubscribe("ab*", delegate { Interlocked.Increment(ref y); });
+                sub.WaitAll(t1, t2);
                 pub.Publish("abc", "");
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(1, Thread.VolatileRead(ref x));
                 Assert.AreEqual(1, Thread.VolatileRead(ref y));
-                sub.Unsubscribe("abc");
-                sub.PatternUnsubscribe("ab*");
-                Thread.Sleep(50);
+                t1 = sub.Unsubscribe("abc");
+                t2 = sub.PatternUnsubscribe("ab*");
+                sub.WaitAll(t1, t2);
                 pub.Publish("abc", "");
                 Assert.AreEqual(1, Thread.VolatileRead(ref x));
                 Assert.AreEqual(1, Thread.VolatileRead(ref y));
-                sub.Subscribe("abc", delegate { Interlocked.Increment(ref x); });
-                sub.PatternSubscribe("ab*", delegate { Interlocked.Increment(ref y); });
-                Thread.Sleep(50);
+                t1 = sub.Subscribe("abc", delegate { Interlocked.Increment(ref x); });
+                t2 = sub.PatternSubscribe("ab*", delegate { Interlocked.Increment(ref y); });
+                sub.WaitAll(t1, t2);
                 pub.Publish("abc", "");
-                Thread.Sleep(50);
+                AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(2, Thread.VolatileRead(ref x));
                 Assert.AreEqual(2, Thread.VolatileRead(ref y));
                 

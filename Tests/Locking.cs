@@ -50,7 +50,9 @@ namespace Tests
                 Task<bool> taken = null;
                 Task<string> newValue = null;
                 Task<long> ttl = null;
-                for (int i = 0; i < 500; i++)
+
+                const int LOOP = 50;
+                for (int i = 0; i < LOOP; i++)
                 {
                     conn.Keys.Remove(0, "lock-not-exists");
                     taken = conn.Strings.TakeLock(0, "lock-not-exists", "new-value", 10);

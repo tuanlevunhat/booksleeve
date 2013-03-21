@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using NUnit.Framework;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Tests
 {
@@ -11,6 +12,22 @@ namespace Tests
     {
         static void Main()
         {
+            try
+            {
+                Main2();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine();
+                Console.WriteLine("CRAZY ERRORS: " + ex);
+            }
+            finally
+            {
+                Console.WriteLine("Press any key to exit");
+                Console.ReadKey();
+            }
+        }
+        static void Main2() {
             // why is this here? because some dumbass forgot to install a decent test-runner before going to the airport
             var epicFail = new List<string>();
             var testTypes = from type in typeof(Program).Assembly.GetTypes()
@@ -28,6 +45,22 @@ namespace Tests
             int pass = 0, fail = 0;
 
             bool activeOnly = testTypes.SelectMany(x => x.ActiveMethods).Any();
+
+            TaskScheduler.UnobservedTaskException += (sender, args) =>
+            {
+                args.SetObserved();
+                //if (args.Exception is AggregateException)
+                //{
+                //    foreach (var ex in ((AggregateException)args.Exception).InnerExceptions)
+                //    {
+                //        Console.WriteLine(ex.Message);
+                //    }
+                //}
+                //else
+                //{
+                //    Console.WriteLine(args.Exception.Message);
+                //}
+            };
 
             foreach (var type in testTypes)
             {
@@ -69,9 +102,19 @@ namespace Tests
                         var expectedFail = Attribute.GetCustomAttribute(test, typeof(ExpectedExceptionAttribute)) as ExpectedExceptionAttribute;
                         Console.Write(test.Name + ": ");
                         Exception err = null;
+
                         try
                         {
-                            test.Invoke(obj, null);
+                            int count = 1;
+                            if (activeOnly)
+                            {
+                                var ata = test.GetCustomAttribute(typeof(ActiveTestAttribute)) as ActiveTestAttribute;
+                                if (ata != null) count = ata.Count;
+                            }
+                            while (count-- > 0)
+                            {
+                                test.Invoke(obj, null);
+                            }
                         }
                         catch (TargetInvocationException ex)
                         {
@@ -80,6 +123,11 @@ namespace Tests
                         catch (Exception ex)
                         {
                             err = ex;
+                        }
+
+                        if (err is AggregateException && ((AggregateException)err).InnerExceptions.Count == 1)
+                        {
+                            err = ((AggregateException)err).InnerExceptions[0];
                         }
 
                         if (expectedFail != null)
@@ -142,4 +190,9 @@ namespace Tests
 }
 
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class ActiveTestAttribute : Attribute { }
+public sealed class ActiveTestAttribute : Attribute {
+    private readonly int count;
+    public int Count { get { return count; } }
+    public ActiveTestAttribute() : this(1) { }
+    public ActiveTestAttribute(int count) { this.count = count; }
+}

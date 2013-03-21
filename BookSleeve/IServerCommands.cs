@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Globalization;
 using System.Net;
 using System.Threading.Tasks;
 namespace BookSleeve
@@ -30,6 +31,13 @@ namespace BookSleeve
         /// <returns>The latency in milliseconds.</returns>
         /// <remarks>http://redis.io/commands/ping</remarks>
         Task<long> Ping(bool queueJump = false);
+
+        /// <summary>
+        /// The TIME command returns the current server time.
+        /// </summary>
+        /// <returns>The server's current time.</returns>
+        /// <remarks>http://redis.io/commands/time</remarks>
+        Task<DateTime> Time(bool queueJump = false);
 
         /// <summary>
         /// Get all configuration parameters matching the specified pattern.
@@ -114,11 +122,15 @@ namespace BookSleeve
         Task<Dictionary<string, string>> IServerCommands.GetInfo(string section, bool queueJump)
         {
             var msg = string.IsNullOrEmpty(section) ? RedisMessage.Create(-1, RedisLiteral.INFO) : RedisMessage.Create(-1, RedisLiteral.INFO, section);
-            return ExecuteString(msg, queueJump).ContinueWith(t =>
-            {
-                return RedisConnectionBase.ParseInfo(t.Result);
-            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+            var source = new TaskCompletionSource<Dictionary<string, string>>();
+            ExecuteString(msg, queueJump, source).ContinueWith(getInfoCallback);
+            return source.Task;
         }
+        static readonly Action<Task<string>> getInfoCallback = task =>
+        {
+            var state = (TaskCompletionSource<Dictionary<string, string>>)task.AsyncState;
+            if (Condition.ShouldSetResult(task, state)) state.TrySetResult(RedisConnectionBase.ParseInfo(task.Result));
+        };
 
         Task IServerCommands.FlushScriptCache()
         {
@@ -136,17 +148,18 @@ namespace BookSleeve
         {
             CheckAdmin();
             TaskCompletionSource<ClientInfo[]> result = new TaskCompletionSource<ClientInfo[]>();
-            ExecuteString(RedisMessage.Create(-1, RedisLiteral.CLIENT, RedisLiteral.LIST), false).ContinueWith(
-                task =>
-                {
-                    if (Condition.ShouldSetResult(task, result)) try
-                    {
-                        result.TrySetResult(ClientInfo.Parse(task.Result));
-                    }
-                    catch (Exception ex) { result.TrySetException(ex); }
-                });
+            ExecuteString(RedisMessage.Create(-1, RedisLiteral.CLIENT, RedisLiteral.LIST), false, result).ContinueWith(listClientsCallback);
             return result.Task;
         }
+        static readonly Action<Task<string>> listClientsCallback = task =>
+        {
+            var result = (TaskCompletionSource<ClientInfo[]>)task.AsyncState;
+            if (Condition.ShouldSetResult(task, result)) try
+            {
+                result.TrySetResult(ClientInfo.Parse(task.Result));
+            }
+            catch (Exception ex) { result.TrySetException(ex); }
+        };
 
         /// <summary>
         /// Delete all the keys of all the existing databases, not just the currently selected one.
@@ -180,20 +193,48 @@ namespace BookSleeve
         /// <returns>The latency in milliseconds.</returns>
         /// <remarks>http://redis.io/commands/ping</remarks>
         [Obsolete("Please use the Server API", false), EditorBrowsable(EditorBrowsableState.Never)]
-        public new Task<long> Ping(bool queueJump = false)
+        public Task<long> Ping(bool queueJump = false)
         {
             return Server.Ping(queueJump);
         }
 
         Task<long> IServerCommands.Ping(bool queueJump)
         {
-            return base.Ping(queueJump);
+            return base.PingImpl(queueJump, duringInit: false);
         }
+
+        Task<DateTime> IServerCommands.Time(bool queueJump)
+        {
+            var source = new TaskCompletionSource<DateTime>();
+            ExecuteMultiString(RedisMessage.Create(-1, RedisLiteral.TIME), queueJump, source).ContinueWith(timeCallback);
+            return source.Task;
+        }
+        static readonly Action<Task<string[]>> timeCallback = task =>
+        {
+            var state = (TaskCompletionSource<DateTime>)task.AsyncState;
+            if (Condition.ShouldSetResult(task, state))
+            {
+                long timestamp = int.Parse(task.Result[0], CultureInfo.InvariantCulture),
+                    micros = int.Parse(task.Result[1], CultureInfo.InvariantCulture);
+
+                // unix timestamp is in UTC time
+                var time = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(timestamp).AddTicks(micros * 10); // datetime ticks are 100ns
+
+                state.TrySetResult(time);
+            }
+        };
 
         Task<Dictionary<string, string>> IServerCommands.GetConfig(string pattern)
         {
+            return GetConfigImpl(pattern, false);
+        }
+
+        internal Task<Dictionary<string, string>> GetConfigImpl(string pattern, bool isInit)
+        {
             if (string.IsNullOrEmpty(pattern)) pattern = "*";
-            return ExecuteStringPairs(RedisMessage.Create(-1, RedisLiteral.CONFIG, RedisLiteral.GET, pattern), false);
+            var msg = RedisMessage.Create(-1, RedisLiteral.CONFIG, RedisLiteral.GET, pattern);
+            if (isInit) msg.DuringInit();
+            return ExecuteStringPairs(msg, false);
         }
 
         Task IServerCommands.SetConfig(string name, string value)

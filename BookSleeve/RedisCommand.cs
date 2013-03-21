@@ -14,6 +14,7 @@ namespace BookSleeve
     {
         private static readonly byte[][] literals;
         private static readonly RedisLiteral[] dbFree;
+        
         static RedisMessage()
         {
             var arr = Enum.GetValues(typeof(RedisLiteral));
@@ -34,14 +35,26 @@ namespace BookSleeve
         private readonly int db;
         private readonly RedisLiteral command;
         private RedisLiteral expected = RedisLiteral.None;
-        private bool critical;
+
+        private byte flags;
+        private const byte FLAGS_Critical = 0x01,
+                           FLAGS_DuringInit = 0x02;
+
         public bool MustSucceed
         {
-            get { return critical; }
+            get { return (flags & FLAGS_Critical) != 0; }
+        }
+        public bool IsDuringInit
+        {
+            get { return (flags & FLAGS_DuringInit) != 0; }
+        }
+        internal void DuringInit()
+        {
+            flags |= FLAGS_DuringInit;
         }
         public RedisMessage Critical()
         {
-            critical = true;
+            flags |= FLAGS_Critical;
             return this;
         }
         public RedisMessage ExpectOk()
@@ -77,9 +90,7 @@ namespace BookSleeve
         }
         internal virtual void Complete(RedisResult result)
         {
-#if VERBOSE
-            Trace.WriteLine("~ " + command, "completed");
-#endif
+            RedisConnectionBase.Trace("completed", "~ {0}", command);
             var snapshot = Interlocked.Exchange(ref messageResult, null); // only run once
             ChangeState(MessageState.Sent, MessageState.Complete);
             if (snapshot != null)
@@ -194,13 +205,14 @@ namespace BookSleeve
         {
             try
             {
+                RedisConnectionBase.Trace("send", "write @{1}: {0}", this, stream.Position);
                 stream.WriteByte((byte)'*');
                 WriteRaw(stream, argCount + 1);
                 WriteUnified(stream, command);
             }
-            catch
+            catch(Exception ex)
             {
-
+                RedisConnectionBase.Trace("send", ex.Message);
                 throw;
             }
         }
@@ -872,6 +884,8 @@ namespace BookSleeve
         SLAVEOF, SLOWLOG, SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
         [DbFree]
         SUBSCRIBE, SUBSTR, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
+        [DbFree]
+        TIME,
         [DbFree]
         UNSUBSCRIBE,
         [DbFree]

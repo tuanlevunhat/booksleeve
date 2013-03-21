@@ -112,6 +112,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultRaw : MessageResult<RedisResult>
     {
+        public MessageResultRaw(object state = null) : base(state) { }
         protected override RedisResult GetValue(RedisResult result) { return result; }
     }
     internal sealed class MessageResultMultiString : MessageResult<string[]>
@@ -146,6 +147,7 @@ namespace BookSleeve
     }
     internal sealed class MessageResultVoid : MessageResult<bool>
     {
+        public MessageResultVoid(object state = null) : base(state) { }
         public new Task Task { get { return base.Task; } }
         protected override bool GetValue(RedisResult result) { result.Assert(); return true; }
     }
