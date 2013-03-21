@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.2.0.8</version>
+    <version>1.3.6</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <summary>Efficient, fully asynchronous Redis client</summary>
@@ -12,6 +12,11 @@
     <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
     <releaseNotes>
+      * 1.3.6   - Adds TIME support
+      *         - Pub/sub now returns Task to allow tracking of subscription
+      * 1.3.*- MAROR CHANGES; 1.3 removes the threaded core to allow for more scalability over multiple connections;
+      *           This is an API-breaking change (especially around pub/sub), and local validation is recommended
+      *
       * 1.2.0.8 - Fix processing of info=>redis_version to work with MS alpha redis
       * 1.2.0.7 - Client names now fully supported on 2.6.9+
       * 1.2.0.6 - Support client names on connections (in theory; API changes only)

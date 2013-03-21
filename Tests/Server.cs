@@ -3,6 +3,7 @@ using BookSleeve;
 using NUnit.Framework;
 using System.Threading;
 using System;
+using System.Threading.Tasks;
 
 namespace Tests
 {
@@ -12,11 +13,48 @@ namespace Tests
         [Test]
         public void TestGetConfigAll()
         {
-            using(var db = Config.GetUnsecuredConnection())
+            using (var db = Config.GetUnsecuredConnection())
             {
                 var pairs = db.Wait(db.Server.GetConfig("*"));
                 Assert.Greater(1, 0); // I always get double-check which arg is which
                 Assert.Greater(pairs.Count, 0);
+            }
+        }
+
+        [Test]
+        public void TestTime()
+        {
+            using (var db = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                Assert.IsNotNull(db.Features); // we waited, after all
+                if (db.Features.Time)
+                {
+                    var local = DateTime.UtcNow;
+                    var server = db.Wait(db.Server.Time());
+
+                    Assert.True(Math.Abs((local - server).TotalMilliseconds) < 10);
+
+                }
+            }
+        }
+
+        [Test]
+        public void TestTimeWithExplicitVersion()
+        {
+            using (var db = Config.GetUnsecuredConnection(open: false))
+            {
+                db.SetServerVersion(new Version("2.6.9"), ServerType.Master);
+                db.SetKeepAlive(10);
+                Assert.IsNotNull(db.Features, "Features"); // we waited, after all
+                Assert.IsTrue(db.Features.ClientName, "ClientName");
+                Assert.IsTrue(db.Features.Time, "Time");
+                db.Name = "FooFoo";
+                db.Wait(db.Open());                
+                
+                var local = DateTime.UtcNow;
+                var server = db.Wait(db.Server.Time());
+
+                Assert.True(Math.Abs((local - server).TotalMilliseconds) < 10);
             }
         }
 
@@ -44,7 +82,7 @@ namespace Tests
         [Test, ExpectedException(typeof(TimeoutException), ExpectedMessage = "The operation has timed out; possibly blocked by: 0: BLPOP \"noexist\" 5")]
         public void TimeoutMessageWithDetail()
         {
-            using (var conn = Config.GetUnsecuredConnection(open: true))
+            using (var conn = Config.GetUnsecuredConnection(open: true, waitForOpen: true))
             {
                 conn.IncludeDetailInTimeouts = true;
                 conn.Keys.Remove(0, "noexist");
@@ -70,7 +108,7 @@ namespace Tests
                     killMe.Wait(killMe.Strings.GetString(7, "kill me quick"));
                     Assert.Fail("Should have been dead");
                 }
-                catch(Exception) { }
+                catch (Exception) { }
             }
         }
 
@@ -80,10 +118,13 @@ namespace Tests
             string oldValue = null;
             try
             {
-                using (var db = Config.GetUnsecuredConnection(allowAdmin:true))
+                using (var db = Config.GetUnsecuredConnection(allowAdmin: true))
                 {
                     oldValue = db.Wait(db.Server.GetConfig("timeout")).Single().Value;
                     db.Server.SetConfig("timeout", "20");
+                }
+                using (var db  = Config.GetUnsecuredConnection(allowAdmin: false, waitForOpen:true))
+                {
                     var before = db.GetCounters();
                     Thread.Sleep(12 * 1000);
                     var after = db.GetCounters();
@@ -94,34 +135,71 @@ namespace Tests
                     Assert.LessOrEqual(0, 4);
                     Assert.LessOrEqual(sent, 5);
                 }
-            } finally
+            }
+            finally
             {
                 if (oldValue != null)
                 {
-                    using (var db = Config.GetUnsecuredConnection(allowAdmin:true))
+                    Task t;
+                    using (var db = Config.GetUnsecuredConnection(allowAdmin: true))
                     {
-                        db.Server.SetConfig("timeout", oldValue);
+                        t = db.Server.SetConfig("timeout", oldValue);
                     }
+                    Assert.IsTrue(t.Wait(5000));
+                    if (t.Exception != null) throw t.Exception;
                 }
+            }
+        }
+
+        [Test]
+        public void SetValueWhileDisposing()
+        {
+            const int LOOP = 10;
+            for (int i = 0; i < LOOP; i++)
+            {
+                var guid = Guid.NewGuid().ToString();
+                Task t1, t3;
+                Task<string> t2;
+                const string key = "SetValueWhileDisposing";
+                using (var db = Config.GetUnsecuredConnection(open: true))
+                {
+                    t1 = db.Strings.Set(0, key, guid);
+                }
+                using (var db = Config.GetUnsecuredConnection())
+                {
+                    t2 = db.Strings.GetString(0, key);
+                    t3 = db.Keys.Remove(0, key);
+                }
+                Assert.IsTrue(t1.Wait(500));
+                Assert.IsTrue(t2.Wait(500));
+                Assert.AreEqual(guid, t2.Result);
+                Assert.IsTrue(t3.Wait(500));
             }
         }
 
         [Test]
         public void TestMasterSlaveSetup()
         {
-            using(var unsec = Config.GetUnsecuredConnection(true, true, true))
-            using(var sec = Config.GetUnsecuredConnection(true, true, true))
+            using (var unsec = Config.GetUnsecuredConnection(true, true, true))
+            using (var sec = Config.GetUnsecuredConnection(true, true, true))
             {
-                var makeSlave = sec.Server.MakeSlave(unsec.Host, unsec.Port);
-                var info = sec.Wait(sec.Server.GetInfo());
-                sec.Wait(makeSlave);
-                Assert.AreEqual("slave", info["role"], "slave");
-                Assert.AreEqual(unsec.Host, info["master_host"], "host");
-                Assert.AreEqual(unsec.Port, info["master_port"], "port");
-                var makeMaster = sec.Server.MakeMaster();
-                info = sec.Wait(sec.Server.GetInfo());
-                sec.Wait(makeMaster);
-                Assert.AreEqual("master", info["role"], "master");
+                try
+                {
+                    var makeSlave = sec.Server.MakeSlave(unsec.Host, unsec.Port);
+                    var info = sec.Wait(sec.Server.GetInfo());
+                    sec.Wait(makeSlave);
+                    Assert.AreEqual("slave", info["role"], "slave");
+                    Assert.AreEqual(unsec.Host, info["master_host"], "host");
+                    Assert.AreEqual(unsec.Port.ToString(), info["master_port"], "port");
+                    var makeMaster = sec.Server.MakeMaster();
+                    info = sec.Wait(sec.Server.GetInfo());
+                    sec.Wait(makeMaster);
+                    Assert.AreEqual("master", info["role"], "master");
+                }
+                finally
+                {
+                    sec.Server.MakeMaster();
+                }
 
             }
         }

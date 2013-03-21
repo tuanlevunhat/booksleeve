@@ -32,6 +32,7 @@ namespace BookSleeve
                                          v2_5_7 = new Version("2.5.7"),
                                          v2_5_10 = new Version("2.5.10"),
                                          v2_5_14 = new Version("2.5.14"),
+                                         v2_6_0 = new Version("2.6.0"),
                                          v2_6_9 = new Version("2.6.9");
         /// <summary>
         /// Is the PERSIST operation supported?
@@ -74,6 +75,10 @@ namespace BookSleeve
         /// </summary>
         public bool MultipleRandom { get { return version >= v2_5_14; } }
 
+        /// <summary>
+        /// Does TIME exist?
+        /// </summary>
+        public bool Time { get { return version >= v2_6_0; } }
         /// <summary>
         /// Does BITOP / BITCOUNT exist?
         /// </summary>

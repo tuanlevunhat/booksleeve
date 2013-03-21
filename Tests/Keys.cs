@@ -189,7 +189,7 @@ namespace Tests
         public void RemoveExpiry()
         {
             int errors = 0, expectedErrors;
-            using (var conn = Config.GetUnsecuredConnection())
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
             {
                 conn.Error += delegate
                 {
@@ -203,7 +203,6 @@ namespace Tests
                 var persist2 = conn.Keys.Persist(1, "persist");
                 var after = conn.Keys.TimeToLive(1, "persist");
                 
-
                 Assert.GreaterOrEqual(conn.Wait(before), 90);
                 if (conn.Features.Persist)
                 {
@@ -237,7 +236,7 @@ namespace Tests
         [Test]
         public void RandomKeys()
         {
-            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true, waitForOpen: true))
             {
                 conn.Server.FlushDb(6);
                 var key1 = conn.Keys.Random(6);

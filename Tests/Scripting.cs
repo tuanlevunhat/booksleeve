@@ -22,6 +22,15 @@ namespace Tests
 
         }
         [Test]
+        public void ClientScripting()
+        {
+            using (var conn = GetScriptConn())
+            {
+                if (conn == null) return;
+                var result = conn.Wait(conn.Scripting.Eval(0, "return redis.call('info','server')", null, null));
+            }
+        }
+        [Test]
         public void BasicScripting()
         {
             using (var conn = GetScriptConn())

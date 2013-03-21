@@ -297,14 +297,14 @@ namespace Tests
             }
         }
 
-        [Test, ActiveTest]
+        [Test]
         public void SO14991819()
         {
             const int _db = 0;
             const string _thisChannel = "SO14991819";
             string thisChannel = string.Format("urn:{0}", _thisChannel);
             const string message = "hi";
-            using (var _connection = Config.GetUnsecuredConnection())
+            using (var _connection = Config.GetUnsecuredConnection(waitForOpen: true))
             {
                 _connection.Keys.Remove(_db, thisChannel); // start from known state
 

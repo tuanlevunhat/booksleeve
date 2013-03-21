@@ -70,24 +70,35 @@ namespace BookSleeve
             }
 
             TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
-            ExecuteRaw(RedisMessage.Create(-1, RedisLiteral.SCRIPT, args), false).ContinueWith(queryTask =>
+
+            var state = Tuple.Create(result, this, fetch);
+            ExecuteRaw(RedisMessage.Create(-1, RedisLiteral.SCRIPT, args), false, state).ContinueWith(scriptCompletionCallback);
+
+            return result.Task;
+        }
+        static readonly Action<Task<RedisResult>> scriptCompletionCallback = queryTask =>
             {
+                var tuple = (Tuple<TaskCompletionSource<bool>, RedisConnection, List<Tuple<string,string>>>)queryTask.AsyncState;
+                var result = tuple.Item1;
+                var @this = tuple.Item2;
+                var fetch = tuple.Item3;
+
                 if (Condition.ShouldSetResult(queryTask, result))
                 {
                     var existResults = queryTask.Result.ValueItems;
                     Task last = null;
-                    for (int i = 0 ; i < existResults.Length ; i++)
+                    for (int i = 0; i < existResults.Length; i++)
                     {
                         string hash = fetch[i].Item1, script = fetch[i].Item2;
                         if (existResults[i].ValueInt64 == 0)
                         {   // didn't exist
-                            last = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), true);
+                            last = @this.ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SCRIPT, RedisLiteral.LOAD, script), true, result);
                         }
                         // at this point, either it *already* existed, or we've issued a queue-jumping LOAD command,
                         // so all *subsequent* calles can reliably assume that it will exist on the server from now on
-                        lock (scriptCache)
+                        lock (@this.scriptCache)
                         {
-                            scriptCache[script] = hash;
+                            @this.scriptCache[script] = hash;
                         }
                     }
                     if (last == null)
@@ -97,16 +108,16 @@ namespace BookSleeve
                     }
                     else
                     {
-                        last.ContinueWith(loadTask =>
-                        {
-                            if (Condition.ShouldSetResult(loadTask, result)) result.TrySetResult(true);
-                        });
+                        last.ContinueWith(loadScriptCallback);
                     }
                 }
-            });
+            };
+        static readonly Action<Task> loadScriptCallback = loadTask =>
+        {
+            var result = (TaskCompletionSource<bool>)loadTask.AsyncState;
+            if (Condition.ShouldSetResult(loadTask, result)) result.TrySetResult(true);
+        };
 
-            return result.Task;
-        }
         Task<object> IScriptingCommands.Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache, bool inferStrings, bool queueJump)
         {
             if (string.IsNullOrEmpty(script)) throw new ArgumentNullException("script");

@@ -20,7 +20,8 @@ namespace Tests
             };
         }
 
-        const string host = "127.0.0.1"; //"192.168.0.10"; // vmware 2.6 //"127.0.0.1";
+        const string host = "127.0.0.1";
+        // const string host = "192.168.0.8";
         const int unsecuredPort = 6379, securedPort = 6381;
         //const int unsecuredPort = 6380, securedPort = 6381;
 
@@ -71,11 +72,6 @@ namespace Tests
             }
         }
 
-        internal static void AssertNearlyEqual(double x, double y)
-        {
-            if (Math.Abs(x - y) > 0.00001) Assert.AreEqual(x, y);
-        }
-
         [Test]
         public void CanOpenSecuredConnection()
         {
@@ -94,6 +90,11 @@ namespace Tests
             {
                 conn.Wait(conn.Open());
             }
+        }
+
+        internal static void AssertNearlyEqual(double x, double y)
+        {
+            if (Math.Abs(x - y) > 0.00001) Assert.AreEqual(x, y);
         }
     }
 }
