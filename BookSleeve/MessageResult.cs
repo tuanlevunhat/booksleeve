@@ -8,15 +8,17 @@ namespace BookSleeve
 {
     internal interface IMessageResult
     {
-        void Complete(RedisResult result);
+        void Complete(RedisResult result, RedisMessage message);
         Task Task { get; }
     }
 
     internal abstract class MessageResult<T> : IMessageResult
     {
-        protected virtual void ProcessError(RedisResult result)
+        protected virtual void ProcessError(RedisResult result, RedisMessage message)
         {
-            source.SetException(result.Error());
+            var ex = result.Error();
+            if (message != null) ex.Data.Add("redis-command", message.ToString());
+            source.TrySetException(ex);
         }
         private readonly TaskCompletionSource<T> source;
         public Task<T> Task { get { return source.Task; } }
@@ -25,7 +27,7 @@ namespace BookSleeve
         {
             source = new TaskCompletionSource<T>(state);
         }
-        public void Complete(RedisResult result)
+        public void Complete(RedisResult result, RedisMessage message)
         {
             if (result.IsCancellation)
             {
@@ -33,7 +35,7 @@ namespace BookSleeve
             }
             else if (result.IsError)
             {
-                ProcessError(result);
+                ProcessError(result, message);
             }
             else
             {
@@ -86,7 +88,7 @@ namespace BookSleeve
     {
         private readonly RedisConnection connection;
         private readonly bool inferStrings;
-        protected override void ProcessError(RedisResult result)
+        protected override void ProcessError(RedisResult result, RedisMessage message)
         {
             try {
                 var msg = result.Error().Message;
@@ -98,7 +100,7 @@ namespace BookSleeve
             } catch {
                 /* best efforts only */
             }
-            base.ProcessError(result);
+            base.ProcessError(result, message);
         }
         public MessageResultScript(RedisConnection connection, bool inferStrings, object state = null) : base(state) {
             this.connection = connection;

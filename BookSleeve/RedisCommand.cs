@@ -95,7 +95,7 @@ namespace BookSleeve
             ChangeState(MessageState.Sent, MessageState.Complete);
             if (snapshot != null)
             {
-                snapshot.Complete(result);
+                snapshot.Complete(result, this);
             }
         }
         private int messageState;
@@ -764,7 +764,7 @@ namespace BookSleeve
                 }
             }
         }
-        void IMessageResult.Complete(RedisResult result)
+        void IMessageResult.Complete(RedisResult result, RedisMessage message)
         {
             if (result.IsCancellation)
             {

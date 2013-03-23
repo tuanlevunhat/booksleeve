@@ -262,7 +262,7 @@ namespace BookSleeve
         protected override string GetTimeoutSummary()
         {
             var msg = PeekSent();
-            return msg.ToString();
+            return msg == null ? null : msg.ToString();
         }
 
         /// <summary>
