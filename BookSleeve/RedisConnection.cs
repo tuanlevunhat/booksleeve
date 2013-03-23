@@ -118,15 +118,16 @@ namespace BookSleeve
             {
                 // ping if nothing sent in *half* the interval; for example, if keep-alive is every 3 seconds we'll
                 // send a PING if nothing was written in the last 1.5 seconds
-                int pingIfBefore = Environment.TickCount - (keepAliveSeconds * 500);
-                if (lastSentTickCount < pingIfBefore)
+                DateTime lastSent = DateTime.FromBinary(Interlocked.Read(ref lastSentDateTimeBinary));
+                DateTime pingIfBefore = DateTime.UtcNow.AddMilliseconds(-(keepAliveSeconds * 500));
+                if (lastSent < pingIfBefore)
                 {
                     Trace("keep-alive", "ping");
                     PingImpl(true, duringInit: false);
                 }
             }
         }
-        private int lastSentTickCount;
+        private long lastSentDateTimeBinary;
 
         void StopKeepAlive()
         {
@@ -251,7 +252,7 @@ namespace BookSleeve
         internal override void RecordSent(RedisMessage message, bool drainFirst)
         {
             base.RecordSent(message, drainFirst);
-            lastSentTickCount = Environment.TickCount;
+            Interlocked.Exchange(ref lastSentDateTimeBinary, DateTime.UtcNow.ToBinary());
         }
 
 

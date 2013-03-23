@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.3.6</version>
+    <version>1.3.7</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <summary>Efficient, fully asynchronous Redis client</summary>
@@ -12,6 +12,8 @@
     <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
     <releaseNotes>
+      * 1.3.7   - Fix slow ConnectionUtils.Connect performance w/ 'down' servers
+      *         - Avoid Environment.Ticks due to wrap-around
       * 1.3.6   - Adds TIME support
       *         - Pub/sub now returns Task to allow tracking of subscription
       * 1.3.*- MAROR CHANGES; 1.3 removes the threaded core to allow for more scalability over multiple connections;

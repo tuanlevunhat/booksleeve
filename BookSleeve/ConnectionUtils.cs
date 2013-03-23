@@ -185,8 +185,16 @@ namespace BookSleeve
         internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=",
             ServiceNamePrefix = "serviceName=", ClientNamePrefix = "name=";
         
+        [Conditional("VERBOSE")]
+        static void TraceWriteTime(string state)
+        {
+#if VERBOSE
+            System.Diagnostics.Trace.WriteLine(DateTime.Now.ToString("HH:mm:ss.ffff") + " - " + state);
+#endif
+        }
         private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
+            TraceWriteTime("Start: " + configuration);
             if (tieBreakerKey == null) tieBreakerKey = "__Booksleeve_TieBreak"; // default tie-breaker key
             int syncTimeout;
             bool allowAdmin;
@@ -210,13 +218,15 @@ namespace BookSleeve
             }
             var connections = new List<RedisConnection>(arr.Length);
             RedisConnection preferred = null;
-            
+
+            TraceWriteTime("Infos");
             try
             {
-                var infos = new List<Task<string>>(arr.Length);
-                var tiebreakers = new List<Task<string>>(arr.Length);
-                foreach (var option in arr)
+                var infos = new Task<string>[arr.Length];
+                var tiebreakers = new Task<string>[arr.Length];
+                for(int i = 0 ; i < arr.Length ; i++)
                 {
+                    var option = arr[i];
                     if (string.IsNullOrWhiteSpace(option)) continue;
 
                     RedisConnection conn = null;
@@ -236,8 +246,8 @@ namespace BookSleeve
                         var info = conn.GetInfoImpl(null, false, false);
                         var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
                         connections.Add(conn);
-                        infos.Add(info);
-                        tiebreakers.Add(tiebreak);
+                        infos[i] = info;
+                        tiebreakers[i] = tiebreak;
                     }
                     catch (Exception ex)
                     {
@@ -253,11 +263,15 @@ namespace BookSleeve
                 }
                 List<RedisConnection> masters = new List<RedisConnection>(), slaves = new List<RedisConnection>();
                 var breakerScores = new Dictionary<string, int>();
-                foreach (var tiebreak in tiebreakers)
+
+                TraceWriteTime("Wait for infos");
+                Task.WaitAll(tiebreakers, syncTimeout);
+                for (int i = 0; i < tiebreakers.Length; i++ )
                 {
+                    var tiebreak = tiebreakers[i];
                     try
                     {
-                        if (tiebreak.Wait(syncTimeout))
+                        if (tiebreak.IsCompleted)
                         {
                             string key = tiebreak.Result;
                             if (string.IsNullOrWhiteSpace(key)) continue;
@@ -265,10 +279,15 @@ namespace BookSleeve
                             if (breakerScores.TryGetValue(key, out score)) breakerScores[key] = score + 1;
                             else breakerScores.Add(key, 1);
                         }
+                        else
+                        {
+                            infos[i] = null; // forget it; took too long
+                        }
                     }
                     catch { /* if a node is down, that's fine too */ }
                 }
 
+                TraceWriteTime("Check for sentinels");
                 // see if any of our nodes are sentinels that know about the named service
                 List<Tuple<RedisConnection, Task<Tuple<string, int>>>> sentinelNodes = null;
                 foreach (var conn in connections)
@@ -365,6 +384,7 @@ namespace BookSleeve
                     return null;
                 }
 
+                TraceWriteTime("Check tie-breakers");
                 // check for tie-breakers (i.e. when we store which is the master)
                 switch (breakerScores.Count)
                 {
@@ -383,8 +403,15 @@ namespace BookSleeve
                         break;
                 }
 
+                TraceWriteTime("Check connections");
                 for (int i = 0; i < connections.Count; i++)
                 {
+                    if (infos[i] == null)
+                    {
+                        log.WriteLine("Server did not respond - {0}:{1}...", connections[i].Host, connections[i].Port);
+                        connections[i].Close(abort:true);
+                        continue;
+                    }
                     log.WriteLine("Reading configuration from {0}:{1}...", connections[i].Host, connections[i].Port);
                     try
                     {
@@ -441,6 +468,7 @@ namespace BookSleeve
                     }
                 }
 
+                TraceWriteTime("Check masters");
                 if (newMaster == null)
                 {
                     switch (masters.Count)
@@ -560,6 +588,7 @@ namespace BookSleeve
                     }
                 }
 
+                TraceWriteTime("Outro");
                 if (preferred == null)
                 {
                     selectedConfiguration = null;
@@ -572,15 +601,18 @@ namespace BookSleeve
 
                 availableEndpoints = (from conn in masters.Concat(slaves)
                                       select conn.Host + ":" + conn.Port).ToArray();
+                TraceWriteTime("Return");
                 return preferred;
             }
             finally
             {
+                TraceWriteTime("Start cleanup");
                 foreach (var conn in connections)
                 {
                     if (conn != null && conn != preferred) try { conn.Dispose(); }
                         catch { }
                 }
+                TraceWriteTime("End cleanup");
             }
         }
 

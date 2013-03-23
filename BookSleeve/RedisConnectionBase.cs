@@ -606,7 +606,7 @@ namespace BookSleeve
         public virtual void Close(bool abort)
         {
             this.abort |= abort;
-            if (QuitOnClose)
+            if (!this.abort && QuitOnClose)
             {
                 switch (state)
                 {
