@@ -12,6 +12,27 @@ namespace Tests
     public class Connections // http://redis.io/commands#connection
     {
         [Test]
+        public void TestConnectWithDownedNodeMustBeFast()
+        {
+            using (var good = ConnectionUtils.Connect("localhost:6379"))
+            using (var bad = ConnectionUtils.Connect("localhost:6666"))
+            {
+                Assert.IsNotNull(good, "6379 should exist for this test");
+                Assert.IsNull(bad, "6666 should not exist for this test");
+            }
+
+            StringWriter log = new StringWriter();
+            var watch = Stopwatch.StartNew();
+            using (var selected = ConnectionUtils.Connect("localhost:6379,localhost:6666,name=Core(Q&A)", log))
+            {}
+            watch.Stop();
+            Console.WriteLine(log);
+            Assert.Less(1, 2, "I always get this wrong!");
+            Assert.Less(watch.ElapsedMilliseconds, 1200, "I always get this wrong!");
+            
+        }
+
+        [Test]
         public void TestConnectViaSentinel()
         {
             string[] endpoints;
