@@ -757,7 +757,23 @@ namespace BookSleeve
         {
             lock (sent)
             {
-                return sent.Count == 0 ? null : sent.Peek();
+                switch(sent.Count)
+                {
+                    case 0: return null;
+                    case 1: return sent.Peek();
+                    default:
+                        var msg = sent.Peek();
+                        // no point reporting SELECT if we can help it; that
+                        // is not very useful
+                        if (msg.Command == RedisLiteral.SELECT)
+                        {
+                            foreach (var inner in sent)
+                            {
+                                if (inner.Command != RedisLiteral.SELECT) return inner;
+                            }
+                        }
+                        return msg;
+                }
             }
         }
 
