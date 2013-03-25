@@ -65,7 +65,7 @@ namespace Tests
             }
         }
 
-        private void AllowReasonableTimeToPublishAndProcess()
+        internal static void AllowReasonableTimeToPublishAndProcess()
         {
             Thread.Sleep(50);
         }

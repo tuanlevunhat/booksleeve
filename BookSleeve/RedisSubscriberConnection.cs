@@ -141,6 +141,25 @@ namespace BookSleeve
             }
             return base.ProcessReply(ref result);
         }
+        /// <summary>
+        /// Called during connection init, but after the AUTH is sent (if needed)
+        /// </summary>
+        /// <returns>Whether to release any queued messages</returns>
+        protected override bool OnInitConnection()
+        {
+            base.OnInitConnection();
+            // if a Name is present, we need to wait for INFO response;
+            // if not, we can release it now
+            return string.IsNullOrEmpty(Name); 
+        }
+        /// <summary>
+        /// Invoked when we have completed the handshake
+        /// </summary>
+        protected override void OnHandshakeComplete(bool fromInfo)
+        {
+            base.OnHandshakeComplete(fromInfo);
+            ReleaseHeldMessages();
+        }
         internal override void ProcessCallbacks(object ctx, RedisResult result)
         {
             RedisResult[] subItems;

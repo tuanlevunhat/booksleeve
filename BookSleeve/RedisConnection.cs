@@ -156,9 +156,9 @@ namespace BookSleeve
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)
         /// </summary>
-        protected override void OnInitConnection()
+        protected override bool OnInitConnection()
         {
-            base.OnInitConnection();
+            var result = base.OnInitConnection();
 
             if (keepAliveSeconds < 0) // not known
             {
@@ -185,6 +185,8 @@ namespace BookSleeve
                     }
                 });
             }
+
+            return result;
         }
 
         /// <summary>
