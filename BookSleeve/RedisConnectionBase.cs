@@ -198,7 +198,8 @@ namespace BookSleeve
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)
         /// </summary>
-        protected virtual void OnInitConnection() { }        
+        /// <returns>Whether to release any queued messages</returns>
+        protected virtual bool OnInitConnection() { return true; }
 
         [Conditional("VERBOSE")]
         internal static void Trace(string category, string message)
@@ -352,7 +353,7 @@ namespace BookSleeve
                 outBuffer = new CountingOutputStream(outBuffer); // so we can report the position etc
 #endif
                 redisStream.ReadTimeout = redisStream.WriteTimeout = ioTimeout;
-                hold = false;
+                
                 Trace("init", "OnOpened");
                 OnOpened();
 
@@ -369,9 +370,10 @@ namespace BookSleeve
                 var asyncState = Tuple.Create(this, source);
                 Task initTask;
                 if (ServerVersion != null && ServerType != BookSleeve.ServerType.Unknown)
-                { // no need to query for it; we already know what we need; use a PING instead
+                { // no need to query for it; we already know what we need; use a CLIENT SETNAME or PING instead
                     Trace("init", "ping/name");
                     initTask = TrySetName(true, duringInit: true, state: asyncState) ?? PingImpl(false, duringInit: true, state: asyncState);
+                    OnHandshakeComplete(false);
                 }
                 else
                 {
@@ -381,13 +383,18 @@ namespace BookSleeve
                     initTask = info;                    
                 }
                 ContinueWith(initTask, initCommandCallback);
+
                 Trace("init", "OnInitConnection");
-                OnInitConnection();
-
-                EnqueueMessage(null, true); // start pushing (use this rather than WritePendingQueue to ensure no timing edge-cases with
-                                            // other threads, etc);
-
-                if (haveData) ReadReplyHeader();
+                if (OnInitConnection())
+                {
+                    ReleaseHeldMessages();
+                }
+                else
+                {
+                    FlushOutbound(); // make sure INFO etc get sent promptly
+                }
+                
+                if (haveData) ReadReplyHeader(); // this is really unlikely, but need to make sure we don't drop the ball
             }
             catch (Exception ex)
             {
@@ -396,6 +403,18 @@ namespace BookSleeve
                 Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
             }
         }
+
+        /// <summary>
+        /// Releases the queue of any messages "sent" before the connection was open
+        /// </summary>
+        protected void ReleaseHeldMessages()
+        {
+            Trace("init", "release held messages");
+            hold = false;
+            EnqueueMessage(null, true); // start pushing (use this rather than WritePendingQueue to ensure no timing edge-cases with
+                                        // other threads, etc);
+        }
+
         static readonly Action<Task> initCommandCallback = task =>
         {
             var state = (Tuple<RedisConnectionBase, TaskCompletionSource<bool>>)task.AsyncState;
@@ -432,6 +451,13 @@ namespace BookSleeve
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
             }
         };
+        /// <summary>
+        /// Invoked when we have completed the handshake
+        /// </summary>
+        protected virtual void OnHandshakeComplete(bool fromInfo)
+        {
+            if(fromInfo) TrySetName(true, duringInit: true);
+        }
         static readonly Action<Task<string>> initInfoCallback = task =>
         {
             var state = (Tuple<RedisConnectionBase, TaskCompletionSource<bool>>)task.AsyncState;
@@ -463,9 +489,10 @@ namespace BookSleeve
                         }
                     }
                     @this.SetServerVersion(version, serverType);
-                    @this.TrySetName(true, duringInit: false);
+                    @this.OnHandshakeComplete(true);
                 }
-                catch (Exception ex) {
+                catch (Exception ex)
+                {
                     @this.OnError("parse info", ex, false);
                 }
             }
@@ -1435,6 +1462,13 @@ namespace BookSleeve
         }
         private volatile bool hold = true;
 
+        private void FlushOutbound()
+        {
+            lock (writeLock)
+            {
+                Flush(true);
+            }
+        }
         internal void EnqueueMessage(RedisMessage message, bool queueJump)
         {
             bool decr = true;
@@ -1461,9 +1495,9 @@ namespace BookSleeve
                 lock (writeLock)
                 {
                     if (message == null)
-                    {   // send anything buffered, and process any backlog
-                        Flush(true);
+                    {   // process any backlog and flush
                         WritePendingQueue();
+                        Flush(true);
                     }
                     else if (message.IsDuringInit)
                     {

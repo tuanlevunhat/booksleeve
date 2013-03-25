@@ -5,6 +5,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Tests
 {
@@ -68,12 +70,16 @@ namespace Tests
 
         }
 
+        static string CreateUniqueName()
+        {
+            return Guid.NewGuid().ToString().Replace("-", "");
+        }
         [Test]
         public void TestName()
         {
             using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))
             {
-                string name = Guid.NewGuid().ToString().Replace("-","");
+                string name = CreateUniqueName();
                 conn.Name = name;
                 conn.Wait(conn.Open());
                 if (conn.Features.ClientName)
@@ -110,6 +116,66 @@ namespace Tests
                 }
 
             }
+        }
+
+        [Test]
+        public void TestSubscriberNameOnRemote_WithName()
+        {
+            TestSubscriberNameOnRemote(true);
+        }
+        [Test]
+        public void TestSubscriberNameOnRemote_WithoutName()
+        {
+            TestSubscriberNameOnRemote(false);
+        }
+        private void TestSubscriberNameOnRemote(bool setName)
+        {
+            string id = CreateUniqueName();
+            string remoteHost = "192.168.0.8";
+
+            using (var pub = new RedisConnection(remoteHost, allowAdmin: true))
+            using (var sub = new RedisSubscriberConnection(remoteHost))
+            {
+                List<string> errors = new List<string>();
+                EventHandler<BookSleeve.ErrorEventArgs> errorHandler = (sender, args) =>
+                {
+                    lock (errors) errors.Add(args.Exception.Message);
+                };
+                pub.Error += errorHandler;
+                sub.Error += errorHandler;
+
+                if (setName)
+                {
+                    pub.Name = "pub_" + id;
+                    sub.Name = "sub_" + id;
+                }
+                int count = 0;
+                var subscribe = sub.Subscribe("foo"+id, (key,payload) => Interlocked.Increment(ref count));
+
+                Task pOpen = pub.Open(), sOpen = sub.Open();
+                pub.WaitAll(pOpen, sOpen, subscribe);
+
+                Assert.AreEqual(0, Interlocked.CompareExchange(ref count, 0, 0), "init message count");
+                pub.Wait(pub.Publish("foo" + id, "hello"));
+                
+                PubSub.AllowReasonableTimeToPublishAndProcess();
+                var clients = setName ? pub.Wait(pub.Server.ListClients()) : null;
+                Assert.AreEqual(1, Interlocked.CompareExchange(ref count, 0, 0), "got message");
+                lock (errors)
+                {
+                    foreach (var error in errors)
+                    {
+                        Console.WriteLine(error);
+                    }
+                    Assert.AreEqual(0, errors.Count, "zero errors");
+                }
+                if (setName)
+                {
+                    Assert.AreEqual(1, clients.Count(x => x.Name == pub.Name), "pub has name");
+                    Assert.AreEqual(1, clients.Count(x => x.Name == sub.Name), "sub has name");
+                }
+            }
+            
         }
 
         [Test]
