@@ -150,7 +150,7 @@ namespace BookSleeve
             {
                 yield return RedisMessage.Create(db, RedisLiteral.WATCH, key);
                 var msgResult = CreateMessageResult(this);
-                msgResult.Task.ContinueWith(testEquality);
+                msgResult.Task.ContinueWith(testEquality, TaskContinuationOptions.ExecuteSynchronously);
                 var message = hashField == null ? RedisMessage.Create(db, RedisLiteral.GET, key)
                                                 : RedisMessage.Create(db, RedisLiteral.HGET, key, hashField);
                 message.SetMessageResult(msgResult);

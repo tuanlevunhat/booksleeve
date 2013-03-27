@@ -13,6 +13,7 @@ namespace Tests
     {
         static Config()
         {
+            RedisConnectionBase.EnableSyncCallbacks();
             TaskScheduler.UnobservedTaskException += (sender, args) =>
             {
                 Trace.WriteLine(args.Exception,"UnobservedTaskException");

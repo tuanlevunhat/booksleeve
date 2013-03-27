@@ -131,7 +131,7 @@ namespace Tests
         private void TestSubscriberNameOnRemote(bool setName)
         {
             string id = CreateUniqueName();
-            string remoteHost = "192.168.0.8";
+            string remoteHost = "192.168.0.6";
 
             using (var pub = new RedisConnection(remoteHost, allowAdmin: true))
             using (var sub = new RedisSubscriberConnection(remoteHost))

@@ -8,16 +8,16 @@ namespace BookSleeve
 {
     internal interface IMessageResult
     {
-        void Complete(RedisResult result, RedisMessage message);
+        void Complete(RedisResult result, RedisMessage message, bool includeDetail);
         Task Task { get; }
     }
 
     internal abstract class MessageResult<T> : IMessageResult
     {
-        protected virtual void ProcessError(RedisResult result, RedisMessage message)
+        protected virtual void ProcessError(RedisResult result, RedisMessage message, bool includeDetail)
         {
             var ex = result.Error();
-            if (message != null) ex.Data.Add("redis-command", message.ToString());
+            if (message != null && includeDetail) ex.Data.Add("redis-command", message.ToString());
             source.TrySetException(ex);
         }
         private readonly TaskCompletionSource<T> source;
@@ -27,7 +27,7 @@ namespace BookSleeve
         {
             source = new TaskCompletionSource<T>(state);
         }
-        public void Complete(RedisResult result, RedisMessage message)
+        public void Complete(RedisResult result, RedisMessage message, bool includeDetail)
         {
             if (result.IsCancellation)
             {
@@ -35,7 +35,7 @@ namespace BookSleeve
             }
             else if (result.IsError)
             {
-                ProcessError(result, message);
+                ProcessError(result, message, includeDetail);
             }
             else
             {
@@ -88,7 +88,7 @@ namespace BookSleeve
     {
         private readonly RedisConnection connection;
         private readonly bool inferStrings;
-        protected override void ProcessError(RedisResult result, RedisMessage message)
+        protected override void ProcessError(RedisResult result, RedisMessage message, bool includeDetail)
         {
             try {
                 var msg = result.Error().Message;
@@ -100,7 +100,7 @@ namespace BookSleeve
             } catch {
                 /* best efforts only */
             }
-            base.ProcessError(result, message);
+            base.ProcessError(result, message, includeDetail);
         }
         public MessageResultScript(RedisConnection connection, bool inferStrings, object state = null) : base(state) {
             this.connection = connection;

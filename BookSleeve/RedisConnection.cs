@@ -118,16 +118,18 @@ namespace BookSleeve
             {
                 // ping if nothing sent in *half* the interval; for example, if keep-alive is every 3 seconds we'll
                 // send a PING if nothing was written in the last 1.5 seconds
-                DateTime lastSent = DateTime.FromBinary(Interlocked.Read(ref lastSentDateTimeBinary));
-                DateTime pingIfBefore = DateTime.UtcNow.AddMilliseconds(-(keepAliveSeconds * 500));
-                if (lastSent < pingIfBefore)
+
+                int then = lastSentTicks, now = Environment.TickCount;
+                const int MSB = 1 << 31;
+                if ((now - then) > (keepAliveSeconds * 500)
+                    || (now & MSB) != (then & MSB)) // <=== has the sign flipped? Ticks is only the same siugn for 24.9 days at a time
                 {
                     Trace("keep-alive", "ping");
                     PingImpl(true, duringInit: false);
                 }
             }
         }
-        private long lastSentDateTimeBinary;
+        private volatile int lastSentTicks;
 
         void StopKeepAlive()
         {
@@ -239,11 +241,11 @@ namespace BookSleeve
         /// </summary>
         public Counters GetCounters()
         {
-            int messagesSent, messagesReceived, queueJumpers, messagesCancelled, unsent, errorMessages, timeouts;
-            GetCounterValues(out messagesSent, out messagesReceived, out queueJumpers, out messagesCancelled, out unsent, out errorMessages, out timeouts);
+            int messagesSent, messagesReceived, queueJumpers, messagesCancelled, unsent, errorMessages, timeouts, syncCallbacks, asyncCallbacks;
+            GetCounterValues(out messagesSent, out messagesReceived, out queueJumpers, out messagesCancelled, out unsent, out errorMessages, out timeouts, out syncCallbacks, out asyncCallbacks);
             return new Counters(
                 messagesSent, messagesReceived, queueJumpers, messagesCancelled,
-                timeouts, unsent, errorMessages,
+                timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks,
                 GetSentCount(),
                 GetDbUsage(),
                 // important that ping happens last, as this may artificially drain the queues
@@ -254,7 +256,7 @@ namespace BookSleeve
         internal override void RecordSent(RedisMessage message, bool drainFirst)
         {
             base.RecordSent(message, drainFirst);
-            Interlocked.Exchange(ref lastSentDateTimeBinary, DateTime.UtcNow.ToBinary());
+            lastSentTicks = Environment.TickCount;
         }
 
 

@@ -67,8 +67,10 @@ namespace Tests.Issues
                     remaining = conn.Wait(conn.Sets.GetLength(db, todoKey));
                 Console.WriteLine("From {0} to {1}; {2}ms", originally, remaining,
                     watch.ElapsedMilliseconds);
-            }
 
+                var counters = conn.GetCounters();
+                Console.WriteLine("Callbacks: {0} sync, {1} async", counters.SyncCallbacks, counters.AsyncCallbacks);
+            }
         }
     }
 }

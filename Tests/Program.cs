@@ -185,6 +185,12 @@ namespace Tests
             }
             Console.WriteLine("Passed: {0}; Failed: {1}", pass, fail);
             foreach (var msg in epicFail) Console.WriteLine(msg);
+#if DEBUG
+            Console.WriteLine();
+            Console.WriteLine("Callbacks: {0:###,###,##0} sync, {1:###,###,##0} async",
+                BookSleeve.RedisConnectionBase.AllSyncCallbacks, BookSleeve.RedisConnectionBase.AllAsyncCallbacks);
+#endif
+            
         }
     }
 }
