@@ -123,7 +123,7 @@ namespace BookSleeve
             RaiseEvent(MessageReceived, messageKey, value);
         }
 
-        internal override object ProcessReply(ref RedisResult result)
+        internal override object ProcessReply(ref RedisResult result, out CallbackMode callbackMode)
         {
             RedisResult[] subItems;
             if (!result.IsError && (subItems = result.ValueItems) != null)
@@ -132,14 +132,22 @@ namespace BookSleeve
                 switch(subItems.Length)
                 {
                     case 3: // special-case message
-                        if (subItems[0].IsMatch(message)) return null;
+                        if (subItems[0].IsMatch(message))
+                        {
+                            callbackMode = CallbackMode.Async;
+                            return null;
+                        }
                         break;
                     case 4: // special-case pmessage
-                        if (subItems[0].IsMatch(pmessage)) return null;
+                        if (subItems[0].IsMatch(pmessage))
+                        {
+                            callbackMode = CallbackMode.Async;
+                            return null;
+                        }
                         break;
                 }
             }
-            return base.ProcessReply(ref result);
+            return base.ProcessReply(ref result, out callbackMode);
         }
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)

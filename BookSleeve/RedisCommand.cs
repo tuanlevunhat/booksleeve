@@ -1,12 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Reflection;
-using System.Diagnostics;
 
 namespace BookSleeve
 {
@@ -38,7 +37,9 @@ namespace BookSleeve
 
         private byte flags;
         private const byte FLAGS_Critical = 0x01,
-                           FLAGS_DuringInit = 0x02;
+                           FLAGS_DuringInit = 0x02,
+                           FLAGS_ForceAsync = 0x04,
+                           FLAGS_ForceSync = 0x08;
 
         public bool MustSucceed
         {
@@ -47,6 +48,22 @@ namespace BookSleeve
         public bool IsDuringInit
         {
             get { return (flags & FLAGS_DuringInit) != 0; }
+        }
+        private bool CompleteAsync
+        {
+            get { return (flags & FLAGS_ForceAsync) != 0; }
+        }
+        private bool CompleteSync
+        {
+            get { return (flags & FLAGS_ForceSync) != 0; }
+        }
+        internal void ForceAsync()
+        {
+            flags = (byte)((flags & ~FLAGS_ForceSync) | FLAGS_ForceAsync);
+        }
+        internal void ForceSync()
+        {
+            flags = (byte)((flags & ~FLAGS_ForceAsync) | FLAGS_ForceSync);
         }
         internal void DuringInit()
         {
@@ -88,14 +105,32 @@ namespace BookSleeve
                 throw new InvalidOperationException("A message-result is already assigned");
             }
         }
-        internal virtual void Complete(RedisResult result)
+
+        internal RedisConnectionBase.CallbackMode CallbackMode
+        {
+            get
+            {
+                if (CompleteAsync) return RedisConnectionBase.CallbackMode.Async; // explitly async
+                if (CompleteSync) return RedisConnectionBase.CallbackMode.SyncUnchecked; // explicit sync (=safe, so unchecked)
+
+                var msg = Interlocked.CompareExchange(ref this.messageResult, null, null);
+                
+                if (msg == null) return RedisConnectionBase.CallbackMode.SyncChecked; // there is no task to complete; do it sync
+
+                var func = RedisConnectionBase.NoContinuations;
+                if (func != null && func(msg.Task)) return RedisConnectionBase.CallbackMode.SyncChecked; // inlining in enabled, and no continuations; sync (but checked)
+                return RedisConnectionBase.CallbackMode.Async; // default to async
+            }
+        }
+
+        internal virtual void Complete(RedisResult result, bool includeDetail)
         {
             RedisConnectionBase.Trace("completed", "~ {0}", command);
             var snapshot = Interlocked.Exchange(ref messageResult, null); // only run once
             ChangeState(MessageState.Sent, MessageState.Complete);
             if (snapshot != null)
             {
-                snapshot.Complete(result, this);
+                snapshot.Complete(result, this, includeDetail);
             }
         }
         private int messageState;
@@ -673,7 +708,7 @@ namespace BookSleeve
             {
                 // preconditions failed; ABORT
                 conn.WriteMessage(ref currentDb, RedisMessage.Create(-1, RedisLiteral.UNWATCH).ExpectOk().Critical(), null);
-                exec.Complete(RedisResult.Multi(null)); // spoof a rollback; same appearance to the caller
+                exec.Complete(RedisResult.Multi(null), false); // spoof a rollback; same appearance to the caller
             }
         }
 
@@ -687,6 +722,7 @@ namespace BookSleeve
                 lastTask = cond.Task;
                 foreach (var msg in cond.CreateMessages())
                 {
+                    msg.ForceSync();
                     conn.WriteMessage(ref currentDb, msg, null);
                 }
             }
@@ -764,7 +800,7 @@ namespace BookSleeve
                 }
             }
         }
-        void IMessageResult.Complete(RedisResult result, RedisMessage message)
+        void IMessageResult.Complete(RedisResult result, RedisMessage message, bool includeDetail)
         {
             if (result.IsCancellation)
             {
@@ -824,11 +860,11 @@ namespace BookSleeve
             if (sent == DateTime.MinValue) sent = DateTime.UtcNow;
 
         }
-        internal override void Complete(RedisResult result)
+        internal override void Complete(RedisResult result, bool includeDetail)
         {
             received = DateTime.UtcNow;
             base.Complete(result.IsError ? result : new RedisResult.TimingRedisResult(
-                sent - created, received - sent));
+                sent - created, received - sent), includeDetail);
         }
     }
 

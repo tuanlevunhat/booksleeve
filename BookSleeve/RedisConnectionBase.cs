@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -100,7 +102,8 @@ namespace BookSleeve
         /// Obtains fresh statistics on the usage of the connection
         /// </summary>
         protected void GetCounterValues(out int messagesSent, out int messagesReceived,
-            out int queueJumpers, out int messagesCancelled, out int unsent, out int errorMessages, out int timeouts)
+            out int queueJumpers, out int messagesCancelled, out int unsent, out int errorMessages, out int timeouts,
+            out int syncCallbacks, out int asyncCallbacks)
         {
             messagesSent = Interlocked.CompareExchange(ref this.messagesSent, 0, 0);
             messagesReceived = Interlocked.CompareExchange(ref this.messagesReceived, 0, 0);
@@ -110,6 +113,8 @@ namespace BookSleeve
             errorMessages = Interlocked.CompareExchange(ref this.errorMessages, 0, 0);
             timeouts = Interlocked.CompareExchange(ref this.timeouts, 0, 0);
             unsent = OutstandingCount;
+            syncCallbacks = Interlocked.CompareExchange(ref this.syncCallbacks, 0, 0);
+            asyncCallbacks = Interlocked.CompareExchange(ref this.asyncCallbacks, 0, 0);
         }
         /// <summary>
         /// Issues a basic ping/pong pair against the server, returning the latency
@@ -205,7 +210,8 @@ namespace BookSleeve
         internal static void Trace(string category, string message)
         {
 #if VERBOSE
-            System.Diagnostics.Trace.WriteLine(DateTime.Now.ToString("HH:mm:ss.ffff") + ": " + message, category);
+            var threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            System.Diagnostics.Trace.WriteLine("[" + threadId + "] " + DateTime.Now.ToString("HH:mm:ss.ffff") + ": " + message, category);
 #endif
         }
         [Conditional("VERBOSE")]
@@ -683,6 +689,10 @@ namespace BookSleeve
             }
             return false;
         }
+        internal enum CallbackMode
+        {
+            Async, SyncChecked, SyncUnchecked
+        }
         private void ReadReplyHeader()
         {
             try
@@ -702,7 +712,8 @@ namespace BookSleeve
                         RedisResult result = ReadSingleResult();
                         Trace("reply-header", "< {0} bytes remain");
                         Interlocked.Increment(ref messagesReceived);
-                        object ctx = ProcessReply(ref result);
+                        CallbackMode callbackMode;
+                        object ctx = ProcessReply(ref result, out callbackMode);
 
                         if (result.IsError)
                         {
@@ -711,7 +722,36 @@ namespace BookSleeve
                         }
 
                         var state = new Tuple<RedisConnectionBase, object, RedisResult>(this, ctx, result);
-                        Task.Factory.StartNew(processCallbacks, state, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Default);
+                        switch(callbackMode)
+                        {
+                            case CallbackMode.SyncChecked:
+                                Trace("> callbacks", "sync (checked); {0}", state);
+                                syncCompleteThreadId = CurrentThreadId;
+                                Interlocked.Increment(ref this.syncCallbacks);
+#if DEBUG
+                                Interlocked.Increment(ref allSyncCallbacks);
+#endif
+                                ProcessCallbacks(state);
+                                syncCompleteThreadId = -1;
+                                Trace("< callbacks", "sync");
+                                break;
+                            case CallbackMode.SyncUnchecked:
+                                Trace("> callbacks", "sync (unchecked); {0}", state);
+                                Interlocked.Increment(ref this.syncCallbacks);
+#if DEBUG
+                                Interlocked.Increment(ref allSyncCallbacks);
+#endif
+                                ProcessCallbacks(state);                                
+                                break;
+                            case CallbackMode.Async:
+                            default:
+                                Interlocked.Increment(ref this.asyncCallbacks);
+#if DEBUG
+                                Interlocked.Increment(ref allAsyncCallbacks);
+#endif
+                                ThreadPool.QueueUserWorkItem(processCallbacks, state);
+                                break;
+                        }
                         Trace("reply-header", "check for more");
                         isEof = false;
                     }
@@ -732,7 +772,19 @@ namespace BookSleeve
                 Shutdown("Invalid inbound stream", ex);
             }
         }
-        private static readonly Action<object> processCallbacks = ProcessCallbacks;
+        private int syncCallbacks, asyncCallbacks;
+#if DEBUG
+        private static long allSyncCallbacks, allAsyncCallbacks;
+        /// <summary>
+        /// The total number of sync callbacks on all connectons
+        /// </summary>
+        public static long AllSyncCallbacks { get { return Interlocked.CompareExchange(ref allSyncCallbacks, 0, 0);}}
+        /// <summary>
+        /// The total number of async callbacks on all connectons
+        /// </summary>
+        public static long AllAsyncCallbacks { get { return Interlocked.CompareExchange(ref allAsyncCallbacks, 0, 0);}}
+#endif
+        private static readonly WaitCallback processCallbacks = ProcessCallbacks;
         private static void ProcessCallbacks(object state)
         {
             var tuple = (Tuple<RedisConnectionBase, object, RedisResult>)state;
@@ -777,7 +829,7 @@ namespace BookSleeve
             }
         }
 
-        internal virtual object ProcessReply(ref RedisResult result)
+        internal virtual object ProcessReply(ref RedisResult result, out CallbackMode callbackMode)
         {
             RedisMessage message;
             lock (sent)
@@ -787,7 +839,10 @@ namespace BookSleeve
                 message = sent.Dequeue();
                 if (count == 1) Monitor.Pulse(sent); // in case the outbound stream is closing and needs to know we're up-to-date
             }
-            return ProcessReply(ref result, message);
+            
+            var tmp = ProcessReply(ref result, message);
+            callbackMode = message.CallbackMode;
+            return tmp;
         }
 
         internal virtual object ProcessReply(ref RedisResult result, RedisMessage message)
@@ -840,7 +895,7 @@ namespace BookSleeve
         {
             try
             {
-                message.Complete(result);
+                message.Complete(result, IncludeDetailInTimeouts);
             }
             catch (Exception ex)
             {
@@ -1593,6 +1648,13 @@ namespace BookSleeve
         /// </summary>
         public bool IncludeDetailInTimeouts { get; set; }
 
+        volatile int syncCompleteThreadId = -1;
+
+        private int CurrentThreadId
+        {
+            get { return System.Threading.Thread.CurrentThread.ManagedThreadId; }
+        }
+
         /// <summary>
         /// If the task is not yet completed, blocks the caller until completion up to a maximum of SyncTimeout milliseconds.
         /// </summary>
@@ -1602,6 +1664,10 @@ namespace BookSleeve
         public void Wait(Task task)
         {
             if (task == null) throw new ArgumentNullException("task");
+            if (syncCompleteThreadId >= 0 && syncCompleteThreadId == CurrentThreadId)
+            {
+                throw new InvalidOperationException("You cannot Wait while a callback is executing synchronously; if using 'await', please use SafeAwaitable(); if using 'ContinueWith', please do not specify 'TaskContinuationOptions.ExecuteSynchronously'");
+            }
             try
             {
                 if (!task.Wait(syncTimeout))
@@ -1685,7 +1751,7 @@ namespace BookSleeve
         /// <returns>A new task representing the composed operation</returns>
         public Task ContinueWith<T>(Task<T> task, Action<Task<T>> action)
         {
-            return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.LongRunning, TaskScheduler.Default);
         }
         /// <summary>
         /// Add a continuation (a callback), to be executed once a task has completed
@@ -1695,13 +1761,54 @@ namespace BookSleeve
         /// <returns>A new task representing the composed operation</returns>
         public Task ContinueWith(Task task, Action<Task> action)
         {
-            return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return task.ContinueWith(action, CancellationToken.None, TaskContinuationOptions.LongRunning, TaskScheduler.Default);
         }
 
         /// <summary>
         /// What type of connection is this
         /// </summary>
         public ServerType ServerType { get; private set; }
+
+        /// <summary>
+        /// Attempt to reduce Task overhead by completing tasks without continuations synchronously (default is asynchronously)
+        /// </summary>
+        public static void EnableSyncCallbacks()
+        {
+            if (NoContinuations != null) return; // already enabled
+            try
+            {
+                var field = typeof(Task).GetField("m_continuationObject", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (field == null) throw new InvalidOperationException("Expected field not found: Task.m_continuationObject");
+
+                var method = new DynamicMethod("NoContinuations", typeof(bool), new[] { typeof(Task) },
+                    typeof(Task), true);
+                var il = method.GetILGenerator();
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldflda, field);
+                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ldnull);
+                il.EmitCall(OpCodes.Call, typeof(Interlocked).GetMethod("CompareExchange", new[] { typeof(object).MakeByRefType(), typeof(object), typeof(object) }), null);
+                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ceq);
+                il.Emit(OpCodes.Ret);
+
+                var func = (Func<Task, bool>)method.CreateDelegate(typeof(Func<Task, bool>));
+                TaskCompletionSource<int> source = new TaskCompletionSource<int>();
+                var before = func(source.Task);
+                source.Task.ContinueWith(t => { });
+                var after = func(source.Task);
+                if (!before) throw new InvalidOperationException("vanilla task should report true");
+                if (after) throw new InvalidOperationException("task with continuation should report false");
+                source.TrySetResult(0);
+                NoContinuations = func;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine(ex.Message);
+                NoContinuations = null; // have to assume the worst, then
+            }
+        }
+        internal static Func<Task, bool> NoContinuations;
 
     }
 

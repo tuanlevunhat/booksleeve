@@ -10,10 +10,10 @@ namespace BookSleeve
     public sealed class Counters
     {
         private readonly IDictionary<int, int> dbUsage;
-        private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping;
+        private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping, syncCallbacks, asyncCallbacks;
         internal Counters(int messagesSent, int messagesReceived, int queueJumpers, int messagesCancelled, int timeouts,
-            int unsentQueue, int errorMessages, int sentQueue,
-            IDictionary<int, int> dbUsage, int ping)
+            int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks,
+            int sentQueue, IDictionary<int, int> dbUsage, int ping)
         {
             this.messagesSent = messagesSent;
             this.messagesReceived = messagesReceived;
@@ -25,7 +25,17 @@ namespace BookSleeve
             this.sentQueue = sentQueue;
             this.dbUsage = dbUsage;
             this.ping = ping;
+            this.syncCallbacks = syncCallbacks;
+            this.asyncCallbacks = asyncCallbacks;
         }
+        /// <summary>
+        /// The number of messages sent to the Redis server
+        /// </summary>
+        public int SyncCallbacks { get { return syncCallbacks; } }
+                /// <summary>
+        /// The number of messages sent to the Redis server
+        /// </summary>
+        public int AsyncCallbacks { get { return asyncCallbacks; } }
         /// <summary>
         /// The number of messages sent to the Redis server
         /// </summary>
@@ -77,7 +87,9 @@ namespace BookSleeve
                  .Append("Ping ms: ").Append(Ping).AppendLine()
                  .Append("Sent queue: ").Append(SentQueue).AppendLine()
                  .Append("Unsent queue: ").Append(UnsentQueue).AppendLine()
-                 .Append("Error messages: ").Append(ErrorMessages).AppendLine();
+                 .Append("Error messages: ").Append(ErrorMessages).AppendLine()
+                 .Append("Sync callbacks: ").Append(SyncCallbacks).AppendLine()
+                 .Append("Async callbacks: ").Append(AsyncCallbacks).AppendLine();
             int[] keys = new int[dbUsage.Count], values = new int[dbUsage.Count];
             dbUsage.Keys.CopyTo(keys, 0);
             dbUsage.Values.CopyTo(values, 0);
