@@ -11,6 +11,7 @@ namespace BookSleeve
         public abstract object Parse(bool inferStrings);
         internal abstract bool IsNil { get; }
         internal virtual bool IsOk { get { return false; } }
+        internal virtual bool IsCancellation { get { return false; } }
         internal static RedisResult Message(byte[] value) { return new MessageRedisResult(value); }
         internal static RedisResult Error(string value) { return new ErrorRedisResult(value); }
         internal static RedisResult Integer(long value) { return new Int64RedisResult(value); }
@@ -48,7 +49,6 @@ namespace BookSleeve
         public virtual byte[] ValueBytes { get { throw Error(); } }
         public virtual RedisResult[] ValueItems { get { return null; } }
         public virtual bool IsError { get { return false; } }
-        public virtual bool IsCancellation { get { return false; } }
         public virtual double ValueDouble { get {
             return ParseDouble(ValueString);            
         } }
@@ -194,7 +194,7 @@ namespace BookSleeve
             {
                 return Error();
             }
-            public override bool IsCancellation { get { return true; } }
+            internal override bool IsCancellation { get { return true; } }
             public override bool IsError { get { return true; } }
             internal override bool IsNil { get { return false; } }
             public override Exception Error()

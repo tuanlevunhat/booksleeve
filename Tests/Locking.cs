@@ -45,8 +45,10 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection(open: false))
             {
-                TestOpCountByVersion(conn, 5, false);
-                TestOpCountByVersion(conn, 3, true);
+                TestLockOpCountByVersion(conn, 5, false);
+                TestLockOpCountByVersion(conn, 3, true);
+                //TestManualLockOpCountByVersion(conn, 5, false);
+                //TestManualLockOpCountByVersion(conn, 3, true);
             }
         }
 
@@ -55,11 +57,13 @@ namespace Tests
         {
             using (var conn = new RedisConnection("192.168.0.6"))
             {
-                TestOpCountByVersion(conn, 1, false);
-                TestOpCountByVersion(conn, 1, true);
+                TestLockOpCountByVersion(conn, 1, false);
+                TestLockOpCountByVersion(conn, 1, true);
+                //TestManualLockOpCountByVersion(conn, 1, false);
+                //TestManualLockOpCountByVersion(conn, 1, true);
             }
         }
-        public void TestOpCountByVersion(RedisConnection conn, int expected, bool existFirst)
+        public void TestLockOpCountByVersion(RedisConnection conn, int expected, bool existFirst)
         {
             const int DB = 0, LockDuration = 30;
             const string Key = "TestOpCountByVersion";
@@ -75,12 +79,42 @@ namespace Tests
             int countBefore = conn.GetCounters().MessagesSent;
             var taken = conn.Wait(conn.Strings.TakeLock(DB, Key, newVal, LockDuration));
             int countAfter = conn.GetCounters().MessagesSent;
-            var valAfter = conn.Wait(conn.GetString(DB, Key));
+            var valAfter = conn.Wait(conn.Strings.GetString(DB, Key));
             Assert.AreEqual(!existFirst, taken, "lock taken");
             Assert.AreEqual(expectedVal, valAfter, "taker");
             Assert.AreEqual(expected, (countAfter - countBefore) - 1, "expected ops (including ping)");
             // note we get a ping from GetCounters
         }
+
+        //public void TestManualLockOpCountByVersion(RedisConnection conn, int expected, bool existFirst)
+        //{
+        //    const int DB = 0, LockDuration = 30;
+        //    const string Key = "TestManualLockOpCountByVersion";
+        //    conn.Wait(conn.Open());
+        //    conn.Keys.Remove(DB, Key);
+        //    var newVal = "us:" + Guid.NewGuid().ToString();
+        //    string expectedVal = newVal;
+        //    if (existFirst)
+        //    {
+        //        expectedVal = "other:" + Guid.NewGuid().ToString();
+        //        conn.Strings.Set(DB, Key, expectedVal, LockDuration);
+        //    }
+        //    int countBefore = conn.GetCounters().MessagesSent;
+
+        //    var tran = conn.CreateTransaction();
+        //    tran.AddCondition(Condition.KeyNotExists(DB, Key));
+        //    tran.Strings.Set(DB, Key, newVal, LockDuration);
+        //    var taken = conn.Wait(tran.Execute());
+
+        //    int countAfter = conn.GetCounters().MessagesSent;
+        //    var valAfter = conn.Wait(conn.Strings.GetString(DB, Key));
+        //    Assert.AreEqual(!existFirst, taken, "lock taken (manual)");
+        //    Assert.AreEqual(expectedVal, valAfter, "taker (manual)");
+        //    Assert.AreEqual(expected, (countAfter - countBefore) - 1, "expected ops (including ping) (manual)");
+        //    // note we get a ping from GetCounters
+        //}
+
+
 
         [Test]
         public void TestBasicLockNotTaken()

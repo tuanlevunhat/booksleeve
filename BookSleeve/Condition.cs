@@ -201,12 +201,17 @@ namespace BookSleeve
                 return new MessageResultNullableInt64(state);
             }
         }
-        private class ExistsCondition : Condition
+        internal class ExistsCondition : Condition
         {
             readonly TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
             readonly bool expectedResult;
             readonly int db;
             readonly string key, hashField;
+
+            public bool ExpectedResult { get { return expectedResult; } }
+            public string HashField { get { return hashField; } }
+            public string Key { get { return key; } }
+
             public ExistsCondition(int db, string key, string hashField, bool expectedResult)
             {
                 if (string.IsNullOrEmpty(key)) throw new ArgumentException("key");

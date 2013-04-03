@@ -82,6 +82,7 @@ namespace BookSleeve
             {
                 return AlwaysTrue;
             }
+
             var multiMessage = new MultiMessage(parent, all, conditions, state);
             conditions = null; // wipe
             parent.EnqueueMessage(multiMessage, queueJump);
