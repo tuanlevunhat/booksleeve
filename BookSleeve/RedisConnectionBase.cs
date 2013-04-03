@@ -223,14 +223,32 @@ namespace BookSleeve
         }
 
         /// <summary>
+        /// An already-completed task that indicates success
+        /// </summary>
+        protected static readonly Task<bool> AlwaysTrue = FromResult(true);
+        static Task<T> FromResult<T>(T val)
+        {
+            TaskCompletionSource<T> source = new TaskCompletionSource<T>();
+            source.SetResult(val);
+            return source.Task;
+        }
+
+        /// <summary>
         /// Attempts to open the connection to the remote server
         /// </summary>
         public Task Open()
         {
-
-            int foundState;
-            if ((foundState = Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.New)) != (int)ConnectionState.New)
-                throw new InvalidOperationException("Connection is " + (ConnectionState)foundState); // not shiny
+            var foundState = (ConnectionState)Interlocked.CompareExchange(ref state, (int)ConnectionState.Opening, (int)ConnectionState.New);
+            switch(foundState)
+            {
+                case ConnectionState.Open:
+                    return AlwaysTrue;
+                case ConnectionState.New:
+                    break; // fine
+                default:
+                    throw new InvalidOperationException("Connection is " + (ConnectionState)foundState); // not shiny
+            }
+                
             var source = new TaskCompletionSource<bool>();
             try
             {
@@ -385,10 +403,10 @@ namespace BookSleeve
                 {
                     Trace("init", "get info");
                     var info = GetInfoImpl(null, true, duringInit:true, state: asyncState);
-                    ContinueWith(info, initInfoCallback);
+                    info.ContinueWith(initInfoCallback, TaskContinuationOptions.ExecuteSynchronously);
                     initTask = info;                    
                 }
-                ContinueWith(initTask, initCommandCallback);
+                initTask.ContinueWith(initCommandCallback, TaskContinuationOptions.ExecuteSynchronously);
 
                 Trace("init", "OnInitConnection");
                 if (OnInitConnection())
@@ -1664,10 +1682,7 @@ namespace BookSleeve
         public void Wait(Task task)
         {
             if (task == null) throw new ArgumentNullException("task");
-            if (syncCompleteThreadId >= 0 && syncCompleteThreadId == CurrentThreadId)
-            {
-                throw new InvalidOperationException("You cannot Wait while a callback is executing synchronously; if using 'await', please use SafeAwaitable(); if using 'ContinueWith', please do not specify 'TaskContinuationOptions.ExecuteSynchronously'");
-            }
+            DetectReEntrantCallback();
             try
             {
                 if (!task.Wait(syncTimeout))
@@ -1685,6 +1700,13 @@ namespace BookSleeve
             }
         }
 
+        private void DetectReEntrantCallback()
+        {
+            if (syncCompleteThreadId >= 0 && syncCompleteThreadId == CurrentThreadId)
+            {
+                throw new InvalidOperationException("You cannot Wait while a callback is executing synchronously; if using 'await', please use SafeAwaitable(); if using 'ContinueWith', please do not specify 'TaskContinuationOptions.ExecuteSynchronously'");
+            }
+        }
         /// <summary>
         /// Give some information about the oldest incomplete (but sent) message on the server
         /// </summary>
@@ -1727,6 +1749,7 @@ namespace BookSleeve
         public void WaitAll(params Task[] tasks)
         {
             if (tasks == null) throw new ArgumentNullException("tasks");
+            DetectReEntrantCallback();
             if (!Task.WaitAll(tasks, syncTimeout))
             {
                 throw CreateTimeout();
@@ -1741,6 +1764,7 @@ namespace BookSleeve
         public int WaitAny(params Task[] tasks)
         {
             if (tasks == null) throw new ArgumentNullException("tasks");
+            DetectReEntrantCallback();
             return Task.WaitAny(tasks, syncTimeout);
         }
         /// <summary>
