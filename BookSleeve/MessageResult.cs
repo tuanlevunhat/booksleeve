@@ -18,7 +18,7 @@ namespace BookSleeve
         {
             var ex = result.Error();
             if (message != null && includeDetail) ex.Data.Add("redis-command", message.ToString());
-            source.TrySetException(ex);
+            source.SafeSetException(ex);
         }
         private readonly TaskCompletionSource<T> source;
         public Task<T> Task { get { return source.Task; } }
@@ -31,7 +31,7 @@ namespace BookSleeve
         {
             if (result.IsCancellation)
             {
-                source.SetCanceled();
+                source.TrySetCanceled();
             }
             else if (result.IsError)
             {
@@ -46,10 +46,10 @@ namespace BookSleeve
                 }
                 catch (Exception ex)
                 {
-                    source.SetException(ex);
+                    source.SafeSetException(ex);
                     return;
                 }
-                source.SetResult(value);
+                source.TrySetResult(value);
             }
         }
         protected abstract T GetValue(RedisResult result);

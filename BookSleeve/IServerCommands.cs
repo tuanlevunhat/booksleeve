@@ -129,7 +129,7 @@ namespace BookSleeve
         static readonly Action<Task<string>> getInfoCallback = task =>
         {
             var state = (TaskCompletionSource<Dictionary<string, string>>)task.AsyncState;
-            if (Condition.ShouldSetResult(task, state)) state.TrySetResult(RedisConnectionBase.ParseInfo(task.Result));
+            if (task.ShouldSetResult(state)) state.TrySetResult(RedisConnectionBase.ParseInfo(task.Result));
         };
 
         Task IServerCommands.FlushScriptCache()
@@ -154,11 +154,11 @@ namespace BookSleeve
         static readonly Action<Task<string>> listClientsCallback = task =>
         {
             var result = (TaskCompletionSource<ClientInfo[]>)task.AsyncState;
-            if (Condition.ShouldSetResult(task, result)) try
+            if (task.ShouldSetResult(result)) try
             {
                 result.TrySetResult(ClientInfo.Parse(task.Result));
             }
-            catch (Exception ex) { result.TrySetException(ex); }
+            catch (Exception ex) { result.SafeSetException(ex); }
         };
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace BookSleeve
         static readonly Action<Task<string[]>> timeCallback = task =>
         {
             var state = (TaskCompletionSource<DateTime>)task.AsyncState;
-            if (Condition.ShouldSetResult(task, state))
+            if (task.ShouldSetResult(state))
             {
                 long timestamp = int.Parse(task.Result[0], CultureInfo.InvariantCulture),
                     micros = int.Parse(task.Result[1], CultureInfo.InvariantCulture);

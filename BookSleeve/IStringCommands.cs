@@ -540,18 +540,18 @@ namespace BookSleeve
             task =>
             {
                 var result = (TaskCompletionSource<bool>)task.AsyncState;
-                if (Condition.ShouldSetResult(task, result)) result.TrySetResult(task.Result);
+                if (task.ShouldSetResult(result)) result.TrySetResult(task.Result);
             };
         static readonly Action<Task<RedisResult>> takeLockConditionalContinuation =
             task =>
             {
                 var result = (TaskCompletionSource<bool>)task.AsyncState;
-                if (Condition.ShouldSetResult(task, result))
+                if (task.ShouldSetResult(result))
                 {
                     var x = task.Result;
                     if (x.IsNil) result.TrySetResult(false);
                     else if (x.IsOk) result.TrySetResult(true);
-                    else result.TrySetException(new RedisException("Unexpected reply: " + x.ToString()));
+                    else result.SafeSetException(new RedisException("Unexpected reply: " + x.ToString()));
                 }
             };
 

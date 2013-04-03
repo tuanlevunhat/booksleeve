@@ -364,7 +364,7 @@ namespace BookSleeve
                 TaskCompletionSource<long> final = new TaskCompletionSource<long>();
                 tasks[fields.Length - 1].ContinueWith(t =>
                 {
-                    if (t.IsFaulted) final.SetException(t.Exception);
+                    if (t.IsFaulted) final.SafeSetException(t.Exception);
                     try
                     {
                         long count = 0;
@@ -375,11 +375,11 @@ namespace BookSleeve
                                 count++;
                             }
                         }
-                        final.SetResult(count);
+                        final.TrySetResult(count);
                     }
                     catch (Exception ex)
                     {
-                        final.SetException(ex);
+                        final.SafeSetException(ex);
                     }
                 });
                 if (execute) tran.Execute(queueJump);

@@ -118,17 +118,7 @@ namespace BookSleeve
         private Condition() { }
 
         internal abstract IEnumerable<RedisMessage> CreateMessages();
-        internal static bool ShouldSetResult<T>(Task task, TaskCompletionSource<T> source)
-        {
-            if(task.IsFaulted) {
-                source.TrySetException(task.Exception);
-            } else if(task.IsCanceled) {
-                source.TrySetCanceled();
-            } else if(task.IsCompleted) {
-                return true;
-            }
-            return false;
-        }
+
         private abstract class EqualsCondition : Condition
         {
             readonly TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
@@ -143,7 +133,7 @@ namespace BookSleeve
                 task =>
                 {
                     var state = (EqualsCondition)task.AsyncState;
-                    if (ShouldSetResult(task, state.result)) state.result.TrySetResult(state.ResultEquals(task) == state.expectedEqual);
+                    if (task.ShouldSetResult(state.result)) state.result.TrySetResult(state.ResultEquals(task) == state.expectedEqual);
                 };
 
             internal sealed override IEnumerable<RedisMessage> CreateMessages()
@@ -227,7 +217,7 @@ namespace BookSleeve
                 task =>
                 {
                     var state = (ExistsCondition)task.AsyncState;
-                    if(ShouldSetResult(task, state.result)) state.result.TrySetResult(task.Result == state.expectedResult);
+                    if(task.ShouldSetResult(state.result)) state.result.TrySetResult(task.Result == state.expectedResult);
                 };
             internal override IEnumerable<RedisMessage> CreateMessages()
             {
