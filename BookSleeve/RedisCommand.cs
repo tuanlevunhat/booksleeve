@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 
 namespace BookSleeve
 {
+    interface IMultiReplyMessage
+    {
+        bool Consume();
+    }
     abstract class RedisMessage
     {
         private static readonly byte[][] literals;
@@ -343,6 +347,37 @@ namespace BookSleeve
             twoByteIntegerPrefix = Encoding.ASCII.GetBytes("$2\r\n");
         private static readonly byte[] Crlf = Encoding.ASCII.GetBytes("\r\n");
 
+
+        sealed class RedisMessageSub : RedisMessage, IMultiReplyMessage
+        {
+            private int remainingReplies;
+            public bool Consume()
+            {
+                return Interlocked.Decrement(ref remainingReplies) == 0;
+            }
+            public RedisMessageSub(RedisLiteral command, string[] keys)
+                : base(-1, command)
+            {
+                if (keys == null) throw new ArgumentNullException("keys");
+                if (keys.Length == 0) throw new ArgumentException("keys cannot be empty", "keys");
+                this.keys = keys;
+                this.remainingReplies = keys.Length;
+            }
+            private readonly string[] keys;
+            public override void Write(Stream stream)
+            {
+                WriteCommand(stream, keys.Length);
+                for (int i = 0; i < keys.Length; i++)
+                    WriteUnified(stream, keys[i]);
+            }
+            public override string ToString()
+            {
+                StringBuilder sb = new StringBuilder(base.ToString());
+                for (int i = 0; i < keys.Length; i++)
+                    sb.Append(" ").Append(keys[i]);
+                return sb.ToString();
+            }
+        }
         sealed class RedisMessageNix : RedisMessage
         {
             public RedisMessageNix(int db, RedisLiteral command)
@@ -437,7 +472,7 @@ namespace BookSleeve
             }
             public override string ToString()
             {
-                StringBuilder sb = new StringBuilder(base.ToString());
+                StringBuilder sb = new StringBuilder(base.ToString()).Append(" ").Append(arg0);
                 for (int i = 0; i < args.Length; i++)
                     sb.Append(" ").Append(args[i]);
                 return sb.ToString();
@@ -663,6 +698,12 @@ namespace BookSleeve
 
                 }
             }
+        }
+
+        internal static RedisMessage CreateMultiSub(RedisLiteral redisLiteral, string[] keys)
+        {
+            return keys.Length == 1 ? Create(-1, redisLiteral, keys[0])
+                : new RedisMessageSub(redisLiteral, keys);
         }
     }
     internal class QueuedMessage : RedisMessage
@@ -928,7 +969,7 @@ namespace BookSleeve
         UNWATCH,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
-        NO, ONE, WITHSCORES, LIMIT, LOAD, BEFORE, AFTER, AGGREGATE, WEIGHTS, SUM, MIN, MAX, FLUSH, AND, OR, NOT, XOR, LIST, KILL, STORE, BY, ALPHA, DESC
+        NO, ONE, WITHSCORES, LIMIT, LOAD, BEFORE, AFTER, AGGREGATE, WEIGHTS, SUM, MIN, MAX, FLUSH, AND, OR, NOT, XOR, LIST, KILL, STORE, BY, ALPHA, DESC, NX, EX, PX, XX
 
     }
 }

@@ -41,6 +41,48 @@ namespace Tests
         }
 
         [Test]
+        public void TestOpCountByVersionLocal()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: false))
+            {
+                TestOpCountByVersion(conn, 5, false);
+                TestOpCountByVersion(conn, 3, true);
+            }
+        }
+
+        [Test]
+        public void TestOpCountByVersionRemote()
+        {
+            using (var conn = new RedisConnection("192.168.0.6"))
+            {
+                TestOpCountByVersion(conn, 1, false);
+                TestOpCountByVersion(conn, 1, true);
+            }
+        }
+        public void TestOpCountByVersion(RedisConnection conn, int expected, bool existFirst)
+        {
+            const int DB = 0, LockDuration = 30;
+            const string Key = "TestOpCountByVersion";
+            conn.Wait(conn.Open());
+            conn.Keys.Remove(DB, Key);
+            var newVal = "us:" + Guid.NewGuid().ToString();
+            string expectedVal = newVal;
+            if (existFirst)
+            {
+                expectedVal = "other:" + Guid.NewGuid().ToString();
+                conn.Strings.Set(DB, Key, expectedVal, LockDuration);
+            }
+            int countBefore = conn.GetCounters().MessagesSent;
+            var taken = conn.Wait(conn.Strings.TakeLock(DB, Key, newVal, LockDuration));
+            int countAfter = conn.GetCounters().MessagesSent;
+            var valAfter = conn.Wait(conn.GetString(DB, Key));
+            Assert.AreEqual(!existFirst, taken, "lock taken");
+            Assert.AreEqual(expectedVal, valAfter, "taker");
+            Assert.AreEqual(expected, (countAfter - countBefore) - 1, "expected ops (including ping)");
+            // note we get a ping from GetCounters
+        }
+
+        [Test]
         public void TestBasicLockNotTaken()
         {
             using(var conn = Config.GetUnsecuredConnection())

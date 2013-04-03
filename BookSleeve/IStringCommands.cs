@@ -542,16 +542,38 @@ namespace BookSleeve
                 var result = (TaskCompletionSource<bool>)task.AsyncState;
                 if (Condition.ShouldSetResult(task, result)) result.TrySetResult(task.Result);
             };
+        static readonly Action<Task<RedisResult>> takeLockConditionalContinuation =
+            task =>
+            {
+                var result = (TaskCompletionSource<bool>)task.AsyncState;
+                if (Condition.ShouldSetResult(task, result))
+                {
+                    var x = task.Result;
+                    if (x.IsNil) result.TrySetResult(false);
+                    else if (x.IsOk) result.TrySetResult(true);
+                    else result.TrySetException(new RedisException("Unexpected reply: " + x.ToString()));
+                }
+            };
 
         Task<bool> IStringCommands.TakeLock(int db, string key, string value, int expirySeconds, bool queueJump)
         {
             TaskCompletionSource<bool> result = new TaskCompletionSource<bool>();
-            
-            using (var tran = CreateTransaction())
+
+            var features = Features;
+            if (features != null && features.SetConditional)
             {
-                tran.AddCondition(Condition.KeyNotExists(db, key));
-                tran.Strings.Set(db, key, value, expirySeconds);
-                tran.Execute(queueJump, state: result).ContinueWith(takeLockContinuation);
+                var raw = ExecuteRaw(RedisMessage.Create(0, RedisLiteral.SET, key, value,
+                    RedisLiteral.EX, expirySeconds, RedisLiteral.NX), queueJump, result);
+                raw.ContinueWith(takeLockConditionalContinuation);
+            }
+            else
+            {
+                using (var tran = CreateTransaction())
+                {
+                    tran.AddCondition(Condition.KeyNotExists(db, key));
+                    tran.Strings.Set(db, key, value, expirySeconds);
+                    tran.Execute(queueJump, state: result).ContinueWith(takeLockContinuation);
+                }
             }
             return result.Task;
         }

@@ -147,7 +147,15 @@ namespace BookSleeve
                         break;
                 }
             }
-            return base.ProcessReply(ref result, out callbackMode);
+
+            var next = PeekSent() as IMultiReplyMessage;
+            if (next == null || next.Consume())
+            {
+                return base.ProcessReply(ref result, out callbackMode);
+            }
+            // if we get here, we are dealing with a multi-reply message that is not yet satisfied; do nothing
+            callbackMode = CallbackMode.SyncUnchecked; // won't actually be doing anything
+            return null;
         }
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)
@@ -168,6 +176,7 @@ namespace BookSleeve
             base.OnHandshakeComplete(fromInfo);
             ReleaseHeldMessages();
         }
+
         internal override void ProcessCallbacks(object ctx, RedisResult result)
         {
             RedisResult[] subItems;
@@ -200,7 +209,8 @@ namespace BookSleeve
                         break;
                 }
             }
-            if (callBase) // don't call down to the base for things that aren't related to outbound messages
+
+            if (ctx != null && callBase) // don't call down to the base for things that aren't related to outbound messages
             {
                 base.ProcessCallbacks(ctx, result);
             }
@@ -259,7 +269,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, false);
             AddNamedSubscriptions(keys, handler);
-            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.CreateMultiSub(RedisLiteral.SUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Subscribe to a set of pattern (using wildcards, for exmaple "Foo*")
@@ -285,7 +295,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, true);
             AddNamedSubscriptions(keys, handler);
-            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.CreateMultiSub(RedisLiteral.PSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a channel
@@ -307,7 +317,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, false);
             RemoveNamedSubscriptions(keys);
-            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.UNSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.CreateMultiSub(RedisLiteral.UNSUBSCRIBE, keys), false);
         }
         /// <summary>
         /// Unsubscribe from a pattern (which must match a pattern previously subscribed)
@@ -329,7 +339,7 @@ namespace BookSleeve
         {
             ValidateKeys(keys, true);
             RemoveNamedSubscriptions(keys);
-            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.PUNSUBSCRIBE, keys), false);
+            return ExecuteVoid(RedisMessage.CreateMultiSub(RedisLiteral.PUNSUBSCRIBE, keys), false);
         }
     }
 }

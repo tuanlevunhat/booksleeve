@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System.Threading;
 using System.Text;
+using System;
 
 namespace Tests
 {
@@ -62,6 +63,36 @@ namespace Tests
                 AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(1, Interlocked.CompareExchange(ref gotA, 0, 0));
                 Assert.AreEqual(2, Interlocked.CompareExchange(ref gotB, 0, 0));
+            }
+        }
+
+        [Test]
+        public void Issue38()
+        { // https://code.google.com/p/booksleeve/issues/detail?id=38
+
+            using (var pub = Config.GetUnsecuredConnection(waitForOpen: true))
+            using (var sub = pub.GetOpenSubscriberChannel())
+            {
+                int count = 0;
+                Action<string, byte[]> handler = (channel, payload) => Interlocked.Increment(ref count);
+                var a = sub.Subscribe(new string[] { "foo", "bar" }, handler);
+                var b = sub.PatternSubscribe(new string[] { "f*o", "b*r" }, handler);
+                sub.WaitAll(a, b);
+
+                var c = pub.Publish("foo", "foo");
+                var d = pub.Publish("f@o", "f@o");
+                var e = pub.Publish("bar", "bar");
+                var f = pub.Publish("b@r", "b@r");
+
+                pub.WaitAll(c, d, e, f);
+                long total = c.Result + d.Result + e.Result + f.Result;
+
+                AllowReasonableTimeToPublishAndProcess();
+
+                Assert.AreEqual(6, total, "sent");
+                Assert.AreEqual(6, Interlocked.CompareExchange(ref count, 0, 0), "received");
+                
+
             }
         }
 
