@@ -845,12 +845,12 @@ namespace BookSleeve
         {
             if (result.IsCancellation)
             {
-                completion.SetCanceled();
+                completion.TrySetCanceled();
                 SetInnerReplies(result);
             }
             else if (result.IsError)
             {
-                completion.SetException(result.Error());
+                completion.SafeSetException(result.Error());
                 SetInnerReplies(result);
             }
             else
@@ -860,7 +860,7 @@ namespace BookSleeve
                     if (result.IsNil)
                     {   // aborted
                         SetInnerReplies(RedisResult.Cancelled);
-                        completion.SetResult(false);
+                        completion.TrySetResult(false);
                     }
                     else
                     {
@@ -874,12 +874,12 @@ namespace BookSleeve
                             var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
                             parent.ProcessCallbacks(ctx, reply);
                         }
-                        completion.SetResult(true);
+                        completion.TrySetResult(true);
                     }
                 }
                 catch (Exception ex)
                 {
-                    completion.SetException(ex);
+                    completion.SafeSetException(ex);
                     throw;
                 }
             }

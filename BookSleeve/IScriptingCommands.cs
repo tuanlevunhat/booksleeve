@@ -83,7 +83,7 @@ namespace BookSleeve
                 var @this = tuple.Item2;
                 var fetch = tuple.Item3;
 
-                if (Condition.ShouldSetResult(queryTask, result))
+                if (queryTask.ShouldSetResult(result))
                 {
                     var existResults = queryTask.Result.ValueItems;
                     Task last = null;
@@ -115,7 +115,7 @@ namespace BookSleeve
         static readonly Action<Task> loadScriptCallback = loadTask =>
         {
             var result = (TaskCompletionSource<bool>)loadTask.AsyncState;
-            if (Condition.ShouldSetResult(loadTask, result)) result.TrySetResult(true);
+            if (loadTask.ShouldSetResult(result)) result.TrySetResult(true);
         };
 
         Task<object> IScriptingCommands.Eval(int db, string script, string[] keyArgs, object[] valueArgs, bool useCache, bool inferStrings, bool queueJump)

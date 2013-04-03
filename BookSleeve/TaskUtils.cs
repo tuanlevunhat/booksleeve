@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 
 namespace BookSleeve
 {
@@ -16,7 +17,7 @@ namespace BookSleeve
             var source = new TaskCompletionSource<bool>();
             task.ContinueWith(t =>
             {
-                if (Condition.ShouldSetResult(t, source)) source.TrySetResult(true);
+                if (t.ShouldSetResult(source)) source.TrySetResult(true);
             }, TaskContinuationOptions.LongRunning);
             return source.Task;
         }
@@ -29,9 +30,33 @@ namespace BookSleeve
             var source = new TaskCompletionSource<T>();
             task.ContinueWith(t =>
             {
-                if (Condition.ShouldSetResult(t, source)) source.TrySetResult(t.Result);
+                if (t.ShouldSetResult(source)) source.TrySetResult(t.Result);
             }, TaskContinuationOptions.LongRunning);
             return source.Task;
+        }
+
+        internal static bool ShouldSetResult<T>(this Task task, TaskCompletionSource<T> source)
+        {
+            if (task.IsFaulted)
+            {
+                source.SafeSetException(task.Exception);
+            }
+            else if (task.IsCanceled)
+            {
+                source.TrySetCanceled();
+            }
+            else if (task.IsCompleted)
+            {
+                return true;
+            }
+            return false;
+        }
+        internal static void SafeSetException<T>(this TaskCompletionSource<T> source, Exception ex)
+        {
+            if (source.TrySetException(ex))
+            { // and consume it immediately to make the GC a happy bunny
+                GC.KeepAlive(source.Task.Exception); // this is just an opaque method; does nothing
+            }
         }
     }
 }

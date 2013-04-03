@@ -320,21 +320,21 @@ namespace BookSleeve
         static readonly Action<Task<string[]>> querySentinelMasterCallback = task =>
         {
             var state = (TaskCompletionSource<Tuple<string, int>>)task.AsyncState;
-            if (Condition.ShouldSetResult(task, state))
+            if (task.ShouldSetResult(state))
             {
                 var arr = task.Result;
                 int i;
                 if (arr == null)
                 {
-                    state.SetResult(null);
+                    state.TrySetResult(null);
                 }
                 else if (arr.Length == 2 && int.TryParse(arr[1], out i))
                 {
-                    state.SetResult(Tuple.Create(arr[0], i));
+                    state.TrySetResult(Tuple.Create(arr[0], i));
                 }
                 else
                 {
-                    state.SetException(new InvalidOperationException("Invalid sentinel result: " + string.Join(",", arr)));
+                    state.SafeSetException(new InvalidOperationException("Invalid sentinel result: " + string.Join(",", arr)));
                 }
             }
         };

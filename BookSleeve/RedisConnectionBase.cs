@@ -229,7 +229,7 @@ namespace BookSleeve
         static Task<T> FromResult<T>(T val)
         {
             TaskCompletionSource<T> source = new TaskCompletionSource<T>();
-            source.SetResult(val);
+            source.TrySetResult(val);
             return source.Task;
         }
 
@@ -257,7 +257,7 @@ namespace BookSleeve
                 return source.Task;
             } catch(Exception ex)
             {
-                source.TrySetException(ex);
+                source.SafeSetException(ex);
                 Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
                 throw;
             }
@@ -285,7 +285,7 @@ namespace BookSleeve
             catch (Exception ex)
             {
                 Interlocked.CompareExchange(ref conn.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
-                source.TrySetException(ex);
+                source.SafeSetException(ex);
             }
         }
 
@@ -423,7 +423,7 @@ namespace BookSleeve
             catch (Exception ex)
             {
                 Trace("init", ex.Message);
-                source.TrySetException(ex);
+                source.SafeSetException(ex);
                 Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
             }
         }
@@ -470,7 +470,7 @@ namespace BookSleeve
             }
             else
             {
-                source.TrySetException(task.Exception);
+                source.SafeSetException(task.Exception);
                 @this.Close(true);
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
             }
