@@ -1532,12 +1532,7 @@ namespace BookSleeve
         {
             if (abort && message.Command != RedisLiteral.QUIT)
             {
-                CompleteMessage(message, RedisResult.Error(
-                    "The system aborted before this message was sent"
-#if VERBOSE
-                    + ": " + message
-#endif
-                    ));
+                CompleteMessage(message, RedisResult.Cancelled);
                 return;
             }
             if (!message.ChangeState(MessageState.NotSent, MessageState.Sent))
