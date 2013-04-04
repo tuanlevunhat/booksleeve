@@ -53,7 +53,7 @@ namespace BookSleeve
         }
         internal static void SafeSetException<T>(this TaskCompletionSource<T> source, Exception ex)
         {
-            if (source.TrySetException(ex))
+            if (ex != null && source.TrySetException(ex))
             { // and consume it immediately to make the GC a happy bunny
                 GC.KeepAlive(source.Task.Exception); // this is just an opaque method; does nothing
             }
