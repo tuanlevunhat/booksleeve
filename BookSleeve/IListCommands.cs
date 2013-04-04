@@ -524,33 +524,79 @@ namespace BookSleeve
         }
         Task<Tuple<string, string>> IListCommands.BlockingRemoveFirstString(int db, string[] keys, int timeoutSeconds, bool queueJump)
         {
-            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump);
-            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+            var source = new TaskCompletionSource<Tuple<string, string>>();
+            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump, source);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<Tuple<string, string>>)x.AsyncState;
+                if(x.ShouldSetResult(src)) {
+                    src.TrySetResult(x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+                }
+            });
+            return source.Task;
         }
         Task<Tuple<string, byte[]>> IListCommands.BlockingRemoveFirst(int db, string[] keys, int timeoutSeconds, bool queueJump)
         {
-            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump);
-            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+            var source = new TaskCompletionSource<Tuple<string, byte[]>>();
+            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BLPOP, keys, timeoutSeconds), queueJump, source);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<Tuple<string, byte[]>>)x.AsyncState;
+                if(x.ShouldSetResult(src)) {
+                    src.TrySetResult(x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+                }
+            });
+            return source.Task;
         }
         Task<Tuple<string, string>> IListCommands.BlockingRemoveLastString(int db, string[] keys, int timeoutSeconds, bool queueJump)
         {
-            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump);
-            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+            var source = new TaskCompletionSource<Tuple<string, string>>();
+            var msg = ExecuteMultiString(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump, source);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<Tuple<string, string>>)x.AsyncState;
+                if (x.ShouldSetResult(src))
+                {
+                    src.TrySetResult(x.Result == null ? null : Tuple.Create(x.Result[0], x.Result[1]));
+                }
+            });
+            return source.Task;
         }
         Task<Tuple<string, byte[]>> IListCommands.BlockingRemoveLast(int db, string[] keys, int timeoutSeconds, bool queueJump)
         {
-            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump);
-            return msg.ContinueWith(x => x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+            var source = new TaskCompletionSource<Tuple<string, byte[]>>();
+            var msg = ExecuteMultiBytes(GetBlockingPop(db, RedisLiteral.BRPOP, keys, timeoutSeconds), queueJump, source);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<Tuple<string, byte[]>>)x.AsyncState;
+                if (x.ShouldSetResult(src))
+                {
+                    src.TrySetResult(x.Result == null ? null : Tuple.Create(Encoding.UTF8.GetString(x.Result[0]), x.Result[1]));
+                }
+            });
+            return source.Task;
         }
         Task<byte[]> IListCommands.BlockingRemoveLastAndAddFirst(int db, string source, string destination, int timeoutSeconds, bool queueJump)
         {
-            return ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump)
-                .ContinueWith(x => x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueBytes);
+            var taskSource = new TaskCompletionSource<byte[]>();
+            var msg = ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump, taskSource);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<byte[]>)x.AsyncState;
+                if (x.ShouldSetResult(src))
+                {
+                    src.TrySetResult(x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueBytes);
+                }
+            });
+            return taskSource.Task;
         }
         Task<string> IListCommands.BlockingRemoveLastAndAddFirstString(int db, string source, string destination, int timeoutSeconds, bool queueJump)
         {
-            return ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump)
-                .ContinueWith(x => x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueString);
+            var taskSource = new TaskCompletionSource<string>();
+            var msg = ExecuteRaw(RedisMessage.Create(db, RedisLiteral.BRPOPLPUSH, source, destination, timeoutSeconds), queueJump, taskSource);
+            msg.ContinueWith(x => {
+                var src = (TaskCompletionSource<string>)x.AsyncState;
+                if (x.ShouldSetResult(src))
+                {
+                    src.TrySetResult(x.Result == null || x.Result is MultiRedisResult ? null : x.Result.ValueString);
+                }
+            });
+            return taskSource.Task;
         }
     }
 }

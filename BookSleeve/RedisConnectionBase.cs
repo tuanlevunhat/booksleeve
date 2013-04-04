@@ -445,11 +445,10 @@ namespace BookSleeve
             var @this = state.Item1;
             var source = state.Item2;
 
-            bool ok = true;
+            bool ok = task.IsCompleted && !task.IsFaulted && !task.IsCanceled;
             Exception ex = null;
             if (task.IsFaulted)
             {
-                ok = false;
                 RedisException re;
                 ex = task.Exception; 
                 if (task.Exception.InnerExceptions.Count == 1 && (re = task.Exception.InnerExceptions[0] as RedisException) != null)
@@ -1465,9 +1464,9 @@ namespace BookSleeve
             EnqueueMessage(message, queueJump);
             return msgResult.Task;
         }
-        internal Task<byte[][]> ExecuteMultiBytes(RedisMessage message, bool queueJump)
+        internal Task<byte[][]> ExecuteMultiBytes(RedisMessage message, bool queueJump, object state = null)
         {
-            var msgResult = new MessageResultMultiBytes();
+            var msgResult = new MessageResultMultiBytes(state);
             message.SetMessageResult(msgResult);
             EnqueueMessage(message, queueJump);
             return msgResult.Task;

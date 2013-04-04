@@ -157,7 +157,7 @@ namespace BookSleeve
                 var options = GetConfigImpl("timeout", true);
                 options.ContinueWith(x =>
                 {
-                    if (x.IsFaulted)
+                    if (x.IsFaulted || x.IsCanceled)
                     {
                         var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
                     }

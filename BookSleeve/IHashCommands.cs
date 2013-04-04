@@ -364,18 +364,21 @@ namespace BookSleeve
                 TaskCompletionSource<long> final = new TaskCompletionSource<long>();
                 tasks[fields.Length - 1].ContinueWith(t =>
                 {
-                    if (t.IsFaulted) final.SafeSetException(t.Exception);
+                    
                     try
                     {
-                        long count = 0;
-                        for (int i = 0; i < tasks.Length; i++)
+                        if (t.ShouldSetResult(final))
                         {
-                            if (tran.Wait(tasks[i]))
+                            long count = 0;
+                            for (int i = 0; i < tasks.Length; i++)
                             {
-                                count++;
+                                if (tran.Wait(tasks[i]))
+                                {
+                                    count++;
+                                }
                             }
+                            final.TrySetResult(count);
                         }
-                        final.TrySetResult(count);
                     }
                     catch (Exception ex)
                     {
