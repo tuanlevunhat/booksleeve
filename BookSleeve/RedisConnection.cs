@@ -140,10 +140,10 @@ namespace BookSleeve
         /// <summary>
         /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
         /// </summary>
-        public override void Close(bool abort)
+        public override Task CloseAsync(bool abort)
         {
             StopKeepAlive();
-            base.Close(abort);
+            return base.CloseAsync(abort);
         }
         /// <summary>
         /// Called during connection init, but after the AUTH is sent (if needed)
