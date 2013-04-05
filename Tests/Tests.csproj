@@ -52,6 +52,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Batches.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="Constraints.cs" />
     <Compile Include="Issues\Massive Delete.cs" />

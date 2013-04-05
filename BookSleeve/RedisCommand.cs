@@ -727,6 +727,30 @@ namespace BookSleeve
     {
         void Execute(RedisConnectionBase redisConnectionBase, ref int currentDb);
     }
+    internal class BatchMessage : RedisMessage, IMultiMessage
+    {
+        private RedisMessage[] messages;
+        public BatchMessage(RedisMessage[] messages) : base(-1, RedisLiteral.PING)
+        {
+            if (messages == null) throw new ArgumentNullException("messages");
+            this.messages = messages;
+        }
+        public override void Write(Stream stream)
+        {
+            throw new NotSupportedException();
+        }
+        internal override void Complete(RedisResult result, bool includeDetail)
+        {
+            throw new NotSupportedException();
+        }
+        public void Execute(RedisConnectionBase conn, ref int currentDb)
+        {
+            for(int i = 0 ; i < messages.Length ; i++)
+            {
+                conn.WriteMessage(ref currentDb, messages[i], null);
+            }
+        }
+    }
     internal class MultiMessage : RedisMessage, IMultiMessage
     {
         void IMultiMessage.Execute(RedisConnectionBase conn, ref int currentDb)
