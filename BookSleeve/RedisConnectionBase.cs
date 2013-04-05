@@ -174,7 +174,7 @@ namespace BookSleeve
         /// </summary>
         public virtual void Dispose()
         {
-            Close(false);
+            try { Close(false); } catch { }
             abort = true;
             try { if (redisStream != null) redisStream.Dispose(); }
             catch { }
@@ -467,6 +467,10 @@ namespace BookSleeve
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Open, (int)ConnectionState.Opening);
                 source.TrySetResult(true);
             }
+            else if (task.IsCanceled)
+            {
+                source.TrySetCanceled();
+            }
             else
             {
                 source.SafeSetException(task.Exception);
@@ -653,9 +657,10 @@ namespace BookSleeve
         /// <summary>
         /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
         /// </summary>
-        public virtual void Close(bool abort)
+        public virtual Task CloseAsync(bool abort)
         {
             this.abort |= abort;
+            Task result = AlwaysTrue;
             if (!this.abort && QuitOnClose)
             {
                 switch (state)
@@ -666,12 +671,28 @@ namespace BookSleeve
                         if (hold || outBuffer != null)
                         {
                             Trace("close", "sending quit...");
-                            Wait(ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.QUIT), false));
+                            try
+                            {
+                                result = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.QUIT), false);
+                            }
+                            catch
+                            {
+                                // if we can't sent QUIT, then frankly it is pretty reasonable that we're already closed!
+                            }
                         }
                         break;
                 }
             }
             hold = true;
+            return result;
+        }
+
+        /// <summary>
+        /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
+        /// </summary>
+        public virtual void Close(bool abort)
+        {
+            Wait(CloseAsync(abort));
         }
 
         /// <summary>
@@ -919,9 +940,10 @@ namespace BookSleeve
                 OnError("Completing message", ex, false);
             }
         }
+
         private void Shutdown(string cause, Exception error)
         {
-            Close(error != null);
+            try { Close(error != null); } catch { }
             Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
 
             if (error != null) OnError(cause, error, true);
