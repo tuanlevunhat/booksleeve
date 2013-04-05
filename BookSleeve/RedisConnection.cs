@@ -74,6 +74,13 @@ namespace BookSleeve
         {
             return new RedisTransaction(this);
         }
+        /// <summary>
+        /// Allows multiple commands to be buffered and sent to redis collectively, but without any guarantee of atomicity
+        /// </summary>
+        public virtual RedisBatch CreateBatch()
+        {
+            return new RedisBatch(this);
+        }
         private RedisSubscriberConnection subscriberChannel;
 
         private RedisSubscriberConnection SubscriberFactory()

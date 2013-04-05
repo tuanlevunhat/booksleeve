@@ -6,10 +6,15 @@ using System.Threading.Tasks;
 namespace BookSleeve
 {
     /// <summary>
-    /// Represents a group of redis messages that will be sent as a single atomic 
+    /// Represents a group of operations that will be sent to the server in a group
     /// </summary>
-    public sealed class RedisTransaction : RedisConnection
+    public class RedisBatch : RedisConnection
     {
+        private RedisConnection parent;
+        /// <summary>
+        /// The underlying connection that this batch operates upon
+        /// </summary>
+        protected RedisConnection Parent { get { return parent; } }
         /// <summary>
         /// Features available to the redis server
         /// </summary>
@@ -19,9 +24,10 @@ namespace BookSleeve
         /// </summary>
         public override Version ServerVersion { get { return parent.ServerVersion; } }
 
-        private RedisConnection parent;
-        
-        internal RedisTransaction(RedisConnection parent) : base(parent)
+
+
+        internal RedisBatch(RedisConnection parent)
+            : base(parent)
         {
             this.parent = parent;
         }
@@ -44,7 +50,7 @@ namespace BookSleeve
             // want to get odd race conditions
             return parent.GetScriptHash(script);
         }
-        
+
         /// <summary>
         /// Not supported, as nested transactions are not available.
         /// </summary>
@@ -56,8 +62,21 @@ namespace BookSleeve
         {
             throw new NotSupportedException("Nested transactions are not supported");
         }
+
         /// <summary>
-        /// Release any resources held by this transaction.
+        /// Not supported, as nested batches are not available.
+        /// </summary>
+        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Nested batches are not supported", true)]
+#pragma warning disable 809
+        public override RedisBatch CreateBatch()
+#pragma warning restore 809
+        {
+            throw new NotSupportedException("Nested batches are not supported");
+        }
+
+        /// <summary>
+        /// Release any resources held by this transaction/batch.
         /// </summary>
         public override void Dispose()
         {
@@ -65,11 +84,55 @@ namespace BookSleeve
             Discard();
         }
         /// <summary>
+        /// Discards any buffered commands; the transaction/batch may subsequently be re-used to buffer additional blocks of commands if needed.
+        /// </summary>
+        public void Discard()
+        {
+            CancelUnsent();
+        }
+        /// <summary>
         /// Called before opening a connection
         /// </summary>
         protected override void OnOpening()
         {
-            throw new InvalidOperationException("A transaction is linked to the parent connection, and does not require opening");
+            throw new InvalidOperationException("A transaction/batch is linked to the parent connection, and does not require opening");
+        }
+
+        /// <summary>
+        /// Send the buffered commands
+        /// </summary>
+        public virtual void Send(bool keepTogether = false, bool queueJump = false)
+        {
+            var all = DequeueAll();
+            if (keepTogether && all.Length > 1)
+            {
+                var msg = new BatchMessage(all);
+                parent.EnqueueMessage(msg, queueJump);
+            }
+            else
+            {
+                parent.EnqueueMessages(all, queueJump);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Represents a group of redis messages that will be sent as a single atomic 
+    /// </summary>
+    public sealed class RedisTransaction : RedisBatch
+    {
+
+        internal RedisTransaction(RedisConnection parent)
+            : base(parent)
+        {}
+
+        /// <summary>
+        /// Sends all currently buffered commands to the redis server in a single unit; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
+        /// </summary>
+        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)] // prefer Execute, but fine to use this
+        public override void Send(bool keepTogether = false, bool queueJump = false)
+        {
+            Execute(queueJump, null);
         }
 
         /// <summary>
@@ -83,9 +146,9 @@ namespace BookSleeve
                 return AlwaysTrue;
             }
 
-            var multiMessage = new MultiMessage(parent, all, conditions, state);
+            var multiMessage = new MultiMessage(Parent, all, conditions, state);
             conditions = null; // wipe
-            parent.EnqueueMessage(multiMessage, queueJump);
+            Parent.EnqueueMessage(multiMessage, queueJump);
             return multiMessage.Completion;
         }
 
@@ -101,14 +164,6 @@ namespace BookSleeve
             if (conditions == null) conditions = new List<Condition>();
             conditions.Add(condition);
             return condition.Task;
-        }
-
-        /// <summary>
-        /// Discards any buffered commands; the transaction may subsequently be re-used to buffer additional blocks of commands if needed.
-        /// </summary>
-        public void Discard()
-        {
-            CancelUnsent();
         }
     }
 }

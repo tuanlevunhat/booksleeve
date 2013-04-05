@@ -1574,6 +1574,38 @@ namespace BookSleeve
                 Flush(true);
             }
         }
+        /// <summary>
+        /// Writes a group of messages, but allowing other threads to inject messages between them;
+        /// this method minimises the numbers of packets by preventing flush until all are written
+        /// </summary>
+        internal void EnqueueMessages(RedisMessage[] all, bool queueJump)
+        {
+            if (all == null) throw new ArgumentNullException("all");
+            switch(all.Length) {
+                case 0:
+                    return;
+                case 1:
+                    EnqueueMessage(all[0], queueJump);
+                    return;
+            }
+
+            // so: at least 2 messages; spoof an extra writer to prevent premature flushing
+            Interlocked.Increment(ref pendingWriterCount);
+            try
+            {
+                for (int i = 0; i < all.Length - 1; i++)
+                {
+                    EnqueueMessage(all[i], queueJump);
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref pendingWriterCount);
+            }
+            // and write the last message outside of the fake writer, so it will flush if no more writers
+            EnqueueMessage(all[all.Length - 1], queueJump);
+
+        }
         internal void EnqueueMessage(RedisMessage message, bool queueJump)
         {
             bool decr = true;
