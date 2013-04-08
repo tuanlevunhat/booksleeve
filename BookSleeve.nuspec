@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>BookSleeve</id>
-    <version>1.3.19</version>
+    <version>1.3.20</version>
     <authors>Marc Gravell</authors>
     <owners>Marc Gravell</owners>
     <summary>Efficient, fully asynchronous Redis client</summary>
@@ -12,6 +12,7 @@
     <tags>Async Redis NoSQL Client Distributed Cache PubSub Messaging</tags>
     <language>en-US</language>
     <releaseNotes>
+      * 1.3.20  - Add: support for DUMP/RESTORE
       * 1.3.19  - Add: support for batches; like transactions, but no guarantee of atomicity
       * 1.3.18  - Fix: close during "shutdown" was losing fault information
       * 1.3.17  - Fix: annoying null-ref is annoying

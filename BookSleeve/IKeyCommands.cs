@@ -78,7 +78,7 @@ namespace BookSleeve
         Task<bool> RenameIfNotExists(int db, string fromKey, string toKey, bool queueJump = false);
 
         /// <summary>
-        /// Returns the remaining time to live of a key that has a timeout.  This introspection capability allows a Redis client to check how many seconds a given key will continue to be part of the dataset.
+        /// Returns the remaining time to live (seconds) of a key that has a timeout.  This introspection capability allows a Redis client to check how many seconds a given key will continue to be part of the dataset.
         /// </summary>
         /// <returns>TTL in seconds or -1 when key does not exist or does not have a timeout.</returns>
         /// <remarks>http://redis.io/commands/ttl</remarks>
@@ -242,12 +242,11 @@ namespace BookSleeve
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.RENAMENX, fromKey, toKey), queueJump);
         }
         /// <summary>
-        /// Returns the remaining time to live of a key that has a timeout.
+        /// Returns the remaining time to live (seconds) of a key that has a timeout.
         /// </summary>
         [Obsolete("Please use the Keys API", false), EditorBrowsable(EditorBrowsableState.Never)]
         public Task<long> TimeToLive(int db, string key, bool queueJump = false)
         {
-            
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.TTL, key), queueJump);
         }
 
