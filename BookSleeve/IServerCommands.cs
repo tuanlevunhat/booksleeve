@@ -88,6 +88,19 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/info</remarks>
         Task<Dictionary<string, string>> GetInfo(string section = null, bool queueJump = false);
+
+        /// <summary>
+        /// Serialize the value stored at key in a Redis-specific format and return it to the user. The returned value can be synthesized back into a Redis key using the RESTORE command.
+        /// The serialization format is opaque and non-standard. The serialized value does NOT contain expire information. In order to capture the time to live of the current value the PTTL command should be used.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/dump</remarks>
+        Task<byte[]> Export(int db, string key);
+
+        /// <summary>
+        /// Create a key associated with a value that is obtained by deserializing the provided serialized value (obtained via Export).
+        /// </summary>
+        /// <remarks>http://redis.io/commands/restore</remarks>
+        Task Import(int db, string key, byte[] exportedData, int? timeoutMilliseconds = null);
     }
     partial class RedisConnection : IServerCommands
     {
@@ -185,6 +198,19 @@ namespace BookSleeve
         {
             CheckAdmin();
             return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLAVEOF, host, port).ExpectOk().Critical(), false);
+        }
+
+        Task<byte[]> IServerCommands.Export(int db, string key)
+        {
+            CheckAdmin();
+            return ExecuteBytes(RedisMessage.Create(db, RedisLiteral.DUMP, key), false);
+        }
+
+
+        Task IServerCommands.Import(int db, string key, byte[] exportedData, int? timeoutMilliseconds)
+        {
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(db, RedisLiteral.RESTORE, key, timeoutMilliseconds.GetValueOrDefault(), exportedData).ExpectOk(), false);
         }
 
         /// <summary>
