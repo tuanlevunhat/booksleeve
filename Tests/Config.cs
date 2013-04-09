@@ -21,14 +21,18 @@ namespace Tests
             };
         }
 
-        const string host = "127.0.0.1";
-        // const string host = "192.168.0.8";
+        const string localhost = "127.0.0.1";
+        const string remotehost = "192.168.0.6";
         const int unsecuredPort = 6379, securedPort = 6381;
         //const int unsecuredPort = 6380, securedPort = 6381;
 
-        internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
+        internal static RedisConnection GetRemoteConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
         {
-            var conn = new RedisConnection(host, unsecuredPort, syncTimeout: syncTimeout, ioTimeout: ioTimeout, allowAdmin: allowAdmin);
+            return GetConnection(remotehost, unsecuredPort, open, allowAdmin, waitForOpen, syncTimeout, ioTimeout);
+        }
+        private static RedisConnection GetConnection(string host, int port, bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
+        {
+            var conn = new RedisConnection(host, port, syncTimeout: syncTimeout, ioTimeout: ioTimeout, allowAdmin: allowAdmin);
             conn.Error += (s, args) =>
             {
                 Trace.WriteLine(args.Exception.Message, args.Cause);
@@ -40,10 +44,14 @@ namespace Tests
             }
             return conn;
         }
+        internal static RedisConnection GetUnsecuredConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
+        {
+            return GetConnection(localhost, unsecuredPort, open, allowAdmin, waitForOpen, syncTimeout, ioTimeout);
+        }
 
         internal static RedisSubscriberConnection GetSubscriberConnection()
         {
-            var conn = new RedisSubscriberConnection(host, unsecuredPort);
+            var conn = new RedisSubscriberConnection(localhost, unsecuredPort);
             conn.Error += (s, args) =>
             {
                 Trace.WriteLine(args.Exception.Message, args.Cause);
@@ -53,7 +61,7 @@ namespace Tests
         }
         internal static RedisConnection GetSecuredConnection(bool open = true)
         {
-            var conn = new RedisConnection(host, securedPort, password: "changeme", syncTimeout: 60000, ioTimeout: 5000);
+            var conn = new RedisConnection(localhost, securedPort, password: "changeme", syncTimeout: 60000, ioTimeout: 5000);
             conn.Error += (s, args) =>
             {
                 Trace.WriteLine(args.Exception.Message, args.Cause);

@@ -55,7 +55,7 @@ namespace Tests
         [Test]
         public void TestOpCountByVersionRemote()
         {
-            using (var conn = new RedisConnection("192.168.0.6"))
+            using (var conn = Config.GetRemoteConnection(open:false))
             {
                 TestLockOpCountByVersion(conn, 1, false);
                 TestLockOpCountByVersion(conn, 1, true);

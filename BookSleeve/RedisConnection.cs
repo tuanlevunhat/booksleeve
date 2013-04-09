@@ -285,8 +285,29 @@ namespace BookSleeve
         {
             return Server.MakeMaster();
         }
- 
-       
+
+        /// <summary>
+        /// Temporarily suspends eager-flushing (flushing if the write-queue becomes empty briefly). Buffer-based flushing
+        /// will still occur when the data is full. This is useful if you are performing a large number of
+        /// operations in close duration, and want to avoid packet fragmentation. Note that you MUST call
+        /// ResumeFlush at the end of the operation - preferably using Try/Finally so that flushing is resumed
+        /// even upon error. This method is thread-safe; any number of callers can suspend/resume flushing
+        /// concurrently - eager flushing will resume fully when all callers have called ResumeFlush.
+        /// </summary>
+        /// <remarks>Note that some operations (transaction conditions, etc) require flushing - this will still
+        /// occur even if the buffer is only part full.</remarks>
+        public new void SuspendFlush()
+        {
+            base.SuspendFlush();
+        }
+        /// <summary>
+        /// Resume eager-flushing (flushing if the write-queue becomes empty briefly). See SuspendFlush for
+        /// full usage.
+        /// </summary>
+        public new void ResumeFlush()
+        {
+            base.ResumeFlush();
+        }
 
         /// <summary>
         /// Posts a message to the given channel.
