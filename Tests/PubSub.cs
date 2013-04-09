@@ -2,6 +2,9 @@
 using System.Threading;
 using System.Text;
 using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using BookSleeve;
 
 namespace Tests
 {
@@ -16,12 +19,60 @@ namespace Tests
                 Assert.AreEqual(0, conn.Wait(conn.Publish("channel", "message")));
             }
         }
-     
+
+        [Test]
+        public void TestMassivePublishWithWithoutFlush_Local()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                TestMassivePublishWithWithoutFlush(conn, "local");
+            }
+        }
+        [Test]
+        public void TestMassivePublishWithWithoutFlush_Remote()
+        {
+            using (var conn = Config.GetRemoteConnection(waitForOpen: true))
+            {
+                TestMassivePublishWithWithoutFlush(conn, "remote");
+            }
+        }
+
+        private void TestMassivePublishWithWithoutFlush(RedisConnection conn, string caption)
+        {
+            const int loop = 100000;
+
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+            GC.WaitForPendingFinalizers();
+
+            var tasks = new Task[loop];
+            var withFlush = Stopwatch.StartNew();
+            for (int i = 0; i < loop; i++)
+                tasks[i] = conn.Publish("foo", "bar");
+            conn.WaitAll(tasks);
+            withFlush.Stop();
+
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+            GC.WaitForPendingFinalizers();
+
+            conn.SuspendFlush();
+            var withoutFlush = Stopwatch.StartNew();
+            for (int i = 0; i < loop; i++)
+                tasks[i] = conn.Publish("foo", "bar");
+            conn.ResumeFlush();
+            conn.WaitAll(tasks);
+            withoutFlush.Stop();
+
+            Assert.Less(1, 2, "sanity check");
+            Assert.Less(withoutFlush.ElapsedMilliseconds, withFlush.ElapsedMilliseconds, caption);
+            Console.WriteLine("{2}: {0}ms (eager-flush) vs {1}ms (suspend-flush)",
+                withFlush.ElapsedMilliseconds, withoutFlush.ElapsedMilliseconds, caption);
+        }
+
         [Test]
         public void TestPublishWithSubscribers()
         {
-            using(var listenA = Config.GetSubscriberConnection())
-            using(var listenB = Config.GetSubscriberConnection())
+            using (var listenA = Config.GetSubscriberConnection())
+            using (var listenB = Config.GetSubscriberConnection())
             using (var conn = Config.GetUnsecuredConnection())
             {
                 var t1 = listenA.Subscribe("channel", delegate { });
@@ -32,7 +83,7 @@ namespace Tests
 
                 listenB.Wait(t2);
                 Assert.AreEqual(1, listenB.SubscriptionCount, "B subscriptions");
-                
+
                 var pub = conn.Publish("channel", "message");
                 Assert.AreEqual(2, conn.Wait(pub), "delivery count");
             }
@@ -91,7 +142,7 @@ namespace Tests
 
                 Assert.AreEqual(6, total, "sent");
                 Assert.AreEqual(6, Interlocked.CompareExchange(ref count, 0, 0), "received");
-                
+
 
             }
         }
@@ -109,8 +160,8 @@ namespace Tests
             using (var conn = Config.GetUnsecuredConnection())
             {
                 int gotA = 0, gotB = 0;
-                var tA = listenA.Subscribe("channel", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
-                var tB = listenB.PatternSubscribe("chann*", (s, msg) => { if (s=="channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
+                var tA = listenA.Subscribe("channel", (s, msg) => { if (s == "channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotA); });
+                var tB = listenB.PatternSubscribe("chann*", (s, msg) => { if (s == "channel" && Encoding.UTF8.GetString(msg) == "message") Interlocked.Increment(ref gotB); });
                 listenA.Wait(tA);
                 listenB.Wait(tB);
                 Assert.AreEqual(2, conn.Wait(conn.Publish("channel", "message")));
@@ -131,8 +182,8 @@ namespace Tests
         [Test]
         public void TestSubscribeUnsubscribeAndSubscribeAgain()
         {
-            using(var pub = Config.GetUnsecuredConnection())
-            using(var sub = Config.GetSubscriberConnection())
+            using (var pub = Config.GetUnsecuredConnection())
+            using (var sub = Config.GetSubscriberConnection())
             {
                 int x = 0, y = 0;
                 var t1 = sub.Subscribe("abc", delegate { Interlocked.Increment(ref x); });
@@ -155,7 +206,7 @@ namespace Tests
                 AllowReasonableTimeToPublishAndProcess();
                 Assert.AreEqual(2, Thread.VolatileRead(ref x));
                 Assert.AreEqual(2, Thread.VolatileRead(ref y));
-                
+
             }
         }
     }

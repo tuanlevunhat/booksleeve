@@ -1574,6 +1574,35 @@ namespace BookSleeve
                 Flush(true);
             }
         }
+
+        /// <summary>
+        /// Temporarily suspends eager-flushing (flushing if the write-queue becomes empty briefly). Buffer-based flushing
+        /// will still occur when the data is full. This is useful if you are performing a large number of
+        /// operations in close duration, and want to avoid packet fragmentation. Note that you MUST call
+        /// ResumeFlush at the end of the operation - preferably using Try/Finally so that flushing is resumed
+        /// even upon error. This method is thread-safe; any number of callers can suspend/resume flushing
+        /// concurrently - eager flushing will resume fully when all callers have called ResumeFlush.
+        /// </summary>
+        /// <remarks>Note that some operations (transaction conditions, etc) require flushing - this will still
+        /// occur even if the buffer is only part full.</remarks>
+        protected void SuspendFlush()
+        {
+            Interlocked.Increment(ref pendingWriterCount);
+        }
+        /// <summary>
+        /// Resume eager-flushing (flushing if the write-queue becomes empty briefly). See SuspendFlush for
+        /// full usage.
+        /// </summary>
+        protected void ResumeFlush()
+        {
+            if (Interlocked.Decrement(ref pendingWriterCount) == 0)
+            {
+                lock (writeLock)
+                {
+                    Flush(true);
+                }
+            }
+        }
         /// <summary>
         /// Writes a group of messages, but allowing other threads to inject messages between them;
         /// this method minimises the numbers of packets by preventing flush until all are written
@@ -1590,7 +1619,7 @@ namespace BookSleeve
             }
 
             // so: at least 2 messages; spoof an extra writer to prevent premature flushing
-            Interlocked.Increment(ref pendingWriterCount);
+            SuspendFlush();
             try
             {
                 for (int i = 0; i < all.Length - 1; i++)
@@ -1600,7 +1629,7 @@ namespace BookSleeve
             }
             finally
             {
-                Interlocked.Decrement(ref pendingWriterCount);
+                ResumeFlush();
             }
             // and write the last message outside of the fake writer, so it will flush if no more writers
             EnqueueMessage(all[all.Length - 1], queueJump);
