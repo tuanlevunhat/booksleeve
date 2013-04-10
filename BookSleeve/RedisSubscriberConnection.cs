@@ -134,14 +134,14 @@ namespace BookSleeve
                     case 3: // special-case message
                         if (subItems[0].IsMatch(message))
                         {
-                            callbackMode = CallbackMode.Async;
+                            callbackMode = CallbackMode.Continuation; // events are a lot like continuations
                             return null;
                         }
                         break;
                     case 4: // special-case pmessage
                         if (subItems[0].IsMatch(pmessage))
                         {
-                            callbackMode = CallbackMode.Async;
+                            callbackMode = CallbackMode.Continuation; // events are a lot like continuations
                             return null;
                         }
                         break;

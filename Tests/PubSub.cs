@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using BookSleeve;
+using System.Collections.Generic;
 
 namespace Tests
 {
@@ -66,6 +67,49 @@ namespace Tests
             Assert.Less(withoutFlush.ElapsedMilliseconds, withFlush.ElapsedMilliseconds, caption);
             Console.WriteLine("{2}: {0}ms (eager-flush) vs {1}ms (suspend-flush)",
                 withFlush.ElapsedMilliseconds, withoutFlush.ElapsedMilliseconds, caption);
+        }
+
+
+        [Test]
+        public void PubSubOrder()
+        {
+            using (var pub = Config.GetRemoteConnection(waitForOpen: true))
+            using (var sub = pub.GetOpenSubscriberChannel())
+            {
+                string channel = "PubSubOrder";
+                const int count = 500000;
+                object syncLock = new object();
+
+                List<int> data = new List<int>(count);
+                sub.CompletionMode = ResultCompletionMode.PreserveOrder;
+                sub.Subscribe(channel, (key,val) => {
+                    bool pulse;
+                    lock (data)
+                    {
+                        data.Add(int.Parse(Encoding.UTF8.GetString(val)));
+                        pulse = data.Count == count;
+                        if((data.Count % 10) == 99) Console.WriteLine(data.Count);
+                    }
+                    if(pulse)
+                        lock(syncLock)
+                            Monitor.PulseAll(syncLock);
+                }).Wait();
+                
+                lock (syncLock)
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        pub.Publish(channel, i.ToString());
+                    }
+                    if (!Monitor.Wait(syncLock, 10000))
+                    {
+                        throw new TimeoutException("Items: " + data.Count);
+                    }
+                    for (int i = 0; i < count; i++)
+                        Assert.AreEqual(i, data[i]);
+                }
+            }
+
         }
 
         [Test]
