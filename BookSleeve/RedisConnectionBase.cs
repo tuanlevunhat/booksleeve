@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -729,7 +730,8 @@ namespace BookSleeve
         }
         internal enum CallbackMode
         {
-            Async, SyncChecked, SyncUnchecked
+            Async, SyncChecked, SyncUnchecked,
+            Continuation, NoContinuation
         }
         private void ReadReplyHeader()
         {
@@ -760,6 +762,23 @@ namespace BookSleeve
                         }
 
                         var state = new Tuple<RedisConnectionBase, object, RedisResult>(this, ctx, result);
+
+                        switch (callbackMode)
+                        {
+                            case CallbackMode.Continuation:
+                                // has a continuation, so will be async if "Concurrent" or "ConcurrentIfContination"
+                                // - only sync if PreserveOrder
+                                callbackMode = completionMode == ResultCompletionMode.PreserveOrder
+                                    ? CallbackMode.SyncChecked : CallbackMode.Async;
+                                break;
+                            case CallbackMode.NoContinuation:
+                                // has no continuation, so will be async if "Concurrent"
+                                callbackMode = completionMode == ResultCompletionMode.Concurrent
+                                    ? CallbackMode.Async : CallbackMode.SyncChecked;
+                                break;
+                            // otherwise, we'll trust the values already assigned
+                        }
+
                         switch(callbackMode)
                         {
                             case CallbackMode.SyncChecked:
@@ -1781,7 +1800,7 @@ namespace BookSleeve
         {
             if (syncCompleteThreadId >= 0 && syncCompleteThreadId == CurrentThreadId)
             {
-                throw new InvalidOperationException("You cannot Wait while a callback is executing synchronously; if using 'await', please use SafeAwaitable(); if using 'ContinueWith', please do not specify 'TaskContinuationOptions.ExecuteSynchronously'");
+                throw new InvalidOperationException("You cannot Wait while a callback is executing synchronously (ResultCompletionMode.PreserveOrder etc) as this would produce a deadlock; if using 'await', please use SafeAwaitable(); if using 'ContinueWith', please do not specify 'TaskContinuationOptions.ExecuteSynchronously'");
             }
         }
         /// <summary>
@@ -1870,44 +1889,74 @@ namespace BookSleeve
         /// </summary>
         public ServerType ServerType { get; private set; }
 
+        private ResultCompletionMode completionMode = InitCompletionMode(DefaultCompletionMode);
+        /// <summary>
+        /// Gets or sets the behavior for processing incoming messages.
+        /// </summary>
+        public ResultCompletionMode CompletionMode {
+            get { return completionMode; }
+            set { completionMode = InitCompletionMode(value); }
+        }
+
+        
+
+        private static ResultCompletionMode defaultCompletionMode = ResultCompletionMode.Concurrent;
+        /// <summary>
+        /// Gets or sets the default CompletionMode value for all new connections.
+        /// </summary>
+        public static ResultCompletionMode DefaultCompletionMode
+        {
+            get { return defaultCompletionMode; }
+            set { defaultCompletionMode = value; }
+        }
+
         /// <summary>
         /// Attempt to reduce Task overhead by completing tasks without continuations synchronously (default is asynchronously)
         /// </summary>
+        [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Please use the DefaultCompletionMode.ConcurrentIfContinuation")]
         public static void EnableSyncCallbacks()
         {
-            if (NoContinuations != null) return; // already enabled
-            try
+            DefaultCompletionMode = ResultCompletionMode.ConcurrentIfContinuation;
+        }
+        private static ResultCompletionMode InitCompletionMode(ResultCompletionMode mode)
+        {
+            if (mode == ResultCompletionMode.ConcurrentIfContinuation && NoContinuations == null)
             {
-                var field = typeof(Task).GetField("m_continuationObject", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (field == null) throw new InvalidOperationException("Expected field not found: Task.m_continuationObject");
+                try
+                {
+                    var field = typeof(Task).GetField("m_continuationObject", BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (field == null) throw new InvalidOperationException("Expected field not found: Task.m_continuationObject");
 
-                var method = new DynamicMethod("NoContinuations", typeof(bool), new[] { typeof(Task) },
-                    typeof(Task), true);
-                var il = method.GetILGenerator();
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldflda, field);
-                il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Ldnull);
-                il.EmitCall(OpCodes.Call, typeof(Interlocked).GetMethod("CompareExchange", new[] { typeof(object).MakeByRefType(), typeof(object), typeof(object) }), null);
-                il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Ceq);
-                il.Emit(OpCodes.Ret);
+                    var method = new DynamicMethod("NoContinuations", typeof(bool), new[] { typeof(Task) },
+                        typeof(Task), true);
+                    var il = method.GetILGenerator();
+                    il.Emit(OpCodes.Ldarg_0);
+                    il.Emit(OpCodes.Ldflda, field);
+                    il.Emit(OpCodes.Ldnull);
+                    il.Emit(OpCodes.Ldnull);
+                    il.EmitCall(OpCodes.Call, typeof(Interlocked).GetMethod("CompareExchange", new[] { typeof(object).MakeByRefType(), typeof(object), typeof(object) }), null);
+                    il.Emit(OpCodes.Ldnull);
+                    il.Emit(OpCodes.Ceq);
+                    il.Emit(OpCodes.Ret);
 
-                var func = (Func<Task, bool>)method.CreateDelegate(typeof(Func<Task, bool>));
-                TaskCompletionSource<int> source = new TaskCompletionSource<int>();
-                var before = func(source.Task);
-                source.Task.ContinueWith(t => { });
-                var after = func(source.Task);
-                if (!before) throw new InvalidOperationException("vanilla task should report true");
-                if (after) throw new InvalidOperationException("task with continuation should report false");
-                source.TrySetResult(0);
-                NoContinuations = func;
+                    var func = (Func<Task, bool>)method.CreateDelegate(typeof(Func<Task, bool>));
+                    TaskCompletionSource<int> source = new TaskCompletionSource<int>();
+                    var before = func(source.Task);
+                    source.Task.ContinueWith(t => { });
+                    var after = func(source.Task);
+                    if (!before) throw new InvalidOperationException("vanilla task should report true");
+                    if (after) throw new InvalidOperationException("task with continuation should report false");
+                    source.TrySetResult(0);
+                    NoContinuations = func;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine(ex.Message);
+                    NoContinuations = null; // have to assume the worst, then
+                }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine(ex.Message);
-                NoContinuations = null; // have to assume the worst, then
-            }
+            return mode;
         }
         internal static Func<Task, bool> NoContinuations;
 

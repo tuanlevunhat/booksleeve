@@ -122,8 +122,8 @@ namespace BookSleeve
                 if (msg == null) return RedisConnectionBase.CallbackMode.SyncChecked; // there is no task to complete; do it sync
 
                 var func = RedisConnectionBase.NoContinuations;
-                if (func != null && func(msg.Task)) return RedisConnectionBase.CallbackMode.SyncChecked; // inlining in enabled, and no continuations; sync (but checked)
-                return RedisConnectionBase.CallbackMode.Async; // default to async
+                if (func != null && func(msg.Task)) return RedisConnectionBase.CallbackMode.NoContinuation;
+                return RedisConnectionBase.CallbackMode.Continuation;
             }
         }
 
