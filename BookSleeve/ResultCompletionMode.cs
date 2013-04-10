@@ -20,7 +20,7 @@ namespace BookSleeve
         /// <summary>
         /// The system will attempt to determine whether any given operation has a continuation; if it does, it will
         /// dispatch it concurrently to avoid risk of blocking scenarios; if it does not, it will complete it
-        /// synchronously for performane.
+        /// synchronously for performance.
         /// </summary>
         ConcurrentIfContinuation
     }

@@ -13,7 +13,7 @@ namespace Tests
     {
         static Config()
         {
-            RedisConnectionBase.EnableSyncCallbacks();
+            RedisConnectionBase.DefaultCompletionMode = ResultCompletionMode.ConcurrentIfContinuation;
             TaskScheduler.UnobservedTaskException += (sender, args) =>
             {
                 Trace.WriteLine(args.Exception,"UnobservedTaskException");

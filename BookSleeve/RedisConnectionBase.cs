@@ -740,7 +740,7 @@ namespace BookSleeve
                 if (bufferCount <= 0 || socket == null)
                 {   // EOF
                     Trace("< EOF", "received");
-                    Shutdown("End of stream", null);
+                    DoShutdown("End of stream", null);
                 }
                 else
                 {
@@ -815,7 +815,7 @@ namespace BookSleeve
                     Trace("reply-header", "@ buffer empty");
                     if (isEof)
                     {   // EOF
-                        Shutdown("End of stream", null);
+                        DoShutdown("End of stream", null);
                     }
                     else
                     {
@@ -826,7 +826,7 @@ namespace BookSleeve
             catch (Exception ex)
             {
                 Trace("reply-header", ex.Message);
-                Shutdown("Invalid inbound stream", ex);
+                DoShutdown("Invalid inbound stream", ex);
             }
         }
         private int syncCallbacks, asyncCallbacks;
@@ -960,18 +960,35 @@ namespace BookSleeve
             }
         }
 
-        private void Shutdown(string cause, Exception error)
+        private void DoShutdown(string cause, Exception error)
         {
             try { Close(error != null); } catch { }
             Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
 
+            var args = new ErrorEventArgs(error, cause, true);
+
+            var shutdown = Shutdown;
+            Shutdown = null; // only once
+            if (shutdown!= null)
+            {
+                try {shutdown(this, args); } catch {}
+            }
+
+            // log the error too f necessary (separately)
             if (error != null) OnError(cause, error, true);
+
             ShuttingDown(error);
             Dispose();
             var handler = Closed;
             if (handler != null) handler(this, EventArgs.Empty);
 
         }
+
+         /// <summary>
+         /// Invoked when any error message is received on the connection.
+         /// </summary>
+        public event EventHandler<ErrorEventArgs> Shutdown;
+
         /// <summary>
         /// Invoked when the server is terminating
         /// </summary>
@@ -1914,7 +1931,7 @@ namespace BookSleeve
         /// Attempt to reduce Task overhead by completing tasks without continuations synchronously (default is asynchronously)
         /// </summary>
         [Browsable(false), EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("Please use the DefaultCompletionMode.ConcurrentIfContinuation")]
+        [Obsolete("Please use DefaultCompletionMode = ResultCompletionMode.ConcurrentIfContinuation")]
         public static void EnableSyncCallbacks()
         {
             DefaultCompletionMode = ResultCompletionMode.ConcurrentIfContinuation;
