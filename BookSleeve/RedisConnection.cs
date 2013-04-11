@@ -225,11 +225,11 @@ namespace BookSleeve
         /// <summary>
         /// Releases any resources associated with the connection
         /// </summary>
-        public override void Dispose()
+        protected override void OnDispose()
         {
             var subscribers = subscriberChannel;
             if (subscribers != null) subscribers.Dispose();
-            base.Dispose();
+            base.OnDispose();
         }
 
         private readonly bool allowAdmin;
@@ -262,7 +262,7 @@ namespace BookSleeve
         /// </summary>
         protected override string GetTimeoutSummary()
         {
-            var msg = PeekSent();
+            var msg = PeekSent(true);
             return msg == null ? null : msg.ToString();
         }
 

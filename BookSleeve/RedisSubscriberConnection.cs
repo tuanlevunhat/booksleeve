@@ -148,7 +148,7 @@ namespace BookSleeve
                 }
             }
 
-            var next = PeekSent() as IMultiReplyMessage;
+            var next = PeekSent(false) as IMultiReplyMessage;
             if (next == null || next.Consume())
             {
                 return base.ProcessReply(ref result, out callbackMode);

@@ -84,6 +84,7 @@
     <Compile Include="RedisSubscriberConnection.cs" />
     <Compile Include="MessageQueue.cs" />
     <Compile Include="ResultCompletionMode.cs" />
+    <Compile Include="ShutdownType.cs" />
     <Compile Include="TaskUtils.cs" />
   </ItemGroup>
   <ItemGroup>
