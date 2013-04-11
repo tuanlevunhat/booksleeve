@@ -588,9 +588,7 @@ namespace BookSleeve
                                 ReadReplyHeader();
                                 break;
                             default:
-                                bufferCount = 0;
-                                ReadReplyHeader();
-                                break;
+                                throw new IOException(readArgs.SocketError.ToString());
                         }
                         break;
                     default:
@@ -599,7 +597,7 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
-                OnError("async-read", ex, true);
+                DoShutdown("receive", ex);
             }
         }
         /// <summary>
