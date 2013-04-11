@@ -177,6 +177,26 @@ namespace Tests
         }
 
         [Test]
+        public void CleanCloseKnowsReason()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                conn.Wait(conn.Server.Ping());
+                conn.Close(false);
+                Assert.AreEqual(ShutdownType.ClientClosed, conn.ShutdownType);
+            }
+        }
+        [Test]
+        public void DisposeKnowsReason()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                conn.Wait(conn.Server.Ping());
+                conn.Dispose();
+                Assert.AreEqual(ShutdownType.ClientDisposed, conn.ShutdownType);
+            }
+        }
+        [Test]
         public void TestKeepAlive()
         {
             string oldValue = null;
