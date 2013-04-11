@@ -173,7 +173,15 @@ namespace BookSleeve
         /// <summary>
         /// Releases any resources associated with the connection
         /// </summary>
-        public virtual void Dispose()
+        public void Dispose()
+        {
+            NominateShutdownType(ShutdownType.ClientDisposed);
+            OnDispose();
+        }
+        /// <summary>
+        /// Releases any resources associated with the connection
+        /// </summary>
+        protected virtual void OnDispose() 
         {
             try { Close(false); } catch { }
             abort = true;
@@ -664,22 +672,29 @@ namespace BookSleeve
             Task result = AlwaysTrue;
             if (!this.abort && QuitOnClose)
             {
-                switch (state)
+                switch(ShutdownType)
                 {
-                    case (int)ConnectionState.Opening:
-                    case (int)ConnectionState.Open:
-                        Interlocked.Exchange(ref state, (int)ConnectionState.Closing);
-                        if (hold || outBuffer != null)
+                    // only send for "clean" shutdowns; no point trying to send QUIT if we know the connection died
+                    case BookSleeve.ShutdownType.ClientClosed:
+                    case BookSleeve.ShutdownType.ClientDisposed:
+                        switch (state)
                         {
-                            Trace("close", "sending quit...");
-                            try
-                            {
-                                result = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.QUIT), false);
-                            }
-                            catch
-                            {
-                                // if we can't sent QUIT, then frankly it is pretty reasonable that we're already closed!
-                            }
+                            case (int)ConnectionState.Opening:
+                            case (int)ConnectionState.Open:
+                                Interlocked.Exchange(ref state, (int)ConnectionState.Closing);
+                                if (hold || outBuffer != null)
+                                {
+                                    Trace("close", "sending quit...");
+                                    try
+                                    {
+                                        result = ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.QUIT), false);
+                                    }
+                                    catch
+                                    {
+                                        // if we can't sent QUIT, then frankly it is pretty reasonable that we're already closed!
+                                    }
+                                }
+                                break;
                         }
                         break;
                 }
@@ -688,11 +703,27 @@ namespace BookSleeve
             return result;
         }
 
+        private int shutdownType;
+        /// <summary>
+        /// If the connection has been shut down, what was the reason?
+        /// </summary>
+        public ShutdownType ShutdownType { get { return (ShutdownType) Interlocked.CompareExchange(ref shutdownType, 0, 0);}}
+        private void NominateShutdownType(ShutdownType value)
+        {
+            // set the shutdown type but **only** if it is currently None
+            if (Interlocked.CompareExchange(ref shutdownType, (int)value, 0) == 0)
+            {
+                Trace("shutdown", ((ShutdownType)value).ToString());
+            }
+        }
+        
+
         /// <summary>
         /// Closes the connection; either draining the unsent queue (to completion), or abandoning the unsent queue.
         /// </summary>
-        public virtual void Close(bool abort)
+        public void Close(bool abort)
         {
+            NominateShutdownType(ShutdownType.ClientClosed);
             Wait(CloseAsync(abort));
         }
 
@@ -862,7 +893,7 @@ namespace BookSleeve
         /// <summary>
         /// Peek at the next item in the sent-queue
         /// </summary>
-        internal RedisMessage PeekSent()
+        internal RedisMessage PeekSent(bool skipSelect)
         {
             lock (sent)
             {
@@ -874,7 +905,7 @@ namespace BookSleeve
                         var msg = sent.Peek();
                         // no point reporting SELECT if we can help it; that
                         // is not very useful
-                        if (msg.Command == RedisLiteral.SELECT)
+                        if (skipSelect && msg.Command == RedisLiteral.SELECT)
                         {
                             foreach (var inner in sent)
                             {
@@ -962,8 +993,13 @@ namespace BookSleeve
 
         private void DoShutdown(string cause, Exception error)
         {
-            try { Close(error != null); } catch { }
+            NominateShutdownType(error == null ? ShutdownType.ServerClosed : BookSleeve.ShutdownType.Error);
+            try {
+                Close(error != null);
+            } catch { }
             Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
+
+            
 
             var args = new ErrorEventArgs(error, cause, true);
 
@@ -999,19 +1035,20 @@ namespace BookSleeve
 
             lock (sent)
             {
-                if (sent.Count > 0)
+                if (sent.Count != 0)
                 {
                     result = RedisResult.Error(
                         error == null ? "The server terminated before a reply was received"
                         : ("Error processing data: " + error.Message));
                 }
-                while (sent.Count > 0)
+                while (sent.Count != 0)
                 { // notify clients of things that just didn't happen
 
                     message = sent.Dequeue();
                     CompleteMessage(message, result);
                 }
             }
+            CancelUnsent();
         }
         private readonly Queue<RedisMessage> sent;
 
@@ -1681,7 +1718,8 @@ namespace BookSleeve
                 {
                     if (queueJump || hold)
                     {
-                        if (abort) throw new InvalidOperationException("The connection has been closed; no new messages can be delivered");
+                        if (abort) throw new InvalidOperationException(string.Format(
+                            "The connection has been closed ({0}); no new messages can be delivered", ShutdownType));
                         lock (unsent)
                         {
                             Trace("pending", "enqueued: {0}", message);

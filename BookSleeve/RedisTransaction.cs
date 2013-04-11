@@ -78,9 +78,9 @@ namespace BookSleeve
         /// <summary>
         /// Release any resources held by this transaction/batch.
         /// </summary>
-        public override void Dispose()
+        protected override void OnDispose()
         {
-            base.Dispose();
+            base.OnDispose();
             Discard();
         }
         /// <summary>

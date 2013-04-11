@@ -118,16 +118,22 @@ namespace Tests
             using (var victim = Config.GetUnsecuredConnection(waitForOpen: true))
             using (var murderer = Config.GetUnsecuredConnection(allowAdmin: true))
             {
-                victim.Wait(victim.Strings.GetString(42, "kill me quick"));
+                const int VictimDB = 16;
+                victim.Wait(victim.Strings.GetString(VictimDB, "kill me quick"));
+                victim.CompletionMode = ResultCompletionMode.PreserveOrder;
                 var clients = murderer.Wait(murderer.Server.ListClients());
-                var target = clients.Single(x => x.Database == 42);
+                var target = clients.Single(x => x.Database == VictimDB);
 
                 object sync = new object();
                 ErrorEventArgs args = null;
                 Exception ex = null;
+                ManualResetEvent shutdownGate = new ManualResetEvent(false),
+                    exGate = new ManualResetEvent(false);
                 victim.Shutdown += (s,a) =>
                 {
+                    Console.WriteLine("shutdown");
                     Interlocked.Exchange(ref args, a);
+                    shutdownGate.Set();
                 };
                 lock (sync)
                 {
@@ -139,26 +145,34 @@ namespace Tests
                             for (int i = 0; i < 50000; i++)
                             {
                                 if (i == 5) lock (sync) { Monitor.PulseAll(sync); }
-                                victim.Wait(victim.Strings.Set(42, "foo", "foo"));
+                                victim.Wait(victim.Strings.Set(VictimDB, "foo", "foo"));
                             }
                         }
                         catch(Exception ex2)
                         {
+                            Console.WriteLine("ex");
                             Interlocked.Exchange(ref ex, ex2);
+                            exGate.Set();
                         }
                     }, null);
                     // want the other thread to be running
                     Monitor.Wait(sync);
                     Console.WriteLine("got pulse; victim is ready");
                 }
-                
-                murderer.Wait(murderer.Server.KillClient(target.Address));
-                for(int i = 0 ; i < 50; i++)
-                    PubSub.AllowReasonableTimeToPublishAndProcess();
 
+                Console.WriteLine("killing " + target.Address);
+                murderer.Wait(murderer.Server.KillClient(target.Address));
+
+                Console.WriteLine("waiting on gates...");
+                Assert.IsTrue(shutdownGate.WaitOne(10000), "shutdown gate");
+                Assert.IsTrue(exGate.WaitOne(10000), "exception gate");
+                Console.WriteLine("gates passed");
+
+                Assert.AreEqual(ShutdownType.ServerClosed, victim.ShutdownType);
                 var args_final = Interlocked.Exchange(ref args, null);
                 var ex_final = Interlocked.Exchange(ref ex, null);
-                Assert.IsNotNull(args_final);
+                Assert.IsNotNull(ex_final, "ex");
+                Assert.IsNotNull(args_final, "args");
             }
         }
 
