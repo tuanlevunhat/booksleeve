@@ -104,7 +104,7 @@ namespace BookSleeve
         /// </summary>
         protected void GetCounterValues(out int messagesSent, out int messagesReceived,
             out int queueJumpers, out int messagesCancelled, out int unsent, out int errorMessages, out int timeouts,
-            out int syncCallbacks, out int asyncCallbacks)
+            out int syncCallbacks, out int asyncCallbacks, out int syncCallbacksInProgress, out int asyncCallbacksInProgress)
         {
             messagesSent = Interlocked.CompareExchange(ref this.messagesSent, 0, 0);
             messagesReceived = Interlocked.CompareExchange(ref this.messagesReceived, 0, 0);
@@ -116,6 +116,8 @@ namespace BookSleeve
             unsent = OutstandingCount;
             syncCallbacks = Interlocked.CompareExchange(ref this.syncCallbacks, 0, 0);
             asyncCallbacks = Interlocked.CompareExchange(ref this.asyncCallbacks, 0, 0);
+            syncCallbacksInProgress = Interlocked.CompareExchange(ref this.syncCallbacksInProgress, 0, 0);
+            asyncCallbacksInProgress = Interlocked.CompareExchange(ref this.asyncCallbacksInProgress, 0, 0);
         }
         /// <summary>
         /// Issues a basic ping/pong pair against the server, returning the latency
@@ -189,11 +191,15 @@ namespace BookSleeve
             catch { }
             try { if (outBuffer != null) outBuffer.Dispose(); }
             catch { }
-            try { if (socket != null) {
+            try { if (socket != null) {                
                 Trace("dispose", "closing socket...");
+                socket.Shutdown(SocketShutdown.Both);
                 socket.Close();
-                Trace("dispose", "closed socket");
-            } } catch { }
+                socket.Dispose();
+                Trace("dispose", "closed socket");                
+            } } catch (Exception ex){
+                Trace("dispose", ex.Message);
+            }
             socket = null;
             redisStream = null;
             outBuffer = null;
@@ -220,7 +226,12 @@ namespace BookSleeve
         {
 #if VERBOSE
             var threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            
+#if VERBOSE_CONSOLE
+            Console.WriteLine(category + "\t[" + threadId + "] " + DateTime.Now.ToString("HH:mm:ss.ffff") + ": " + message);
+#else
             System.Diagnostics.Trace.WriteLine("[" + threadId + "] " + DateTime.Now.ToString("HH:mm:ss.ffff") + ": " + message, category);
+#endif
 #endif
         }
         [Conditional("VERBOSE")]
@@ -287,7 +298,7 @@ namespace BookSleeve
                 conn.socket = socket;
                 
                 var readArgs = new SocketAsyncEventArgs();
-                readArgs.Completed += conn.AsyncConnectReadCompleted;
+                readArgs.Completed += conn.AsyncReadCompleted;
                 conn.readArgs = readArgs;
                 conn.InitOutbound(source);
             }
@@ -467,10 +478,6 @@ namespace BookSleeve
                                                        // talking to us, so I think we'll be just fine!
                 }
             }
-            if (ex != null)
-            {
-                @this.OnError("init command", ex, false);
-            }
             if (ok)
             {
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Open, (int)ConnectionState.Opening);
@@ -483,6 +490,8 @@ namespace BookSleeve
             else
             {
                 source.SafeSetException(task.Exception);
+                @this.NominateShutdownType(ShutdownType.Error);
+                @this.OnError("init command", ex, true);
                 @this.Close(true);
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
             }
@@ -562,6 +571,7 @@ namespace BookSleeve
             Trace("read", "async");
             bufferOffset = bufferCount = 0;
             if (socket.ReceiveAsync(readArgs)) return false; // not yet available
+
             Trace("read", "data available immediately");
             if (readArgs.SocketError == SocketError.Success)
             {
@@ -570,10 +580,10 @@ namespace BookSleeve
             }
 
             // otherwise completed immediately but need to process errors etc
-            AsyncConnectReadCompleted(socket, readArgs);
+            AsyncReadCompleted(socket, readArgs);
             return false;
         }
-        void AsyncConnectReadCompleted(object sender, SocketAsyncEventArgs e)
+        void AsyncReadCompleted(object sender, SocketAsyncEventArgs e)
         {
             try
             {
@@ -587,6 +597,19 @@ namespace BookSleeve
                                 bufferCount = e.BytesTransferred;
                                 ReadReplyHeader();
                                 break;
+                            case SocketError.ConnectionAborted:
+                            case SocketError.OperationAborted:
+                                if (abort)
+                                { // that's OK; that means we closed our socket before the server closed his, but
+                                  // we were expecting this - treat it like an EOF
+                                    bufferCount = 0;
+                                    ReadReplyHeader();
+                                    break;
+                                }
+                                else
+                                {
+                                    throw new IOException(readArgs.SocketError.ToString());
+                                }
                             default:
                                 throw new IOException(readArgs.SocketError.ToString());
                         }
@@ -597,6 +620,7 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
+                Trace("async-read error", ex.Message);
                 DoShutdown("receive", ex);
             }
         }
@@ -711,7 +735,7 @@ namespace BookSleeve
             // set the shutdown type but **only** if it is currently None
             if (Interlocked.CompareExchange(ref shutdownType, (int)value, 0) == 0)
             {
-                Trace("shutdown", ((ShutdownType)value).ToString());
+                Trace("shutdown-type", ((ShutdownType)value).ToString());
             }
         }
         
@@ -766,20 +790,20 @@ namespace BookSleeve
         {
             try
             {
+            MoreDataAvailable:
                 if (bufferCount <= 0 || socket == null)
                 {   // EOF
                     Trace("< EOF", "received");
                     DoShutdown("End of stream", null);
+                    return;
                 }
                 else
                 {
-                    bool isEof = false;
-                MoreDataAvailable:
                     while (bufferCount > 0)
                     {
                         Trace("reply-header", "< {0} bytes buffered", bufferCount);
                         RedisResult result = ReadSingleResult();
-                        Trace("reply-header", "< {0} bytes remain");
+                        Trace("reply-header", "< {0} bytes remain", bufferCount);
                         Interlocked.Increment(ref messagesReceived);
                         CallbackMode callbackMode;
                         object ctx = ProcessReply(ref result, out callbackMode);
@@ -789,8 +813,6 @@ namespace BookSleeve
                             Interlocked.Increment(ref errorMessages);
                             OnError("Redis server", result.Error(), false);
                         }
-
-                        var state = new Tuple<RedisConnectionBase, object, RedisResult>(this, ctx, result);
 
                         switch (callbackMode)
                         {
@@ -811,45 +833,38 @@ namespace BookSleeve
                         switch(callbackMode)
                         {
                             case CallbackMode.SyncChecked:
-                                Trace("> callbacks", "sync (checked); {0}", state);
-                                syncCompleteThreadId = CurrentThreadId;
                                 Interlocked.Increment(ref this.syncCallbacks);
+                                Interlocked.Increment(ref this.syncCallbacksInProgress);
 #if DEBUG
                                 Interlocked.Increment(ref allSyncCallbacks);
 #endif
-                                ProcessCallbacks(state);
+                                syncCompleteThreadId = CurrentThreadId;
+                                ProcessCallbacks(this, ctx, result, false);
                                 syncCompleteThreadId = -1;
-                                Trace("< callbacks", "sync");
                                 break;
                             case CallbackMode.SyncUnchecked:
-                                Trace("> callbacks", "sync (unchecked); {0}", state);
                                 Interlocked.Increment(ref this.syncCallbacks);
+                                Interlocked.Increment(ref this.syncCallbacksInProgress);
 #if DEBUG
                                 Interlocked.Increment(ref allSyncCallbacks);
 #endif
-                                ProcessCallbacks(state);                                
+                                ProcessCallbacks(this, ctx, result, false);
                                 break;
                             case CallbackMode.Async:
                             default:
                                 Interlocked.Increment(ref this.asyncCallbacks);
+                                Interlocked.Increment(ref this.asyncCallbacksInProgress);
 #if DEBUG
                                 Interlocked.Increment(ref allAsyncCallbacks);
 #endif
-                                ThreadPool.QueueUserWorkItem(processCallbacks, state);
+                                var state = Tuple.Create(this, ctx, result);
+                                ThreadPool.QueueUserWorkItem(processCallbacksAsync, state);
                                 break;
                         }
                         Trace("reply-header", "check for more");
-                        isEof = false;
                     }
                     Trace("reply-header", "@ buffer empty");
-                    if (isEof)
-                    {   // EOF
-                        DoShutdown("End of stream", null);
-                    }
-                    else
-                    {
-                        if (ReadMoreAsync()) goto MoreDataAvailable;
-                    }
+                    if (ReadMoreAsync()) goto MoreDataAvailable;
                 }
             }
             catch (Exception ex)
@@ -858,7 +873,7 @@ namespace BookSleeve
                 DoShutdown("Invalid inbound stream", ex);
             }
         }
-        private int syncCallbacks, asyncCallbacks;
+        private int syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress;
 #if DEBUG
         private static long allSyncCallbacks, allAsyncCallbacks;
         /// <summary>
@@ -870,21 +885,33 @@ namespace BookSleeve
         /// </summary>
         public static long AllAsyncCallbacks { get { return Interlocked.CompareExchange(ref allAsyncCallbacks, 0, 0);}}
 #endif
-        private static readonly WaitCallback processCallbacks = ProcessCallbacks;
-        private static void ProcessCallbacks(object state)
+        private static readonly WaitCallback processCallbacksAsync = ProcessCallbacksAsync;
+
+        private static void ProcessCallbacks(RedisConnectionBase connection, object ctx, RedisResult result, bool isAsync)
         {
-            var tuple = (Tuple<RedisConnectionBase, object, RedisResult>)state;
             try
             {
-                Trace("callback", "processing callback for: {0}", tuple.Item3);
-                tuple.Item1.ProcessCallbacks(tuple.Item2, tuple.Item3);
+                Trace("callback", "processing callback for: {0}", result);
+                connection.ProcessCallbacks(ctx, result);
                 Trace("callback", "processed callback");
             }
             catch (Exception ex)
             {
                 Trace("callback", ex.Message);
-                tuple.Item1.OnError("Processing callbacks", ex, false);
+                connection.OnError("Processing callbacks", ex, false);
             }
+            finally
+            {
+                if (isAsync)
+                    Interlocked.Decrement(ref connection.asyncCallbacksInProgress);
+                else
+                    Interlocked.Decrement(ref connection.syncCallbacksInProgress);
+            }
+        }
+        private static void ProcessCallbacksAsync(object state)
+        {
+            var tuple = (Tuple<RedisConnectionBase, object, RedisResult>)state;
+            ProcessCallbacks(tuple.Item1, tuple.Item2, tuple.Item3, true);
         }
 
 
@@ -991,35 +1018,47 @@ namespace BookSleeve
 
         private void DoShutdown(string cause, Exception error)
         {
-            NominateShutdownType(error == null ? ShutdownType.ServerClosed : BookSleeve.ShutdownType.Error);
-            try {
-                Close(error != null);
-            } catch { }
-            Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Closing);
 
-            
-
-            var args = new ErrorEventArgs(error, cause, true);
-
-            var shutdown = Shutdown;
-            Shutdown = null; // only once
-            if (shutdown!= null)
+            try
             {
-                try {shutdown(this, args); } catch {}
+                NominateShutdownType(error == null ? ShutdownType.ServerClosed : BookSleeve.ShutdownType.Error);
+                try
+                {
+                    Close(error != null);
+                    Trace("close", "closed successfully");
+                }
+                catch
+                {
+                    Trace("close", error.Message);
+                }
+                Interlocked.Exchange(ref state, (int)ConnectionState.Closed);
+
+                var args = new ErrorEventArgs(error, cause, true);
+
+                var shutdown = Shutdown;
+                Shutdown = null; // only once
+                if (shutdown != null)
+                {
+                    try { shutdown(this, args); }
+                    catch { }
+                }
+
+                // log the error too if necessary (separately)
+                if (error != null) OnError(cause, error, true);
+
+                ShuttingDown(error);
+                Dispose();
+                var handler = Closed;
+                if (handler != null) handler(this, EventArgs.Empty);
             }
-
-            // log the error too f necessary (separately)
-            if (error != null) OnError(cause, error, true);
-
-            ShuttingDown(error);
-            Dispose();
-            var handler = Closed;
-            if (handler != null) handler(this, EventArgs.Empty);
-
+            catch (Exception ex)
+            {
+                OnError("shutdown", ex, true);
+            }
         }
 
          /// <summary>
-         /// Invoked when any error message is received on the connection.
+         /// Invoked when the server is shutting down; includes any error information
          /// </summary>
         public event EventHandler<ErrorEventArgs> Shutdown;
 
@@ -1035,6 +1074,7 @@ namespace BookSleeve
             {
                 if (sent.Count != 0)
                 {
+                    Trace("shuttingdown", "aborting sent queue ({0} items)", sent.Count);
                     result = RedisResult.Error(
                         error == null ? "The server terminated before a reply was received"
                         : ("Error processing data: " + error.Message));
@@ -1043,6 +1083,7 @@ namespace BookSleeve
                 { // notify clients of things that just didn't happen
 
                     message = sent.Dequeue();
+                    Trace("shuttingdown", "aborting {0}", message);
                     CompleteMessage(message, result);
                 }
             }
@@ -1635,6 +1676,12 @@ namespace BookSleeve
             }
             if (isHigh) Interlocked.Increment(ref queueJumpers);
             WriteMessage(ref db, message, null);
+            // Redis tends to shutdown the entire socket if you close the SEND part eagerly
+            //if (message.Command == RedisLiteral.QUIT)
+            //{
+            //    FlushOutbound();
+            //    if(socket != null) socket.Shutdown(SocketShutdown.Send);
+            //}
         }
         private volatile bool hold = true;
 
@@ -1773,9 +1820,14 @@ namespace BookSleeve
         {
             lock (unsent)
             {
+                if (unsent.Count != 0)
+                {
+                    Trace("cancelunsent", "aborting unsent queue ({0} items)", unsent.Count);
+                }
                 while (unsent.Count != 0)
                 {
                     var next = unsent.Dequeue();
+                    Trace("cancelunsent", "aborting {0}", next);
                     RedisResult result = RedisResult.Cancelled;
                     object ctx = ProcessReply(ref result, next);
                     ProcessCallbacks(ctx, result);

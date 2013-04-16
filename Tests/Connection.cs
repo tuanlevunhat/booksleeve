@@ -91,6 +91,38 @@ namespace Tests
         }
 
         [Test]
+        public void CheckInProgressCountersGoToZero()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                conn.CompletionMode = ResultCompletionMode.Concurrent;
+                Task<Counters> counters = null;
+                Task[] allTasks = new Task[5000];
+                for (int i = 0; i < 5000; i++)
+                {
+                    var tmp = conn.Strings.Get(5, "foo" + i);
+                    if (i == 2500)
+                    {
+                        counters = tmp.ContinueWith(x =>
+                        {
+                            return conn.GetCounters(false);
+                        },TaskContinuationOptions.ExecuteSynchronously);
+                    }
+                    allTasks[i] = tmp;
+                }
+
+                var c = conn.Wait(counters);
+                Console.WriteLine("in progress during: {0}", c.AsyncCallbacksInProgress);
+                Assert.AreNotEqual(0, c.AsyncCallbacksInProgress, "async during");
+                
+                conn.WaitAll(allTasks);
+                PubSub.AllowReasonableTimeToPublishAndProcess();
+                Assert.AreEqual(0, conn.GetCounters(false).AsyncCallbacksInProgress, "async @ end");
+                Assert.AreEqual(0, c.SyncCallbacksInProgress, "sync @ end");
+            }
+        }
+
+        [Test]
         public void TestSubscriberName()
         {
             using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))

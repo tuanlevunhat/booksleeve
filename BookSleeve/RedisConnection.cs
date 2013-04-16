@@ -233,20 +233,29 @@ namespace BookSleeve
         }
 
         private readonly bool allowAdmin;
+
         /// <summary>
         /// Query usage metrics for this connection
         /// </summary>
         public Counters GetCounters()
         {
-            int messagesSent, messagesReceived, queueJumpers, messagesCancelled, unsent, errorMessages, timeouts, syncCallbacks, asyncCallbacks;
-            GetCounterValues(out messagesSent, out messagesReceived, out queueJumpers, out messagesCancelled, out unsent, out errorMessages, out timeouts, out syncCallbacks, out asyncCallbacks);
+            return GetCounters(true);
+        }
+
+        /// <summary>
+        /// Query usage metrics for this connection
+        /// </summary>
+        public Counters GetCounters(bool allowTalkToServer)
+        {
+            int messagesSent, messagesReceived, queueJumpers, messagesCancelled, unsent, errorMessages, timeouts, syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress;
+            GetCounterValues(out messagesSent, out messagesReceived, out queueJumpers, out messagesCancelled, out unsent, out errorMessages, out timeouts, out syncCallbacks, out asyncCallbacks, out syncCallbacksInProgress, out asyncCallbacksInProgress);
             return new Counters(
                 messagesSent, messagesReceived, queueJumpers, messagesCancelled,
-                timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks,
+                timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress,
                 GetSentCount(),
                 GetDbUsage(),
                 // important that ping happens last, as this may artificially drain the queues
-                (int)Wait(Server.Ping())
+                allowTalkToServer ? (int)Wait(Server.Ping()) : -1
             );
         }
         private DateTime opened;
