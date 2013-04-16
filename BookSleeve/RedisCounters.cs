@@ -10,9 +10,10 @@ namespace BookSleeve
     public sealed class Counters
     {
         private readonly IDictionary<int, int> dbUsage;
-        private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping, syncCallbacks, asyncCallbacks;
+        private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping,
+            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress;
         internal Counters(int messagesSent, int messagesReceived, int queueJumpers, int messagesCancelled, int timeouts,
-            int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks,
+            int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks, int syncCallbacksInProgress, int asyncCallbacksInProgress,
             int sentQueue, IDictionary<int, int> dbUsage, int ping)
         {
             this.messagesSent = messagesSent;
@@ -27,15 +28,25 @@ namespace BookSleeve
             this.ping = ping;
             this.syncCallbacks = syncCallbacks;
             this.asyncCallbacks = asyncCallbacks;
+            this.syncCallbacksInProgress = syncCallbacksInProgress;
+            this.asyncCallbacksInProgress = asyncCallbacksInProgress;
         }
         /// <summary>
-        /// The number of messages sent to the Redis server
+        /// The number of callbacks executed (total) synchronously
         /// </summary>
         public int SyncCallbacks { get { return syncCallbacks; } }
-                /// <summary>
-        /// The number of messages sent to the Redis server
+        /// <summary>
+        /// The number of callbacks executed (total) asynchronously
         /// </summary>
         public int AsyncCallbacks { get { return asyncCallbacks; } }
+        /// <summary>
+        /// The number of callbacks executing (currently) synchronously
+        /// </summary>
+        public int SyncCallbacksInProgress { get { return syncCallbacksInProgress; } }
+        /// <summary>
+        /// The number of callbacks executing (currently) asynchronously
+        /// </summary>
+        public int AsyncCallbacksInProgress { get { return asyncCallbacksInProgress; } }
         /// <summary>
         /// The number of messages sent to the Redis server
         /// </summary>
@@ -89,7 +100,9 @@ namespace BookSleeve
                  .Append("Unsent queue: ").Append(UnsentQueue).AppendLine()
                  .Append("Error messages: ").Append(ErrorMessages).AppendLine()
                  .Append("Sync callbacks: ").Append(SyncCallbacks).AppendLine()
-                 .Append("Async callbacks: ").Append(AsyncCallbacks).AppendLine();
+                 .Append("Async callbacks: ").Append(AsyncCallbacks).AppendLine()
+                 .Append("Sync-callbacks in progress: ").Append(SyncCallbacksInProgress).AppendLine()
+                 .Append("Async-callbacks  in progress: ").Append(AsyncCallbacksInProgress).AppendLine();
             int[] keys = new int[dbUsage.Count], values = new int[dbUsage.Count];
             dbUsage.Keys.CopyTo(keys, 0);
             dbUsage.Values.CopyTo(values, 0);

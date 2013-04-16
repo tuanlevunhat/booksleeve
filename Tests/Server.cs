@@ -4,6 +4,7 @@ using NUnit.Framework;
 using System.Threading;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Tests
 {
@@ -54,7 +55,7 @@ namespace Tests
                 var local = DateTime.UtcNow;
                 var server = db.Wait(db.Server.Time());
 
-                Assert.True(Math.Abs((local - server).TotalMilliseconds) < 10);
+                Assert.True(Math.Abs((local - server).TotalMilliseconds) < 10, "Latency");
             }
         }
 
@@ -112,6 +113,57 @@ namespace Tests
             }
         }
 
+        [Test]
+        public void HappilyMurderedClientDoesntGetError()
+        {
+            using (var victim = Config.GetUnsecuredConnection(waitForOpen: true))
+            using (var murderer = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                const int VictimDB = 16;
+                victim.Wait(victim.Strings.GetString(VictimDB, "kill me quick"));
+                victim.CompletionMode = ResultCompletionMode.PreserveOrder;
+                var clients = murderer.Wait(murderer.Server.ListClients());
+                var target = clients.Single(x => x.Database == VictimDB);
+
+                int i = 0;
+                victim.Closed += (s, a) =>
+                {
+                    Interlocked.Increment(ref i);
+                };
+                var errors = new List<Exception>();
+                victim.Shutdown += (s, a) =>
+                {
+                    if (a.Exception != null)
+                    {
+                        lock (errors)
+                        {
+                            errors.Add(a.Exception);
+                        }
+                    }
+                };
+                victim.Error += (s, a) =>
+                {
+                    lock (errors)
+                    {
+                        errors.Add(a.Exception);
+                    }
+                };
+                victim.Wait(victim.Server.Ping());
+                murderer.Wait(murderer.Server.KillClient(target.Address));
+
+                PubSub.AllowReasonableTimeToPublishAndProcess();
+
+                Assert.AreEqual(1, Interlocked.CompareExchange(ref i, 0, 0));
+                lock(errors)
+                {
+                    foreach (var err in errors) Console.WriteLine(err.Message);
+                    Assert.AreEqual(0, errors.Count);
+                }
+                Assert.AreEqual(ShutdownType.ServerClosed, victim.ShutdownType);
+
+
+            }
+        }
         [Test]
         public void MurderedClientKnowsAboutIt()
         {
@@ -235,7 +287,7 @@ namespace Tests
             }
         }
 
-        [Test]
+        [Test, ActiveTest]
         public void SetValueWhileDisposing()
         {
             const int LOOP = 10;
@@ -244,17 +296,17 @@ namespace Tests
                 var guid = Guid.NewGuid().ToString();
                 Task t1, t3;
                 Task<string> t2;
-                const string key = "SetValueWhileDisposing";
+                string key = "SetValueWhileDisposing:" + i;
                 using (var db = Config.GetUnsecuredConnection(open: true))
                 {
                     t1 = db.Strings.Set(0, key, guid);
                 }
+                Assert.IsTrue(t1.Wait(500));
                 using (var db = Config.GetUnsecuredConnection())
                 {
                     t2 = db.Strings.GetString(0, key);
-                    t3 = db.Keys.Remove(0, key);
-                }
-                Assert.IsTrue(t1.Wait(500));
+                    t3 = db.Keys.Remove(0, key);                    
+                }                
                 Assert.IsTrue(t2.Wait(500));
                 Assert.AreEqual(guid, t2.Result);
                 Assert.IsTrue(t3.Wait(500));
