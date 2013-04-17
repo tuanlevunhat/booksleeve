@@ -261,15 +261,16 @@ namespace Tests
                 }
                 using (var db  = Config.GetUnsecuredConnection(allowAdmin: false, waitForOpen:true))
                 {
-                    var before = db.GetCounters();
-                    Thread.Sleep(12 * 1000);
-                    var after = db.GetCounters();
+                    var before = db.GetCounters(false);
+                    Thread.Sleep(13 * 1000); // should be pinging every 4 seconds; ((20 - 15) * 4) / 5 = 4s
+                    var after = db.GetCounters(false); 
                     // 3 here is 2 * keep-alive, and one PING in GetCounters()
                     int sent = after.MessagesSent - before.MessagesSent;
+                    Console.WriteLine(sent);
                     Assert.GreaterOrEqual(1, 0);
                     Assert.GreaterOrEqual(sent, 3);
                     Assert.LessOrEqual(0, 4);
-                    Assert.LessOrEqual(sent, 5);
+                    Assert.LessOrEqual(sent, 4);
                 }
             }
             finally

@@ -631,16 +631,31 @@ namespace BookSleeve
         {
             if (args.CompletedSynchronously) return;
             var conn = (RedisConnectionBase)args.AsyncState;
-            conn.ProcessAsyncResults(args, true);
+            if (conn.ProcessAsyncResults(args)) conn.ReadReplyHeader();
         }
-        bool ProcessAsyncResults(IAsyncResult args, bool process)
+        bool ProcessAsyncResults(IAsyncResult args)
         {
             try
             {
-                bufferCount = socket.EndReceive(args);
-                Trace("receive", "< {0} bytes", bufferCount);
-                if (process) ReadReplyHeader();
-                return true;
+                SocketError err;
+                int bytesRead = socket.EndReceive(args, out err);
+                Trace("receive", "< {0}, {1} bytes", err, bytesRead);
+                switch(err)
+                {
+                    case SocketError.Success:
+                        bufferCount = bytesRead;
+                        return true;
+                    case SocketError.ConnectionAborted:
+                    case SocketError.OperationAborted:
+                        if (abort)
+                        { // that's OK; that means we closed our socket before the server closed his, but
+                            // we were expecting this - treat it like an EOF
+                            bufferCount = 0;
+                            return true;
+                        }
+                        break;
+                }
+                throw new IOException(err.ToString());
             }
             catch (Exception ex)
             {
@@ -657,7 +672,7 @@ namespace BookSleeve
             if (result.CompletedSynchronously)
             {
                 Trace("read", "data available immediately");
-                return ProcessAsyncResults(result, false);
+                return ProcessAsyncResults(result);
             }
             return false;
         }

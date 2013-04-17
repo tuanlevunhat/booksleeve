@@ -201,8 +201,8 @@ namespace BookSleeve
                         if (x.Result.TryGetValue("timeout", out text) && int.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out timeout)
                             && timeout > 0)
                         {
-                            SetKeepAlive(Math.Max(1, ((timeout * 4)  / 5) - 15)); // allow a few seconds contingency; so a timeout of 300 (5 minutes)
-                                                                                  // will actually be set to check every 225 seconds (3m45s)
+                            SetKeepAlive(Math.Max(1, (timeout - 15) * 4)  / 5); // allow a few seconds contingency; so a timeout of 300 (5 minutes)
+                                                                                  // will actually be set to check every 228 seconds (3m48s)
                         }
                         else
                         {
