@@ -108,6 +108,34 @@ namespace BookSleeve
                 timer.Start();
             }
         }
+        /// <summary>
+        /// The message to supply to callers when rejecting messages
+        /// </summary>
+        protected override string GetCannotSendMessage()
+        {
+            string msg = base.GetCannotSendMessage();
+            int millis = LastSentMillisecondsAgo;
+            if (millis >= 0)
+            {
+                msg = msg + string.Format("; the last command was sent {0}ms ago", millis);
+            }
+            return msg;
+        }
+
+        /// <summary>
+        /// Time (in milliseconds) since the last command was sent
+        /// </summary>
+        public int LastSentMillisecondsAgo
+        {
+            get
+            {
+                int then = lastSentTicks, now = Environment.TickCount;
+                const int MSB = 1 << 31;
+                if ((now & MSB) != (then & MSB)) // the sign has flipped; Ticks is only the same siugn for 24.9 days at a time
+                    return -1;
+                return now - then;
+            }
+        }
         private System.Timers.ElapsedEventHandler tick;
         void Tick(object sender, System.Timers.ElapsedEventArgs e)
         {
@@ -116,10 +144,8 @@ namespace BookSleeve
                 // ping if nothing sent in *half* the interval; for example, if keep-alive is every 3 seconds we'll
                 // send a PING if nothing was written in the last 1.5 seconds
 
-                int then = lastSentTicks, now = Environment.TickCount;
-                const int MSB = 1 << 31;
-                if ((now - then) > (keepAliveSeconds * 500)
-                    || (now & MSB) != (then & MSB)) // <=== has the sign flipped? Ticks is only the same siugn for 24.9 days at a time
+                int millis = LastSentMillisecondsAgo;
+                if(millis < 0 || millis > (keepAliveSeconds * 500))
                 {
                     Trace("keep-alive", "ping");
                     PingImpl(true, duringInit: false);
@@ -175,7 +201,8 @@ namespace BookSleeve
                         if (x.Result.TryGetValue("timeout", out text) && int.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out timeout)
                             && timeout > 0)
                         {
-                            SetKeepAlive(Math.Max(1, timeout - 15)); // allow a few seconds contingency
+                            SetKeepAlive(Math.Max(1, ((timeout * 4)  / 5) - 15)); // allow a few seconds contingency; so a timeout of 300 (5 minutes)
+                                                                                  // will actually be set to check every 225 seconds (3m45s)
                         }
                         else
                         {
@@ -253,7 +280,7 @@ namespace BookSleeve
                 messagesSent, messagesReceived, queueJumpers, messagesCancelled,
                 timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress,
                 GetSentCount(),
-                GetDbUsage(),
+                GetDbUsage(), LastSentMillisecondsAgo,
                 // important that ping happens last, as this may artificially drain the queues
                 allowTalkToServer ? (int)Wait(Server.Ping()) : -1
             );
