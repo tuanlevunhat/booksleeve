@@ -638,7 +638,17 @@ namespace BookSleeve
             try
             {
                 SocketError err;
-                int bytesRead = socket.EndReceive(args, out err);
+                int bytesRead;
+                var tmp = socket;
+                if (tmp == null)
+                {
+                    bufferCount = 0;
+                    return false; // already shutdown
+                }
+                else
+                {
+                    bytesRead = tmp.EndReceive(args, out err);
+                }
                 Trace("receive", "< {0}, {1} bytes", err, bytesRead);
                 switch(err)
                 {
