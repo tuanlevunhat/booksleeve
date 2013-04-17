@@ -297,9 +297,9 @@ namespace BookSleeve
                 socket.Connect(new DnsEndPoint(conn.host, conn.port));
                 conn.socket = socket;
                 
-                var readArgs = new SocketAsyncEventArgs();
-                readArgs.Completed += conn.AsyncReadCompleted;
-                conn.readArgs = readArgs;
+                //var readArgs = new SocketAsyncEventArgs();
+                //readArgs.Completed += conn.AsyncReadCompleted;
+                //conn.readArgs = readArgs;
                 conn.InitOutbound(source);
             }
             catch (Exception ex)
@@ -377,11 +377,11 @@ namespace BookSleeve
             }
         }
 #endif
-        private SocketAsyncEventArgs readArgs;
+        //private SocketAsyncEventArgs readArgs;
         void InitOutbound(TaskCompletionSource<bool> source)
         {
             try {
-                readArgs.SetBuffer(buffer, 0, buffer.Length);
+                //readArgs.SetBuffer(buffer, 0, buffer.Length);
                 //if (readArgs.SocketError != SocketError.Success)
                 //{
                 //    if (readArgs.ConnectByNameError != null) throw readArgs.ConnectByNameError;
@@ -566,64 +566,102 @@ namespace BookSleeve
             return null;
         }
 
-        bool ReadMoreAsync()
+        //bool ReadMoreAsync()
+        //{
+        //    Trace("read", "async");
+        //    bufferOffset = bufferCount = 0;
+        //    if (socket.ReceiveAsync(readArgs)) return false; // not yet available
+
+        //    Trace("read", "data available immediately");
+        //    if (readArgs.SocketError == SocketError.Success)
+        //    {
+        //        bufferCount = readArgs.BytesTransferred;
+        //        return true; // completed and OK
+        //    }
+
+        //    // otherwise completed immediately but need to process errors etc
+        //    AsyncReadCompleted(socket, readArgs);
+        //    return false;
+        //}
+        //
+        //void AsyncReadCompleted(object sender, SocketAsyncEventArgs e)
+        //{
+        //    try
+        //    {
+        //        Trace("receive", "< {0}, {1}, {2} bytes", e.LastOperation, e.SocketError, e.BytesTransferred);
+        //        switch (e.LastOperation)
+        //        {
+        //            case SocketAsyncOperation.Receive:
+        //                switch (readArgs.SocketError)
+        //                {
+        //                    case SocketError.Success:
+        //                        bufferCount = e.BytesTransferred;
+        //                        ReadReplyHeader();
+        //                        break;
+        //                    case SocketError.ConnectionAborted:
+        //                    case SocketError.OperationAborted:
+        //                        if (abort)
+        //                        { // that's OK; that means we closed our socket before the server closed his, but
+        //                            // we were expecting this - treat it like an EOF
+        //                            bufferCount = 0;
+        //                            ReadReplyHeader();
+        //                            break;
+        //                        }
+        //                        else
+        //                        {
+        //                            throw new IOException(readArgs.SocketError.ToString());
+        //                        }
+        //                    default:
+        //                        throw new IOException(readArgs.SocketError.ToString());
+        //                }
+        //                break;
+        //            default:
+        //                throw new NotImplementedException(e.LastOperation.ToString());
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Trace("async-read error", ex.Message);
+        //        DoShutdown("receive", ex);
+        //    }
+        //}
+
+        private static readonly AsyncCallback readComplete = ReadComplete;
+        static void ReadComplete(IAsyncResult args)
         {
-            Trace("read", "async");
-            bufferOffset = bufferCount = 0;
-            if (socket.ReceiveAsync(readArgs)) return false; // not yet available
-
-            Trace("read", "data available immediately");
-            if (readArgs.SocketError == SocketError.Success)
-            {
-                bufferCount = readArgs.BytesTransferred;
-                return true; // completed and OK
-            }
-
-            // otherwise completed immediately but need to process errors etc
-            AsyncReadCompleted(socket, readArgs);
-            return false;
+            if (args.CompletedSynchronously) return;
+            var conn = (RedisConnectionBase)args.AsyncState;
+            conn.ProcessAsyncResults(args, true);
         }
-        void AsyncReadCompleted(object sender, SocketAsyncEventArgs e)
+        bool ProcessAsyncResults(IAsyncResult args, bool process)
         {
             try
             {
-                Trace("receive", "< {0}, {1}, {2} bytes", e.LastOperation, e.SocketError, e.BytesTransferred);
-                switch (e.LastOperation)
-                {
-                    case SocketAsyncOperation.Receive:
-                        switch (readArgs.SocketError)
-                        {
-                            case SocketError.Success:
-                                bufferCount = e.BytesTransferred;
-                                ReadReplyHeader();
-                                break;
-                            case SocketError.ConnectionAborted:
-                            case SocketError.OperationAborted:
-                                if (abort)
-                                { // that's OK; that means we closed our socket before the server closed his, but
-                                  // we were expecting this - treat it like an EOF
-                                    bufferCount = 0;
-                                    ReadReplyHeader();
-                                    break;
-                                }
-                                else
-                                {
-                                    throw new IOException(readArgs.SocketError.ToString());
-                                }
-                            default:
-                                throw new IOException(readArgs.SocketError.ToString());
-                        }
-                        break;
-                    default:
-                        throw new NotImplementedException(e.LastOperation.ToString());
-                }
+                bufferCount = socket.EndReceive(args);
+                Trace("receive", "< {0} bytes", bufferCount);
+                if (process) ReadReplyHeader();
+                return true;
             }
             catch (Exception ex)
             {
                 Trace("async-read error", ex.Message);
                 DoShutdown("receive", ex);
+                return false;
             }
         }
+        bool ReadMoreAsync()
+        {
+            bufferOffset = bufferCount = 0;
+            Trace("read", "async");
+            var result = socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, readComplete, this);
+            if (result.CompletedSynchronously)
+            {
+                Trace("read", "data available immediately");
+                return ProcessAsyncResults(result, false);
+            }
+            return false;
+        }
+
         /// <summary>
         /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.
         /// </summary>
@@ -1753,6 +1791,13 @@ namespace BookSleeve
             EnqueueMessage(all[all.Length - 1], queueJump);
 
         }
+        /// <summary>
+        /// The message to supply to callers when rejecting messages
+        /// </summary>
+        protected virtual string GetCannotSendMessage()
+        {
+            return string.Format("The connection has been closed ({0}); no new messages can be delivered", ShutdownType);
+        }
         internal void EnqueueMessage(RedisMessage message, bool queueJump)
         {
             bool decr = true;
@@ -1763,8 +1808,7 @@ namespace BookSleeve
                 {
                     if (queueJump || hold)
                     {
-                        if (abort) throw new InvalidOperationException(string.Format(
-                            "The connection has been closed ({0}); no new messages can be delivered", ShutdownType));
+                        if (abort) throw new InvalidOperationException(GetCannotSendMessage());
                         lock (unsent)
                         {
                             Trace("pending", "enqueued: {0}", message);

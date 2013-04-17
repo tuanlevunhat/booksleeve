@@ -11,10 +11,10 @@ namespace BookSleeve
     {
         private readonly IDictionary<int, int> dbUsage;
         private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping,
-            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress;
+            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress, lastSentMillisecondsAgo;
         internal Counters(int messagesSent, int messagesReceived, int queueJumpers, int messagesCancelled, int timeouts,
             int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks, int syncCallbacksInProgress, int asyncCallbacksInProgress,
-            int sentQueue, IDictionary<int, int> dbUsage, int ping)
+            int sentQueue, IDictionary<int, int> dbUsage, int lastSentMillisecondsAgo, int ping)
         {
             this.messagesSent = messagesSent;
             this.messagesReceived = messagesReceived;
@@ -30,7 +30,12 @@ namespace BookSleeve
             this.asyncCallbacks = asyncCallbacks;
             this.syncCallbacksInProgress = syncCallbacksInProgress;
             this.asyncCallbacksInProgress = asyncCallbacksInProgress;
+            this.lastSentMillisecondsAgo = lastSentMillisecondsAgo;
         }
+        /// <summary>
+        /// Time (in milliseconds) since the last command was sent
+        /// </summary>
+        public int LastSentMillisecondsAgo { get { return lastSentMillisecondsAgo; } }
         /// <summary>
         /// The number of callbacks executed (total) synchronously
         /// </summary>
