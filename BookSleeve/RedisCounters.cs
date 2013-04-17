@@ -107,7 +107,8 @@ namespace BookSleeve
                  .Append("Sync callbacks: ").Append(SyncCallbacks).AppendLine()
                  .Append("Async callbacks: ").Append(AsyncCallbacks).AppendLine()
                  .Append("Sync-callbacks in progress: ").Append(SyncCallbacksInProgress).AppendLine()
-                 .Append("Async-callbacks  in progress: ").Append(AsyncCallbacksInProgress).AppendLine();
+                 .Append("Async-callbacks in progress: ").Append(AsyncCallbacksInProgress).AppendLine()
+                 .Append("Last sent (ms ago): ").Append(LastSentMillisecondsAgo).AppendLine();
             int[] keys = new int[dbUsage.Count], values = new int[dbUsage.Count];
             dbUsage.Keys.CopyTo(keys, 0);
             dbUsage.Values.CopyTo(values, 0);
