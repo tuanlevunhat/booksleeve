@@ -273,7 +273,7 @@ namespace BookSleeve
             try
             {
                 OnOpening();
-                Task.Factory.StartNew(o => Connect(o), Tuple.Create(this, source), CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Default);
+                ConnectAsync(source);
                 return source.Task;
             } catch(Exception ex)
             {
@@ -282,31 +282,45 @@ namespace BookSleeve
                 throw;
             }
         }
-
-        static void Connect(object state)
+        private void ConnectAsync(TaskCompletionSource<bool> source)
         {
-            var tuple = (Tuple<RedisConnectionBase, TaskCompletionSource<bool>>)state;
-            var conn = tuple.Item1;
-            var source = tuple.Item2;
-            Trace("connect", "sync");
+            Trace("> connect", "async");
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.NoDelay = true;
+            socket.SendTimeout = this.ioTimeout;
+            var args = new SocketAsyncEventArgs {
+                RemoteEndPoint = new DnsEndPoint(this.host, this.port),
+                UserToken = source, 
+            };
+            args.Completed += ConnectAsyncComplete;
+            if (!socket.ConnectAsync(args)) ConnectAsyncComplete(socket, args);
+            
+        }
+        private void ConnectAsyncComplete(object sender, SocketAsyncEventArgs args)
+        {
+            var source = (TaskCompletionSource<bool>)args.UserToken;
             try
             {
-                var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                socket.NoDelay = true;
-                socket.SendTimeout = conn.ioTimeout;
-                socket.Connect(new DnsEndPoint(conn.host, conn.port));
-                conn.socket = socket;
-                
-                //var readArgs = new SocketAsyncEventArgs();
-                //readArgs.Completed += conn.AsyncReadCompleted;
-                //conn.readArgs = readArgs;
-                conn.InitOutbound(source);
+                Trace("< connect", "async: {0}", args.SocketError);
+                switch (args.SocketError)
+                {
+                    case SocketError.Success:
+                        this.socket = args.ConnectSocket;
+                        //var readArgs = new SocketAsyncEventArgs();
+                        //readArgs.Completed += conn.AsyncReadCompleted;
+                        //conn.readArgs = readArgs;
+                        this.InitOutbound(source);
+                        break;
+                    default:
+                        throw new SocketException((int)args.SocketError);
+                }
             }
             catch (Exception ex)
             {
-                Interlocked.CompareExchange(ref conn.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
+                Interlocked.CompareExchange(ref this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
                 source.SafeSetException(ex);
             }
+            
         }
 
 #if VERBOSE
@@ -609,10 +623,10 @@ namespace BookSleeve
         //                        }
         //                        else
         //                        {
-        //                            throw new IOException(readArgs.SocketError.ToString());
+        //                            throw new SocketException((int)readArgs.SocketError);
         //                        }
         //                    default:
-        //                        throw new IOException(readArgs.SocketError.ToString());
+        //                        throw new SocketException((int)readArgs.SocketError);
         //                }
         //                break;
         //            default:
@@ -665,7 +679,7 @@ namespace BookSleeve
                         }
                         break;
                 }
-                throw new IOException(err.ToString());
+                throw new SocketException((int)err);
             }
             catch (Exception ex)
             {

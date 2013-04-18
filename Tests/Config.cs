@@ -93,9 +93,17 @@ namespace Tests
         }
 
         [Test, ExpectedException(typeof(SocketException))]
-        public void CanNotOpenNonsenseConnection()
+        public void CanNotOpenNonsenseConnection_IP()
         {
             using (var conn = new RedisConnection("127.0.0.1", 6500))
+            {
+                conn.Wait(conn.Open());
+            }
+        }
+        [Test, ExpectedException(typeof(SocketException))]
+        public void CanNotOpenNonsenseConnection_DNS()
+        {
+            using (var conn = new RedisConnection("doesnot.exist.ds.aasd981230d.com", 6500))
             {
                 conn.Wait(conn.Open());
             }
