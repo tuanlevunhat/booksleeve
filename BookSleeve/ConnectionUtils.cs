@@ -134,11 +134,12 @@ namespace BookSleeve
             return competing[0].Node;
         }
 
-        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin, out string serviceName, out string clientName)
+        private static string[] GetConfigurationOptions(string configuration, out int syncTimeout, out bool allowAdmin, out string serviceName, out string clientName, out int keepAlive)
         {
             syncTimeout = 1000;
             allowAdmin = false;
             clientName = serviceName = null;
+            keepAlive = -1;
 
             // break it down by commas
             var arr = configuration.Split(',');
@@ -175,6 +176,12 @@ namespace BookSleeve
                         clientName = option.Substring(idx + 1).Trim();
                         continue;
                     }
+                    else if (option.StartsWith(KeepAlivePrefix))
+                    {
+                        int tmp;
+                        if (int.TryParse(option.Substring(idx + 1).Trim(), out tmp)) keepAlive = tmp;
+                        continue;
+                    }
                 }
 
                 options.Add(option);
@@ -183,7 +190,7 @@ namespace BookSleeve
         }
 
         internal const string AllowAdminPrefix = "allowAdmin=", SyncTimeoutPrefix = "syncTimeout=",
-            ServiceNamePrefix = "serviceName=", ClientNamePrefix = "name=";
+            ServiceNamePrefix = "serviceName=", ClientNamePrefix = "name=", KeepAlivePrefix = "keepAlive=";
         
         [Conditional("VERBOSE")]
         static void TraceWriteTime(string state)
@@ -197,11 +204,12 @@ namespace BookSleeve
             TraceWriteTime("Start: " + configuration);
             if (tieBreakerKey == null) tieBreakerKey = "__Booksleeve_TieBreak"; // default tie-breaker key
             int syncTimeout;
+            int keepAlive;
             bool allowAdmin;
             string serviceName;
             string clientName;
             if(log == null) log = new StringWriter();
-            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName, out clientName);
+            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName, out clientName, out keepAlive);
             if (!string.IsNullOrWhiteSpace(newMaster)) allowAdmin = true; // need this to diddle the slave/master config
 
             log.WriteLine("{0} unique nodes specified", arr.Length);
@@ -242,6 +250,7 @@ namespace BookSleeve
                         conn = new RedisConnection(host, port, syncTimeout: syncTimeout, allowAdmin: allowAdmin);
                         conn.Name = clientName;
                         log.WriteLine("Opening connection to {0}:{1}...", host, port);
+                        if (keepAlive >= 0) conn.SetKeepAlive(keepAlive);
                         conn.Open();
                         var info = conn.GetInfoImpl(null, false, false);
                         var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
@@ -355,6 +364,7 @@ namespace BookSleeve
                         { // good bet that in this scenario the input didn't specify any actual redis servers, so we'll assume open a new one
                             log.WriteLine("Opening nominated master: {0}:{1}...", finalChoice.Item1, finalChoice.Item2);
                             toBeDisposed = new RedisConnection(finalChoice.Item1, finalChoice.Item2, allowAdmin: allowAdmin, syncTimeout: syncTimeout);
+                            if (keepAlive >= 0) toBeDisposed.SetKeepAlive(keepAlive);
                             toBeDisposed.Wait(toBeDisposed.Open());
                             if (toBeDisposed.ServerType == ServerType.Master)
                             {
