@@ -30,6 +30,7 @@ namespace Tests
                 var result = conn.Wait(conn.Scripting.Eval(0, "return redis.call('info','server')", null, null));
             }
         }
+
         [Test]
         public void BasicScripting()
         {

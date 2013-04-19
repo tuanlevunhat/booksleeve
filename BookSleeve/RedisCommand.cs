@@ -773,7 +773,11 @@ namespace BookSleeve
             {
                 // preconditions failed; ABORT
                 conn.WriteMessage(ref currentDb, RedisMessage.Create(-1, RedisLiteral.UNWATCH).ExpectOk().Critical(), null);
-                exec.Complete(RedisResult.Multi(null), false); // spoof a rollback; same appearance to the caller
+
+                // even though these weren't written, we still need to mark them cancelled
+                exec.Abort(pending);
+                // spoof a rollback; same appearance to the caller
+                exec.Complete(RedisResult.Multi(null), false);
             }
         }
 
@@ -853,6 +857,20 @@ namespace BookSleeve
             this.queued = queued.ToArray();
         }
 
+        public void Abort(RedisMessage[] messages)
+        {
+            if (messages != null)
+            {
+                for (int i = 0; i < messages.Length; i++)
+                {
+                    var reply = RedisResult.Cancelled;
+                    RedisConnectionBase.CallbackMode callbackMode;
+                    var ctx = parent.ProcessReply(ref reply, messages[i], out callbackMode);
+                    RedisConnectionBase.Trace("transaction", "{0} = {1}", ctx, reply);
+                    parent.ProcessCallbacks(ctx, reply, callbackMode);
+                }
+            }
+        }
         void SetInnerReplies(RedisResult result)
         {
             if (queued != null)
@@ -860,8 +878,10 @@ namespace BookSleeve
                 for (int i = 0; i < queued.Length; i++)
                 {
                     var reply = result; // need to be willing for this to be mutated
-                    var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
-                    parent.ProcessCallbacks(ctx, reply);
+                    RedisConnectionBase.CallbackMode callbackMode;
+                    var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage, out callbackMode);
+                    RedisConnectionBase.Trace("transaction", "{0} = {1}", ctx, reply);
+                    parent.ProcessCallbacks(ctx, reply, callbackMode);
                 }
             }
         }
@@ -869,13 +889,15 @@ namespace BookSleeve
         {
             if (result.IsCancellation)
             {
-                completion.TrySetCanceled();
+                RedisConnectionBase.Trace("transaction", "cancelled");
                 SetInnerReplies(result);
+                completion.TrySetCanceled();
             }
             else if (result.IsError)
             {
-                completion.SafeSetException(result.Error());
+                RedisConnectionBase.Trace("transaction", "error");
                 SetInnerReplies(result);
+                completion.SafeSetException(result.Error());
             }
             else
             {
@@ -883,6 +905,7 @@ namespace BookSleeve
                 {
                     if (result.IsNil)
                     {   // aborted
+                        RedisConnectionBase.Trace("transaction", "aborted");
                         SetInnerReplies(RedisResult.Cancelled);
                         completion.TrySetResult(false);
                     }
@@ -892,11 +915,14 @@ namespace BookSleeve
                         if (items.Length != (queued == null ? 0 : queued.Length))
                             throw new InvalidOperationException(string.Format("{0} results expected, {1} received", queued.Length, items.Length));
 
+                        RedisConnectionBase.Trace("transaction", "success");
                         for (int i = 0; i < items.Length; i++)
                         {
                             RedisResult reply = items[i];
-                            var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage);
-                            parent.ProcessCallbacks(ctx, reply);
+                            RedisConnectionBase.CallbackMode callbackMode;
+                            var ctx = parent.ProcessReply(ref reply, queued[i].InnerMessage, out callbackMode);
+                            RedisConnectionBase.Trace("transaction", "{0} = {1}", ctx, reply);
+                            parent.ProcessCallbacks(ctx, reply, callbackMode);
                         }
                         completion.TrySetResult(true);
                     }

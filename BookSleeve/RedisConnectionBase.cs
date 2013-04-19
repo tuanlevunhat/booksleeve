@@ -664,7 +664,7 @@ namespace BookSleeve
                     bytesRead = tmp.EndReceive(args, out err);
                 }
                 Trace("receive", "< {0}, {1} bytes", err, bytesRead);
-                switch(err)
+                switch (err)
                 {
                     case SocketError.Success:
                         bufferCount = bytesRead;
@@ -680,6 +680,15 @@ namespace BookSleeve
                         break;
                 }
                 throw new SocketException((int)err);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                if (!abort)
+                {
+                    Trace("async-read error", ex.Message);
+                    DoShutdown("receive", ex);
+                }
+                return false;
             }
             catch (Exception ex)
             {
@@ -863,6 +872,12 @@ namespace BookSleeve
             Async, SyncChecked, SyncUnchecked,
             Continuation, NoContinuation
         }
+
+        /// <summary>
+        /// How frequently should keep-alives be sent?
+        /// </summary>
+        protected virtual int KeepAliveSeconds { get { return -1; } }
+
         private void ReadReplyHeader()
         {
             try
@@ -891,53 +906,7 @@ namespace BookSleeve
                             OnError("Redis server", result.Error(), false);
                         }
 
-                        switch (callbackMode)
-                        {
-                            case CallbackMode.Continuation:
-                                // has a continuation, so will be async if "Concurrent" or "ConcurrentIfContination"
-                                // - only sync if PreserveOrder
-                                callbackMode = completionMode == ResultCompletionMode.PreserveOrder
-                                    ? CallbackMode.SyncChecked : CallbackMode.Async;
-                                break;
-                            case CallbackMode.NoContinuation:
-                                // has no continuation, so will be async if "Concurrent"
-                                callbackMode = completionMode == ResultCompletionMode.Concurrent
-                                    ? CallbackMode.Async : CallbackMode.SyncChecked;
-                                break;
-                            // otherwise, we'll trust the values already assigned
-                        }
-
-                        switch(callbackMode)
-                        {
-                            case CallbackMode.SyncChecked:
-                                Interlocked.Increment(ref this.syncCallbacks);
-                                Interlocked.Increment(ref this.syncCallbacksInProgress);
-#if DEBUG
-                                Interlocked.Increment(ref allSyncCallbacks);
-#endif
-                                syncCompleteThreadId = CurrentThreadId;
-                                ProcessCallbacks(this, ctx, result, false);
-                                syncCompleteThreadId = -1;
-                                break;
-                            case CallbackMode.SyncUnchecked:
-                                Interlocked.Increment(ref this.syncCallbacks);
-                                Interlocked.Increment(ref this.syncCallbacksInProgress);
-#if DEBUG
-                                Interlocked.Increment(ref allSyncCallbacks);
-#endif
-                                ProcessCallbacks(this, ctx, result, false);
-                                break;
-                            case CallbackMode.Async:
-                            default:
-                                Interlocked.Increment(ref this.asyncCallbacks);
-                                Interlocked.Increment(ref this.asyncCallbacksInProgress);
-#if DEBUG
-                                Interlocked.Increment(ref allAsyncCallbacks);
-#endif
-                                var state = Tuple.Create(this, ctx, result);
-                                ThreadPool.QueueUserWorkItem(processCallbacksAsync, state);
-                                break;
-                        }
+                        ProcessCallbacks(ctx, result, callbackMode);
                         Trace("reply-header", "check for more");
                     }
                     Trace("reply-header", "@ buffer empty");
@@ -948,6 +917,57 @@ namespace BookSleeve
             {
                 Trace("reply-header", ex.Message);
                 DoShutdown("Invalid inbound stream", ex);
+            }
+        }
+
+        internal void ProcessCallbacks(object ctx, RedisResult result, CallbackMode callbackMode)
+        {
+            switch (callbackMode)
+            {
+                case CallbackMode.Continuation:
+                    // has a continuation, so will be async if "Concurrent" or "ConcurrentIfContination"
+                    // - only sync if PreserveOrder
+                    callbackMode = completionMode == ResultCompletionMode.PreserveOrder
+                        ? CallbackMode.SyncChecked : CallbackMode.Async;
+                    break;
+                case CallbackMode.NoContinuation:
+                    // has no continuation, so will be async if "Concurrent"
+                    callbackMode = completionMode == ResultCompletionMode.Concurrent
+                        ? CallbackMode.Async : CallbackMode.SyncChecked;
+                    break;
+                // otherwise, we'll trust the values already assigned
+            }
+
+            switch (callbackMode)
+            {
+                case CallbackMode.SyncChecked:
+                    Interlocked.Increment(ref this.syncCallbacks);
+                    Interlocked.Increment(ref this.syncCallbacksInProgress);
+#if DEBUG
+                    Interlocked.Increment(ref allSyncCallbacks);
+#endif
+                    syncCompleteThreadId = CurrentThreadId;
+                    ProcessCallbacks(this, ctx, result, false);
+                    syncCompleteThreadId = -1;
+                    break;
+                case CallbackMode.SyncUnchecked:
+                    Interlocked.Increment(ref this.syncCallbacks);
+                    Interlocked.Increment(ref this.syncCallbacksInProgress);
+#if DEBUG
+                    Interlocked.Increment(ref allSyncCallbacks);
+#endif
+                    ProcessCallbacks(this, ctx, result, false);
+                    break;
+                case CallbackMode.Async:
+                default:
+                    Interlocked.Increment(ref this.asyncCallbacks);
+                    Interlocked.Increment(ref this.asyncCallbacksInProgress);
+#if DEBUG
+                    Interlocked.Increment(ref allAsyncCallbacks);
+#endif
+                    var state = Tuple.Create(this, ctx, result);
+                    ThreadPool.QueueUserWorkItem(processCallbacksAsync, state);
+                    break;
             }
         }
         private int syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress;
@@ -969,7 +989,7 @@ namespace BookSleeve
             try
             {
                 Trace("callback", "processing callback for: {0}", result);
-                connection.ProcessCallbacks(ctx, result);
+                connection.ProcessCallbacksImpl(ctx, result);
                 Trace("callback", "processed callback");
             }
             catch (Exception ex)
@@ -1030,12 +1050,10 @@ namespace BookSleeve
                 if (count == 1) Monitor.Pulse(sent); // in case the outbound stream is closing and needs to know we're up-to-date
             }
             
-            var tmp = ProcessReply(ref result, message);
-            callbackMode = message.CallbackMode;
-            return tmp;
+            return ProcessReply(ref result, message, out callbackMode);
         }
 
-        internal virtual object ProcessReply(ref RedisResult result, RedisMessage message)
+        internal virtual object ProcessReply(ref RedisResult result, RedisMessage message, out CallbackMode callbackMode)
         {
             byte[] expected;
             if (!result.IsError && (expected = message.Expected) != null)
@@ -1048,9 +1066,10 @@ namespace BookSleeve
             {
                 throw new RedisException("A critical operation failed: " + message.ToString());
             }
+            callbackMode = message.CallbackMode;
             return message;
         }
-        internal virtual void ProcessCallbacks(object ctx, RedisResult result)
+        internal virtual void ProcessCallbacksImpl(object ctx, RedisResult result)
         {
             if(ctx != null) CompleteMessage((RedisMessage)ctx, result);
         }
@@ -1912,8 +1931,9 @@ namespace BookSleeve
                     var next = unsent.Dequeue();
                     Trace("cancelunsent", "aborting {0}", next);
                     RedisResult result = RedisResult.Cancelled;
-                    object ctx = ProcessReply(ref result, next);
-                    ProcessCallbacks(ctx, result);
+                    RedisConnectionBase.CallbackMode callbackMode;
+                    object ctx = ProcessReply(ref result, next, out callbackMode);
+                    ProcessCallbacks(ctx, result, callbackMode);
                 }
             }
         }

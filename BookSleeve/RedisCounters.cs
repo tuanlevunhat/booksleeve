@@ -11,10 +11,10 @@ namespace BookSleeve
     {
         private readonly IDictionary<int, int> dbUsage;
         private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping,
-            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress, lastSentMillisecondsAgo;
+            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress, lastSentMillisecondsAgo, keepAliveSeconds;
         internal Counters(int messagesSent, int messagesReceived, int queueJumpers, int messagesCancelled, int timeouts,
             int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks, int syncCallbacksInProgress, int asyncCallbacksInProgress,
-            int sentQueue, IDictionary<int, int> dbUsage, int lastSentMillisecondsAgo, int ping)
+            int sentQueue, IDictionary<int, int> dbUsage, int lastSentMillisecondsAgo, int keepAliveSeconds, int ping)
         {
             this.messagesSent = messagesSent;
             this.messagesReceived = messagesReceived;
@@ -31,7 +31,12 @@ namespace BookSleeve
             this.syncCallbacksInProgress = syncCallbacksInProgress;
             this.asyncCallbacksInProgress = asyncCallbacksInProgress;
             this.lastSentMillisecondsAgo = lastSentMillisecondsAgo;
+            this.keepAliveSeconds = keepAliveSeconds;
         }
+        /// <summary>
+        /// How frequently should keep-alives be sent?
+        /// </summary>
+        public int KeepAliveSeconds { get { return keepAliveSeconds; } }
         /// <summary>
         /// Time (in milliseconds) since the last command was sent
         /// </summary>
@@ -100,7 +105,7 @@ namespace BookSleeve
                  .Append("Cancelled: ").Append(MessagesCancelled).AppendLine()
                  .Append("Timeouts: ").Append(Timeouts).AppendLine()
                  .Append("Queue jumpers: ").Append(QueueJumpers).AppendLine()
-                 .Append("Ping ms: ").Append(Ping).AppendLine()
+                 .Append("Ping (ms): ").Append(Ping).AppendLine()
                  .Append("Sent queue: ").Append(SentQueue).AppendLine()
                  .Append("Unsent queue: ").Append(UnsentQueue).AppendLine()
                  .Append("Error messages: ").Append(ErrorMessages).AppendLine()
@@ -108,7 +113,8 @@ namespace BookSleeve
                  .Append("Async callbacks: ").Append(AsyncCallbacks).AppendLine()
                  .Append("Sync-callbacks in progress: ").Append(SyncCallbacksInProgress).AppendLine()
                  .Append("Async-callbacks in progress: ").Append(AsyncCallbacksInProgress).AppendLine()
-                 .Append("Last sent (ms ago): ").Append(LastSentMillisecondsAgo).AppendLine();
+                 .Append("Last sent (ms ago): ").Append(LastSentMillisecondsAgo).AppendLine()
+                 .Append("Keep-alive (seconds): ").Append(KeepAliveSeconds).AppendLine();
             int[] keys = new int[dbUsage.Count], values = new int[dbUsage.Count];
             dbUsage.Keys.CopyTo(keys, 0);
             dbUsage.Values.CopyTo(values, 0);

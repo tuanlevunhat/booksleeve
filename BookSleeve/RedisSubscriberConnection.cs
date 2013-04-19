@@ -177,7 +177,7 @@ namespace BookSleeve
             ReleaseHeldMessages();
         }
 
-        internal override void ProcessCallbacks(object ctx, RedisResult result)
+        internal override void ProcessCallbacksImpl(object ctx, RedisResult result)
         {
             RedisResult[] subItems;
             bool callBase = true;
@@ -212,7 +212,7 @@ namespace BookSleeve
 
             if (ctx != null && callBase) // don't call down to the base for things that aren't related to outbound messages
             {
-                base.ProcessCallbacks(ctx, result);
+                base.ProcessCallbacksImpl(ctx, result);
             }
         }
         private int subscriptionCount;

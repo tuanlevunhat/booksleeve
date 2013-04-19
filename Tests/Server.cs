@@ -248,6 +248,34 @@ namespace Tests
                 Assert.AreEqual(ShutdownType.ClientDisposed, conn.ShutdownType);
             }
         }
+
+        [Test]
+        public void TestLastSentCounter()
+        {
+            using (var db = Config.GetUnsecuredConnection(open: false))
+            {
+                db.SetServerVersion(new Version("2.6.0"), ServerType.Master);
+                db.SetKeepAlive(0); // turn off keep-alives so we don't get unexpected pings
+
+                db.Wait(db.Open());
+                db.Wait(db.Server.Ping());
+                var first = db.GetCounters(false);
+                Assert.LessOrEqual(0, 1, "0 <= 1");
+                Assert.LessOrEqual(first.LastSentMillisecondsAgo, 100, "first");
+
+                Thread.Sleep(2000);
+                var second = db.GetCounters(false);
+                Assert.GreaterOrEqual(1, 0, "1 >= 0");
+                Assert.GreaterOrEqual(second.LastSentMillisecondsAgo, 1900, "second");
+                Assert.LessOrEqual(second.LastSentMillisecondsAgo, 2100, "second");
+
+                db.Wait(db.Server.Ping());
+                var third = db.GetCounters(false);
+                Assert.LessOrEqual(0, 1, "0 <= 1");
+                Assert.LessOrEqual(third.LastSentMillisecondsAgo, 100, "third");
+            }
+        }
+
         [Test]
         public void TestKeepAlive()
         {
@@ -262,11 +290,11 @@ namespace Tests
                 using (var db  = Config.GetUnsecuredConnection(allowAdmin: false, waitForOpen:true))
                 {
                     var before = db.GetCounters(false);
-                    Thread.Sleep(13 * 1000); // should be pinging every 4 seconds; ((20 - 15) * 4) / 5 = 4s
+                    Assert.AreEqual(4, before.KeepAliveSeconds, "keep-alive"); // should be pinging every 4 seconds; ((20 - 15) * 4) / 5 = 4s
+                    Thread.Sleep(13 * 1000); 
                     var after = db.GetCounters(false); 
                     // 3 here is 2 * keep-alive, and one PING in GetCounters()
                     int sent = after.MessagesSent - before.MessagesSent;
-                    Console.WriteLine(sent);
                     Assert.GreaterOrEqual(1, 0);
                     Assert.GreaterOrEqual(sent, 3);
                     Assert.LessOrEqual(0, 4);
