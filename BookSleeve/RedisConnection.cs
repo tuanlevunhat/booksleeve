@@ -92,6 +92,12 @@ namespace BookSleeve
             conn.Open();
             return conn;
         }
+
+        /// <summary>
+        /// How frequently should keep-alives be sent?
+        /// </summary>
+        protected override int KeepAliveSeconds { get { return keepAliveSeconds; } }
+
         /// <summary>
         /// Configures an automatic keep-alive PING at a pre-determined interval; this is especially
         /// useful if CONFIG GET is not available.
@@ -280,7 +286,7 @@ namespace BookSleeve
                 messagesSent, messagesReceived, queueJumpers, messagesCancelled,
                 timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress,
                 GetSentCount(),
-                GetDbUsage(), LastSentMillisecondsAgo,
+                GetDbUsage(), LastSentMillisecondsAgo, KeepAliveSeconds,
                 // important that ping happens last, as this may artificially drain the queues
                 allowTalkToServer ? (int)Wait(Server.Ping()) : -1
             );
