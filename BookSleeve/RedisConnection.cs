@@ -148,6 +148,7 @@ namespace BookSleeve
             get
             {
                 int then = lastSentKeepAliveTicks, now = Environment.TickCount;
+                if (then == 0) return -1;
                 const int MSB = 1 << 31;
                 if ((now & MSB) != (then & MSB)) // the sign has flipped; Ticks is only the same siugn for 24.9 days at a time
                     return -1;
