@@ -306,9 +306,10 @@ namespace BookSleeve
                 {
                     case SocketError.Success:
                         this.socket = args.ConnectSocket;
-                        //var readArgs = new SocketAsyncEventArgs();
-                        //readArgs.Completed += conn.AsyncReadCompleted;
-                        //conn.readArgs = readArgs;
+                        var readArgs = new SocketAsyncEventArgs();
+                        readArgs.Completed += this.AsyncReadCompleted;
+                        readArgs.SetBuffer(buffer, 0, buffer.Length);
+                        this.readArgs = readArgs;
                         this.InitOutbound(source);
                         break;
                     default:
@@ -391,7 +392,7 @@ namespace BookSleeve
             }
         }
 #endif
-        //private SocketAsyncEventArgs readArgs;
+        private SocketAsyncEventArgs readArgs;
         void InitOutbound(TaskCompletionSource<bool> source)
         {
             try {
@@ -580,135 +581,135 @@ namespace BookSleeve
             return null;
         }
 
-        //bool ReadMoreAsync()
-        //{
-        //    Trace("read", "async");
-        //    bufferOffset = bufferCount = 0;
-        //    if (socket.ReceiveAsync(readArgs)) return false; // not yet available
-
-        //    Trace("read", "data available immediately");
-        //    if (readArgs.SocketError == SocketError.Success)
-        //    {
-        //        bufferCount = readArgs.BytesTransferred;
-        //        return true; // completed and OK
-        //    }
-
-        //    // otherwise completed immediately but need to process errors etc
-        //    AsyncReadCompleted(socket, readArgs);
-        //    return false;
-        //}
-        //
-        //void AsyncReadCompleted(object sender, SocketAsyncEventArgs e)
-        //{
-        //    try
-        //    {
-        //        Trace("receive", "< {0}, {1}, {2} bytes", e.LastOperation, e.SocketError, e.BytesTransferred);
-        //        switch (e.LastOperation)
-        //        {
-        //            case SocketAsyncOperation.Receive:
-        //                switch (readArgs.SocketError)
-        //                {
-        //                    case SocketError.Success:
-        //                        bufferCount = e.BytesTransferred;
-        //                        ReadReplyHeader();
-        //                        break;
-        //                    case SocketError.ConnectionAborted:
-        //                    case SocketError.OperationAborted:
-        //                        if (abort)
-        //                        { // that's OK; that means we closed our socket before the server closed his, but
-        //                            // we were expecting this - treat it like an EOF
-        //                            bufferCount = 0;
-        //                            ReadReplyHeader();
-        //                            break;
-        //                        }
-        //                        else
-        //                        {
-        //                            throw new SocketException((int)readArgs.SocketError);
-        //                        }
-        //                    default:
-        //                        throw new SocketException((int)readArgs.SocketError);
-        //                }
-        //                break;
-        //            default:
-        //                throw new NotImplementedException(e.LastOperation.ToString());
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Trace("async-read error", ex.Message);
-        //        DoShutdown("receive", ex);
-        //    }
-        //}
-
-        private static readonly AsyncCallback readComplete = ReadComplete;
-        static void ReadComplete(IAsyncResult args)
+        bool ReadMoreAsync()
         {
-            if (args.CompletedSynchronously) return;
-            var conn = (RedisConnectionBase)args.AsyncState;
-            if (conn.ProcessAsyncResults(args)) conn.ReadReplyHeader();
+            Trace("read", "async");
+            bufferOffset = bufferCount = 0;
+            if (socket.ReceiveAsync(readArgs)) return false; // not yet available
+
+            Trace("read", "data available immediately");
+            if (readArgs.SocketError == SocketError.Success)
+            {
+                bufferCount = readArgs.BytesTransferred;
+                return true; // completed and OK
+            }
+
+            // otherwise completed immediately but still need to process errors etc
+            AsyncReadCompleted(socket, readArgs);
+            return false;
         }
-        bool ProcessAsyncResults(IAsyncResult args)
+
+        void AsyncReadCompleted(object sender, SocketAsyncEventArgs e)
         {
             try
             {
-                SocketError err;
-                int bytesRead;
-                var tmp = socket;
-                if (tmp == null)
+                Trace("receive", "< {0}, {1}, {2} bytes", e.LastOperation, e.SocketError, e.BytesTransferred);
+                switch (e.LastOperation)
                 {
-                    bufferCount = 0;
-                    return false; // already shutdown
-                }
-                else
-                {
-                    bytesRead = tmp.EndReceive(args, out err);
-                }
-                Trace("receive", "< {0}, {1} bytes", err, bytesRead);
-                switch (err)
-                {
-                    case SocketError.Success:
-                        bufferCount = bytesRead;
-                        return true;
-                    case SocketError.ConnectionAborted:
-                    case SocketError.OperationAborted:
-                        if (abort)
-                        { // that's OK; that means we closed our socket before the server closed his, but
-                            // we were expecting this - treat it like an EOF
-                            bufferCount = 0;
-                            return true;
+                    case SocketAsyncOperation.Receive:
+                        switch (readArgs.SocketError)
+                        {
+                            case SocketError.Success:
+                                bufferCount = e.BytesTransferred;
+                                ReadReplyHeader();
+                                break;
+                            case SocketError.ConnectionAborted:
+                            case SocketError.OperationAborted:
+                                if (abort)
+                                { // that's OK; that means we closed our socket before the server closed his, but
+                                    // we were expecting this - treat it like an EOF
+                                    bufferCount = 0;
+                                    ReadReplyHeader();
+                                    break;
+                                }
+                                else
+                                {
+                                    throw new SocketException((int)readArgs.SocketError);
+                                }
+                            default:
+                                throw new SocketException((int)readArgs.SocketError);
                         }
                         break;
+                    default:
+                        throw new NotImplementedException(e.LastOperation.ToString());
                 }
-                throw new SocketException((int)err);
-            }
-            catch (ObjectDisposedException ex)
-            {
-                if (!abort)
-                {
-                    Trace("async-read error", ex.Message);
-                    DoShutdown("receive", ex);
-                }
-                return false;
             }
             catch (Exception ex)
             {
                 Trace("async-read error", ex.Message);
                 DoShutdown("receive", ex);
-                return false;
             }
         }
-        bool ReadMoreAsync()
-        {
-            bufferOffset = bufferCount = 0;
-            Trace("read", "async");
-            var result = socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, readComplete, this);
-            if (result.CompletedSynchronously)
-            {
-                Trace("read", "data available immediately");
-                return ProcessAsyncResults(result);
-            }
-            return false;
-        }
+
+        //private static readonly AsyncCallback readComplete = ReadComplete;
+        //static void ReadComplete(IAsyncResult args)
+        //{
+        //    if (args.CompletedSynchronously) return;
+        //    var conn = (RedisConnectionBase)args.AsyncState;
+        //    if (conn.ProcessAsyncResults(args)) conn.ReadReplyHeader();
+        //}
+        //bool ProcessAsyncResults(IAsyncResult args)
+        //{
+        //    try
+        //    {
+        //        SocketError err;
+        //        int bytesRead;
+        //        var tmp = socket;
+        //        if (tmp == null)
+        //        {
+        //            bufferCount = 0;
+        //            return false; // already shutdown
+        //        }
+        //        else
+        //        {
+        //            bytesRead = tmp.EndReceive(args, out err);
+        //        }
+        //        Trace("receive", "< {0}, {1} bytes", err, bytesRead);
+        //        switch (err)
+        //        {
+        //            case SocketError.Success:
+        //                bufferCount = bytesRead;
+        //                return true;
+        //            case SocketError.ConnectionAborted:
+        //            case SocketError.OperationAborted:
+        //                if (abort)
+        //                { // that's OK; that means we closed our socket before the server closed his, but
+        //                    // we were expecting this - treat it like an EOF
+        //                    bufferCount = 0;
+        //                    return true;
+        //                }
+        //                break;
+        //        }
+        //        throw new SocketException((int)err);
+        //    }
+        //    catch (ObjectDisposedException ex)
+        //    {
+        //        if (!abort)
+        //        {
+        //            Trace("async-read error", ex.Message);
+        //            DoShutdown("receive", ex);
+        //        }
+        //        return false;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Trace("async-read error", ex.Message);
+        //        DoShutdown("receive", ex);
+        //        return false;
+        //    }
+        //}
+        //bool ReadMoreAsync()
+        //{
+        //    bufferOffset = bufferCount = 0;
+        //    Trace("read", "async");
+        //    var result = socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, readComplete, this);
+        //    if (result.CompletedSynchronously)
+        //    {
+        //        Trace("read", "data available immediately");
+        //        return ProcessAsyncResults(result);
+        //    }
+        //    return false;
+        //}
 
         /// <summary>
         /// The INFO command returns information and statistics about the server in format that is simple to parse by computers and easy to red by humans.

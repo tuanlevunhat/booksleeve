@@ -161,11 +161,11 @@ namespace BookSleeve
         {
             if (State == ConnectionState.Open)
             {
-                // ping if nothing sent in *half* the interval; for example, if keep-alive is every 3 seconds we'll
-                // send a PING if nothing was written in the last 1.5 seconds
+                // ping if nothing sent in *3/4* the interval; for example, if keep-alive is every 4 seconds we'll
+                // send a PING if nothing was written in the last 3 seconds
 
                 int millis = LastSentMillisecondsAgo;
-                if(millis < 0 || millis > (keepAliveSeconds * 500))
+                if(millis < 0 || millis > (keepAliveSeconds * 750))
                 {
                     Trace("keep-alive", "ping");
                     lastSentKeepAliveTicks = Environment.TickCount;
