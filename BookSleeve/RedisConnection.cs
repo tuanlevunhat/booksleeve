@@ -109,7 +109,7 @@ namespace BookSleeve
             if (seconds > 0)
             {
                 Trace("keep-alive", "set to {0} seconds", seconds);
-                timer = new System.Timers.Timer(seconds * 1000);
+                timer = new System.Timers.Timer(seconds * 500); // check twice in the interval; Tick will decide which (if either) to use
                 timer.Elapsed += (tick ?? (tick = Tick));
                 timer.Start();
             }
