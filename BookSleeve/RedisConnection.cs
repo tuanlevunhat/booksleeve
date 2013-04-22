@@ -142,6 +142,19 @@ namespace BookSleeve
                 return now - then;
             }
         }
+
+        private int LastKeepAliveMillisecondsAgo
+        {
+            get
+            {
+                int then = lastSentKeepAliveTicks, now = Environment.TickCount;
+                const int MSB = 1 << 31;
+                if ((now & MSB) != (then & MSB)) // the sign has flipped; Ticks is only the same siugn for 24.9 days at a time
+                    return -1;
+                return now - then;
+            }
+        }
+
         private System.Timers.ElapsedEventHandler tick;
         void Tick(object sender, System.Timers.ElapsedEventArgs e)
         {
@@ -154,11 +167,12 @@ namespace BookSleeve
                 if(millis < 0 || millis > (keepAliveSeconds * 500))
                 {
                     Trace("keep-alive", "ping");
+                    lastSentKeepAliveTicks = Environment.TickCount;
                     PingImpl(true, duringInit: false);
                 }
             }
         }
-        private volatile int lastSentTicks;
+        private volatile int lastSentTicks, lastSentKeepAliveTicks;
 
         void StopKeepAlive()
         {
@@ -286,7 +300,7 @@ namespace BookSleeve
                 messagesSent, messagesReceived, queueJumpers, messagesCancelled,
                 timeouts, unsent, errorMessages, syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress,
                 GetSentCount(),
-                GetDbUsage(), LastSentMillisecondsAgo, KeepAliveSeconds,
+                GetDbUsage(), LastSentMillisecondsAgo, LastKeepAliveMillisecondsAgo, KeepAliveSeconds, State,
                 // important that ping happens last, as this may artificially drain the queues
                 allowTalkToServer ? (int)Wait(Server.Ping()) : -1
             );

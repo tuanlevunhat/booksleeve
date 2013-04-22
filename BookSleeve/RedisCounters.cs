@@ -11,10 +11,11 @@ namespace BookSleeve
     {
         private readonly IDictionary<int, int> dbUsage;
         private readonly int messagesSent, messagesReceived, queueJumpers, messagesCancelled, timeouts, unsentQueue, sentQueue, errorMessages, ping,
-            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress, lastSentMillisecondsAgo, keepAliveSeconds;
+            syncCallbacks, asyncCallbacks, syncCallbacksInProgress, asyncCallbacksInProgress, lastSentMillisecondsAgo, lastKeepAliveMillisecondsAgo, keepAliveSeconds;
+        private readonly RedisConnectionBase.ConnectionState state;
         internal Counters(int messagesSent, int messagesReceived, int queueJumpers, int messagesCancelled, int timeouts,
             int unsentQueue, int errorMessages, int syncCallbacks, int asyncCallbacks, int syncCallbacksInProgress, int asyncCallbacksInProgress,
-            int sentQueue, IDictionary<int, int> dbUsage, int lastSentMillisecondsAgo, int keepAliveSeconds, int ping)
+            int sentQueue, IDictionary<int, int> dbUsage, int lastSentMillisecondsAgo, int lastKeepAliveMillisecondsAgo, int keepAliveSeconds, RedisConnectionBase.ConnectionState state, int ping)
         {
             this.messagesSent = messagesSent;
             this.messagesReceived = messagesReceived;
@@ -31,7 +32,9 @@ namespace BookSleeve
             this.syncCallbacksInProgress = syncCallbacksInProgress;
             this.asyncCallbacksInProgress = asyncCallbacksInProgress;
             this.lastSentMillisecondsAgo = lastSentMillisecondsAgo;
+            this.lastKeepAliveMillisecondsAgo = lastKeepAliveMillisecondsAgo;
             this.keepAliveSeconds = keepAliveSeconds;
+            this.state = state;
         }
         /// <summary>
         /// How frequently should keep-alives be sent?
@@ -41,6 +44,14 @@ namespace BookSleeve
         /// Time (in milliseconds) since the last command was sent
         /// </summary>
         public int LastSentMillisecondsAgo { get { return lastSentMillisecondsAgo; } }
+        /// <summary>
+        /// Time (in milliseconds) since the last command was sent explicitly because of a keep-alive
+        /// </summary>
+        public int LastKeepAliveMillisecondsAgo { get { return lastKeepAliveMillisecondsAgo; } }
+        /// <summary>
+        /// The state of the server connection
+        /// </summary>
+        public RedisConnectionBase.ConnectionState State { get { return state; } }
         /// <summary>
         /// The number of callbacks executed (total) synchronously
         /// </summary>
@@ -114,7 +125,9 @@ namespace BookSleeve
                  .Append("Sync-callbacks in progress: ").Append(SyncCallbacksInProgress).AppendLine()
                  .Append("Async-callbacks in progress: ").Append(AsyncCallbacksInProgress).AppendLine()
                  .Append("Last sent (ms ago): ").Append(LastSentMillisecondsAgo).AppendLine()
-                 .Append("Keep-alive (seconds): ").Append(KeepAliveSeconds).AppendLine();
+                 .Append("Last keep-alive (ms ago): ").Append(LastKeepAliveMillisecondsAgo).AppendLine()
+                 .Append("Keep-alive (seconds): ").Append(KeepAliveSeconds).AppendLine()
+                 .Append("State: ").Append(State).AppendLine();
             int[] keys = new int[dbUsage.Count], values = new int[dbUsage.Count];
             dbUsage.Keys.CopyTo(keys, 0);
             dbUsage.Values.CopyTo(values, 0);
