@@ -14,6 +14,11 @@ namespace Tests
     public class Connections // http://redis.io/commands#connection
     {
         [Test]
+        public void TestConnectWithDownedNodeMustBeFast_multipletimes()
+        {
+            for (int i = 0; i < 5; i++) TestConnectWithDownedNodeMustBeFast();
+        }
+        [Test]
         public void TestConnectWithDownedNodeMustBeFast()
         {
             using (var good = ConnectionUtils.Connect("localhost:6379"))

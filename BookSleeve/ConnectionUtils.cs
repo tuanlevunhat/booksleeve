@@ -274,7 +274,11 @@ namespace BookSleeve
                 var breakerScores = new Dictionary<string, int>();
 
                 TraceWriteTime("Wait for infos");
-                Task.WaitAll(tiebreakers, syncTimeout);
+                try
+                {
+                    Task.WaitAll(tiebreakers, syncTimeout);
+                }
+                catch { /* readily ignore some fail here */ }
                 for (int i = 0; i < tiebreakers.Length; i++ )
                 {
                     var tiebreak = tiebreakers[i];
@@ -291,6 +295,11 @@ namespace BookSleeve
                         else
                         {
                             infos[i] = null; // forget it; took too long
+
+                            if (tiebreak.IsFaulted)
+                            {
+                                GC.KeepAlive(tiebreak.Exception); // just an opaque method to show we've looked
+                            }
                         }
                     }
                     catch { /* if a node is down, that's fine too */ }
