@@ -278,7 +278,7 @@ namespace BookSleeve
             } catch(Exception ex)
             {
                 source.SafeSetException(ex);
-                Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
+                DoShutdown("open", ex, ConnectionState.Opening);
                 throw;
             }
         }
@@ -318,8 +318,8 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
-                Interlocked.CompareExchange(ref this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
                 source.SafeSetException(ex);
+                DoShutdown("connect", ex, ConnectionState.Opening);
             }
             
         }
@@ -457,9 +457,8 @@ namespace BookSleeve
             }
             catch (Exception ex)
             {
-                Trace("init", ex.Message);
                 source.SafeSetException(ex);
-                Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
+                DoShutdown("init-ountbound", ex, ConnectionState.Opening);
             }
         }
 
@@ -504,13 +503,11 @@ namespace BookSleeve
             }
             else
             {
-                source.SafeSetException(task.Exception);
-                @this.NominateShutdownType(ShutdownType.Error);
-                @this.OnError("init command", ex, true);
-                @this.Close(true);
-                Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Closed, (int)ConnectionState.Opening);
+                source.SafeSetException(ex);
+                @this.DoShutdown("init-callback", ex, ConnectionState.Opening);
             }
         };
+
         /// <summary>
         /// Invoked when we have completed the handshake
         /// </summary>
@@ -1113,44 +1110,55 @@ namespace BookSleeve
             }
         }
 
+        private void DoShutdown(string cause, Exception error, ConnectionState onlyWhen)
+        {
+            if (Interlocked.CompareExchange(ref state, (int)ConnectionState.Closed, (int)onlyWhen) == (int)onlyWhen)
+            {
+                DoShutdown(cause, error);
+            }
+        }
         private void DoShutdown(string cause, Exception error)
         {
-
+            Interlocked.Exchange(ref state, (int)ConnectionState.Closed);
+            NominateShutdownType(error == null ? ShutdownType.ServerClosed : BookSleeve.ShutdownType.Error);
             try
             {
-                NominateShutdownType(error == null ? ShutdownType.ServerClosed : BookSleeve.ShutdownType.Error);
+                Close(error != null);
+            }
+            catch { }
+
+            if (error != null)
+            {
                 try
                 {
-                    Close(error != null);
-                    Trace("close", "closed successfully");
+                    OnError(cause, error, true);
                 }
-                catch
-                {
-                    Trace("close", error.Message);
-                }
-                Interlocked.Exchange(ref state, (int)ConnectionState.Closed);
-
-                var args = new ErrorEventArgs(error, cause, true);
-
-                var shutdown = Shutdown;
-                Shutdown = null; // only once
-                if (shutdown != null)
-                {
-                    try { shutdown(this, args); }
-                    catch { }
-                }
-
-                // log the error too if necessary (separately)
-                if (error != null) OnError(cause, error, true);
-
-                ShuttingDown(error);
-                Dispose();
-                var handler = Closed;
-                if (handler != null) handler(this, EventArgs.Empty);
+                catch { }
             }
-            catch (Exception ex)
+
+            var shutdown = Shutdown;
+            Shutdown = null; // only once
+            if (shutdown != null)
             {
-                OnError("shutdown", ex, true);
+                try
+                {
+                    shutdown(this, new ErrorEventArgs(error, cause, true));
+                }
+                catch { }
+            }
+
+            ShuttingDown(error);
+            Dispose();
+
+            var closed = Closed;
+            Closed = null; // only once
+            if (closed != null)
+            {
+                try
+                {
+                    closed(this, EventArgs.Empty);
+                }
+                catch { }
             }
         }
 
