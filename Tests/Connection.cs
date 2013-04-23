@@ -21,8 +21,8 @@ namespace Tests
         [Test]
         public void TestConnectWithDownedNodeMustBeFast()
         {
-            using (var good = ConnectionUtils.Connect("localhost:6379"))
-            using (var bad = ConnectionUtils.Connect("localhost:6666"))
+            using (var good = ConnectionUtils.Connect(Config.LocalHost + ":6379"))
+            using (var bad = ConnectionUtils.Connect(Config.LocalHost + ":6666"))
             {
                 Assert.IsNotNull(good, "6379 should exist for this test");
                 Assert.IsNull(bad, "6666 should not exist for this test");
@@ -30,7 +30,7 @@ namespace Tests
 
             StringWriter log = new StringWriter();
             var watch = Stopwatch.StartNew();
-            using (var selected = ConnectionUtils.Connect("localhost:6379,localhost:6666,name=Core(Q&A)", log))
+            using (var selected = ConnectionUtils.Connect(Config.LocalHost +":6379," + Config.LocalHost + ":6666,name=Core(Q&A)", log))
             {}
             watch.Stop();
             Console.WriteLine(log);
@@ -44,18 +44,18 @@ namespace Tests
         {
             string[] endpoints;
             StringWriter sw = new StringWriter();
-            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:26379,serviceName=mymaster", out endpoints, sw);
+            var selected = ConnectionUtils.SelectConfiguration(Config.RemoteHost+":26379,serviceName=mymaster", out endpoints, sw);
             string log = sw.ToString();
             Console.WriteLine(log);
             Assert.IsNotNull(selected, NO_SERVER);
-            Assert.AreEqual("192.168.0.19:6379", selected);
+            Assert.AreEqual(Config.RemoteHost + ":6379", selected);
         }
         [Test]
         public void TestConnectViaSentinelInvalidServiceName()
         {
             string[] endpoints;
             StringWriter sw = new StringWriter();
-            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:26379,serviceName=garbage", out endpoints, sw);
+            var selected = ConnectionUtils.SelectConfiguration(Config.RemoteHost + ":26379,serviceName=garbage", out endpoints, sw);
             string log = sw.ToString();
             Console.WriteLine(log);
             Assert.IsNull(selected);
@@ -67,11 +67,11 @@ namespace Tests
         {
             string[] endpoints;
             StringWriter sw = new StringWriter();
-            var selected = ConnectionUtils.SelectConfiguration("192.168.0.19:6379", out endpoints, sw);
+            var selected = ConnectionUtils.SelectConfiguration(Config.RemoteHost + ":6379", out endpoints, sw);
             string log = sw.ToString();
             Console.WriteLine(log);
             Assert.IsNotNull(selected, NO_SERVER);
-            Assert.AreEqual("192.168.0.19:6379", selected);
+            Assert.AreEqual(Config.RemoteHost + ":6379", selected);
 
         }
 
@@ -168,10 +168,9 @@ namespace Tests
         private void TestSubscriberNameOnRemote(bool setName)
         {
             string id = CreateUniqueName();
-            string remoteHost = "192.168.0.6";
-
-            using (var pub = new RedisConnection(remoteHost, allowAdmin: true))
-            using (var sub = new RedisSubscriberConnection(remoteHost))
+            
+            using (var pub = new RedisConnection(Config.RemoteHost, allowAdmin: true))
+            using (var sub = new RedisSubscriberConnection(Config.RemoteHost))
             {
                 List<string> errors = new List<string>();
                 EventHandler<BookSleeve.ErrorEventArgs> errorHandler = (sender, args) =>
@@ -241,7 +240,7 @@ namespace Tests
         public void TestNameViaConnect()
         {
             string name = Guid.NewGuid().ToString().Replace("-","");
-            using (var conn = ConnectionUtils.Connect("192.168.0.10,allowAdmin=true,name=" + name))
+            using (var conn = ConnectionUtils.Connect(Config.RemoteHost+",allowAdmin=true,name=" + name))
             {
                 Assert.IsNotNull(conn, NO_SERVER);
                 Assert.AreEqual(name, conn.Name);

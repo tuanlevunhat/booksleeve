@@ -438,10 +438,13 @@ namespace BookSleeve
                 {
                     Trace("init", "get info");
                     var info = GetInfoImpl(null, true, duringInit:true, state: asyncState);
-                    info.ContinueWith(initInfoCallback, TaskContinuationOptions.ExecuteSynchronously);
-                    initTask = info;                    
+                    //info.ContinueWith(initInfoCallback, TaskContinuationOptions.ExecuteSynchronously);
+                    //initTask = info;
+                    initTask = info.ContinueWith(initInfoCallback, TaskContinuationOptions.ExecuteSynchronously);
                 }
-                initTask.ContinueWith(initCommandCallback, TaskContinuationOptions.ExecuteSynchronously);
+                // the 4.0 Task API is a bit broken here - can't pass async-state multi-level. It is fixed in 4.5
+                // (albeit in a bit of a sucky way)
+                initTask.ContinueWith(t => InitCommandCallback(t, asyncState), TaskContinuationOptions.ExecuteSynchronously);
 
                 Trace("init", "OnInitConnection");
                 if (OnInitConnection())
@@ -473,9 +476,10 @@ namespace BookSleeve
                                         // other threads, etc);
         }
 
-        static readonly Action<Task> initCommandCallback = task =>
+        static void InitCommandCallback(Task task, object asyncState)
         {
-            var state = (Tuple<RedisConnectionBase, TaskCompletionSource<bool>>)task.AsyncState;
+            Trace("init-command", "processing");
+            var state = (Tuple<RedisConnectionBase, TaskCompletionSource<bool>>)asyncState; // task.AsyncState;
             var @this = state.Item1;
             var source = state.Item2;
 
@@ -495,18 +499,21 @@ namespace BookSleeve
             if (ok)
             {
                 Interlocked.CompareExchange(ref @this.state, (int)ConnectionState.Open, (int)ConnectionState.Opening);
+                Trace("init-command", "completed");
                 source.TrySetResult(true);
             }
             else if (task.IsCanceled)
             {
+                Trace("init-command", "cancelled");
                 source.TrySetCanceled();
             }
             else
             {
+                Trace("init-command", "faulted");
                 source.SafeSetException(ex);
                 @this.DoShutdown("init-callback", ex, ConnectionState.Opening);
             }
-        };
+        }
 
         /// <summary>
         /// Invoked when we have completed the handshake
@@ -523,6 +530,7 @@ namespace BookSleeve
             {
                 try
                 {
+                    Trace("parse info", "processing");
                     // process this when available
                     var parsed = ParseInfo(task.Result);
                     string s;
@@ -547,9 +555,11 @@ namespace BookSleeve
                     }
                     @this.SetServerVersion(version, serverType);
                     @this.OnHandshakeComplete(true);
+                    Trace("parse info", "complete");
                 }
                 catch (Exception ex)
                 {
+                    Trace("parse info", "fail: " + ex.Message);
                     @this.OnError("parse info", ex, false);
                 }
             }
