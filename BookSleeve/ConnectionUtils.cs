@@ -232,6 +232,7 @@ namespace BookSleeve
             {
                 var infos = new Task<string>[arr.Length];
                 var tiebreakers = new Task<string>[arr.Length];
+                var opens = new Task[arr.Length];
                 for(int i = 0 ; i < arr.Length ; i++)
                 {
                     var option = arr[i];
@@ -251,7 +252,7 @@ namespace BookSleeve
                         conn.Name = clientName;
                         log.WriteLine("Opening connection to {0}:{1}...", host, port);
                         if (keepAlive >= 0) conn.SetKeepAlive(keepAlive);
-                        conn.Open();
+                        opens[i] = conn.Open();
                         var info = conn.GetInfoImpl(null, false, false);
                         var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
                         connections.Add(conn);
@@ -274,11 +275,24 @@ namespace BookSleeve
                 var breakerScores = new Dictionary<string, int>();
 
                 TraceWriteTime("Wait for infos");
-                try
+                RedisConnectionBase.Trace("select-create", "wait...");
+                var watch = new Stopwatch();
+                foreach(Task task in tiebreakers.Concat(opens))
                 {
-                    Task.WaitAll(tiebreakers, syncTimeout);
+                    if (task != null)
+                    {
+                        try
+                        {
+                            int remaining = unchecked ( (int)(syncTimeout - watch.ElapsedMilliseconds));
+                            if(remaining > 0) task.Wait(remaining);
+                        }
+                        catch { }
+                    }
                 }
-                catch { /* readily ignore some fail here */ }
+                watch.Stop();
+                RedisConnectionBase.Trace("select-create", "complete");
+
+                    
                 for (int i = 0; i < tiebreakers.Length; i++ )
                 {
                     var tiebreak = tiebreakers[i];
@@ -469,7 +483,10 @@ namespace BookSleeve
                                 masters.Add(connections[i]);
                                 break;
                             default:
-                                log.WriteLine("\tUnknown role: {0}", role);
+                                if (!string.IsNullOrWhiteSpace(role))
+                                {
+                                    log.WriteLine("\tUnknown role: {0}", role);
+                                }
                                 break;
                         }
                         string tmp = infoPairs["connected_clients"];
