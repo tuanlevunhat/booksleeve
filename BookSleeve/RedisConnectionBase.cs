@@ -541,9 +541,15 @@ namespace BookSleeve
                     }
                     ServerType serverType = ServerType.Unknown;
 
-                    if (parsed.TryGetValue("redis_mode", out s) && s == "sentinel")
+                    if (parsed.TryGetValue("redis_mode", out s))
                     {
-                        serverType = BookSleeve.ServerType.Sentinel;
+                        switch(s)
+                        {
+                            case "sentinel":
+                                serverType = BookSleeve.ServerType.Sentinel;break;
+                            case "cluster":
+                                serverType = BookSleeve.ServerType.Cluster;break;
+                        }
                     }
                     else if (parsed.TryGetValue("role", out s) && s != null)
                     {
@@ -1530,19 +1536,29 @@ namespace BookSleeve
             }
             if (next.Db >= 0)
             {
-                if (db != next.Db)
+                // not all servers support databases...
+                switch(ServerType)
                 {
-                    db = next.Db;
-                    RedisMessage changeDb = RedisMessage.Create(db, RedisLiteral.SELECT, db).ExpectOk().Critical();
-                    if (queued != null)
-                    {
-                        queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
-                    }
-                    RecordSent(changeDb);
-                    changeDb.Write(snapshot);
-                    Interlocked.Increment(ref messagesSent);
+                    case BookSleeve.ServerType.Cluster:
+                    case BookSleeve.ServerType.Sentinel:
+                        if (next.Db != 0) throw new InvalidOperationException("This connection does not support databases; database 0 must be specified");
+                        break;
+                    default:
+                        if (db != next.Db)
+                        {
+                            db = next.Db;
+                            RedisMessage changeDb = RedisMessage.Create(db, RedisLiteral.SELECT, db).ExpectOk().Critical();
+                            if (queued != null)
+                            {
+                                queued.Add((QueuedMessage)(changeDb = new QueuedMessage(changeDb)));
+                            }
+                            RecordSent(changeDb);
+                            changeDb.Write(snapshot);
+                            Interlocked.Increment(ref messagesSent);
+                        }
+                        LogUsage(db);
+                        break;
                 }
-                LogUsage(db);
             }
             if (next.Command == RedisLiteral.QUIT)
             {
@@ -2210,7 +2226,11 @@ namespace BookSleeve
         /// The server is a sentinel, used for anutomated configuration
         /// and failover
         /// </summary>
-        Sentinel = 3
+        Sentinel = 3,
+        /// <summary>
+        /// The server is part of a cluster
+        /// </summary>
+        Cluster= 4
     }
 }
 

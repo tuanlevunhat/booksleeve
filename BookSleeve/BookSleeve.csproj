@@ -46,6 +46,12 @@
     <Compile Include="ClientInfo.cs" />
     <Compile Include="Condition.cs" />
     <Compile Include="ConnectionUtils.cs" />
+    <Compile Include="IClusterCommands.cs">
+      <DependentUpon>RedisConnection.cs</DependentUpon>
+    </Compile>
+    <Compile Include="IClusterStringCommands.cs">
+      <DependentUpon>RedisCluster.cs</DependentUpon>
+    </Compile>
     <Compile Include="IScriptingCommands.cs">
       <DependentUpon>RedisConnection.cs</DependentUpon>
     </Compile>
@@ -74,6 +80,7 @@
     <Compile Include="MessageResult.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RedisAggregate.cs" />
+    <Compile Include="RedisCluster.cs" />
     <Compile Include="RedisCommand.cs" />
     <Compile Include="RedisConnection.cs" />
     <Compile Include="RedisConnectionBase.cs" />

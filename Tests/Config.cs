@@ -5,6 +5,7 @@ using NUnit.Framework;
 using System.Threading;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.IO;
 
 namespace Tests
 {
@@ -24,7 +25,19 @@ namespace Tests
         public const string LocalHost = "127.0.0.1";
         public const string RemoteHost = "192.168.0.6";
         
-        const int unsecuredPort = 6379, securedPort = 6381;
+        const int unsecuredPort = 6379, securedPort = 6381,
+            clusterPort0 = 6400, clusterPort1 = 6401, clusterPort2 = 6402;
+
+
+        internal static RedisCluster GetCluster(TextWriter log = null)
+        {
+            string clusterConfiguration =
+                RemoteHost + ":" + clusterPort0 + "," +
+                RemoteHost + ":" + clusterPort1 + "," +
+                RemoteHost + ":" + clusterPort2;
+            return RedisCluster.Connect(clusterConfiguration, log);
+        }
+
         //const int unsecuredPort = 6380, securedPort = 6381;
 
         internal static RedisConnection GetRemoteConnection(bool open = true, bool allowAdmin = false, bool waitForOpen = false, int syncTimeout = 5000, int ioTimeout = 5000)
