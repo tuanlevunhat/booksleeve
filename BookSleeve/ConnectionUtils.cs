@@ -199,7 +199,124 @@ namespace BookSleeve
             System.Diagnostics.Trace.WriteLine(DateTime.Now.ToString("HH:mm:ss.ffff") + " - " + state);
 #endif
         }
-        private static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
+
+        static string ExtractMasters(RedisConnection from, string value)
+        {
+            string line;
+            var toKeep = new List<string>();
+            using (var reader = new StringReader(value))
+            {
+                while ((line = reader.ReadLine()) != null)
+                {
+                    string[] parts = line.Split(' ');
+                    if (parts.Length < 8) continue;
+                    if (parts[6] != "connected") continue;
+                    string addr;
+                    switch(parts[2])
+                    {
+                        case "master":
+                            addr = parts[1];
+                            break;
+                        case "myself,master":
+                            addr = from.Host + ":" + from.Port;
+                            break;
+                        default:
+                            continue; // not recognised
+                    }
+                    toKeep.Add(parts[0] + " " + addr + " " + parts[7]);
+                }
+            }
+            toKeep.Sort();
+            return string.Join(Environment.NewLine, toKeep);
+        }
+
+        /// <summary>
+        /// Obtains the happy nodes from what we know
+        /// </summary>
+        internal static RedisCluster.ClusterNode[] ConnectToCluster(string configuration, TextWriter log)
+        {
+            TraceWriteTime("Start: " + configuration);
+            if(log == null) log = new StringWriter();
+            int syncTimeout;
+            bool allowAdmin;
+            string serviceName;
+            string clientName;
+            int keepAlive;
+            var arr = GetConfigurationOptions(configuration, out syncTimeout, out allowAdmin, out serviceName, out clientName, out keepAlive);
+
+            log.WriteLine("{0} unique nodes specified", arr.Length);
+            if (arr.Length == 0)
+            {
+                log.WriteLine("No nodes to consider");
+                return null;
+            }
+            Task<string>[] infos, nodes;
+            var connections = new List<RedisConnection>(arr.Length);
+            var configSets = new List<string>();
+            try
+            {
+                ConnectToNodes(log, null, syncTimeout, keepAlive, allowAdmin, clientName, arr, connections, out infos, out nodes, AuxMode.ClusterNodes);
+
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (infos[i].IsCompleted && nodes[i].IsCompleted)
+                    {
+                        string result = ExtractMasters(connections[i], nodes[i].Result);
+                        if(!string.IsNullOrWhiteSpace(result)) configSets.Add(result);
+                    }
+                }
+
+                var uniqueSets = configSets.GroupBy(x => x).ToList();
+                string selectedConfig;
+                switch(uniqueSets.Count)
+                {
+                    case 0:
+                        log.WriteLine("No nodes responded to cluster-configuration");
+                        return null;
+                    case 1:
+                        log.WriteLine("All {0} nodes agreed on cluster-configuration", configSets.Count);
+                        selectedConfig = uniqueSets[0].Key;
+                        break;
+                    default:
+                        var selectedGrp = uniqueSets.OrderBy(x => x.Count()).Last();
+                        log.WriteLine("Cluster-configuration conflict; {0} unique combinations; taking concensus of {1}", uniqueSets.Count, selectedGrp.Count());
+                        selectedConfig = selectedGrp.Key;
+                        break;
+                }
+                log.WriteLine(selectedConfig);
+                var toKeep = new List<RedisCluster.ClusterNode>();
+                using (var reader = new StringReader(selectedConfig))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        var parts = line.Split(' ', ':');
+                        var host = parts[1];
+                        int port = int.Parse(parts[2]);
+                        int index = connections.FindIndex(x => x.Host == host && x.Port == port);
+                        if (index >= 0)
+                        {
+                            var conn = connections[index];
+                            toKeep.Add(new RedisCluster.ClusterNode(parts[0], conn, parts[3]));
+                            connections.RemoveAt(index);
+                        }
+                    }
+                }
+                return toKeep.ToArray();
+            }
+            finally
+            {
+                TraceWriteTime("Start cleanup");
+                foreach (var conn in connections)
+                {
+                    if (conn != null) try { conn.Dispose(); } catch { }
+                }
+                TraceWriteTime("End cleanup");
+            }
+
+        }
+
+        internal static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
             TraceWriteTime("Start: " + configuration);
             if (tieBreakerKey == null) tieBreakerKey = "__Booksleeve_TieBreak"; // default tie-breaker key
@@ -227,70 +344,14 @@ namespace BookSleeve
             var connections = new List<RedisConnection>(arr.Length);
             RedisConnection preferred = null;
 
-            TraceWriteTime("Infos");
             try
             {
-                var infos = new Task<string>[arr.Length];
-                var tiebreakers = new Task<string>[arr.Length];
-                var opens = new Task[arr.Length];
-                for(int i = 0 ; i < arr.Length ; i++)
-                {
-                    var option = arr[i];
-                    if (string.IsNullOrWhiteSpace(option)) continue;
+                Task<string>[] infos, tiebreakers;
+                List<RedisConnection> masters = new List<RedisConnection>(arr.Length);
+                List<RedisConnection> slaves = new List<RedisConnection>(arr.Length);
+                Dictionary<string, int> breakerScores = new Dictionary<string, int>(arr.Length);
 
-                    RedisConnection conn = null;
-                    try
-                    {
-
-                        var parts = option.Split(':');
-                        if (parts.Length == 0) continue;
-
-                        string host = parts[0].Trim();
-                        int port = 6379, tmp;
-                        if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out tmp)) port = tmp;
-                        conn = new RedisConnection(host, port, syncTimeout: syncTimeout, allowAdmin: allowAdmin);
-                        conn.Name = clientName;
-                        log.WriteLine("Opening connection to {0}:{1}...", host, port);
-                        if (keepAlive >= 0) conn.SetKeepAlive(keepAlive);
-                        opens[i] = conn.Open();
-                        var info = conn.GetInfoImpl(null, false, false);
-                        var tiebreak = conn.Strings.GetString(0, tieBreakerKey);
-                        connections.Add(conn);
-                        infos[i] = info;
-                        tiebreakers[i] = tiebreak;
-                    }
-                    catch (Exception ex)
-                    {
-                        if (conn == null)
-                        {
-                            log.WriteLine("Error parsing option \"{0}\": {1}", option, ex.Message);
-                        }
-                        else
-                        {
-                            log.WriteLine("Error connecting: {0}", ex.Message);
-                        }
-                    }
-                }
-                List<RedisConnection> masters = new List<RedisConnection>(), slaves = new List<RedisConnection>();
-                var breakerScores = new Dictionary<string, int>();
-
-                TraceWriteTime("Wait for infos");
-                RedisConnectionBase.Trace("select-create", "wait...");
-                var watch = new Stopwatch();
-                foreach(Task task in tiebreakers.Concat(opens))
-                {
-                    if (task != null)
-                    {
-                        try
-                        {
-                            int remaining = unchecked ( (int)(syncTimeout - watch.ElapsedMilliseconds));
-                            if(remaining > 0) task.Wait(remaining);
-                        }
-                        catch { }
-                    }
-                }
-                watch.Stop();
-                RedisConnectionBase.Trace("select-create", "complete");
+                ConnectToNodes(log, tieBreakerKey, syncTimeout, keepAlive, allowAdmin, clientName, arr, connections, out infos, out tiebreakers, AuxMode.TieBreakers);
 
                     
                 for (int i = 0; i < tiebreakers.Length; i++ )
@@ -651,6 +712,83 @@ namespace BookSleeve
                 TraceWriteTime("End cleanup");
             }
         }
+        enum AuxMode {
+            TieBreakers,
+            ClusterNodes
+        }
+        private static void ConnectToNodes(TextWriter log, string tieBreakerKey, int syncTimeout, int keepAlive, bool allowAdmin, string clientName, string[] arr, List<RedisConnection> connections, out Task<string>[] infos, out Task<string>[] aux, AuxMode mode)
+        {
+            TraceWriteTime("Infos");
+            infos = new Task<string>[arr.Length];
+            aux = new Task<string>[arr.Length];
+            var opens = new Task[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
+            {
+                var option = arr[i];
+                if (string.IsNullOrWhiteSpace(option)) continue;
 
+                RedisConnection conn = null;
+                try
+                {
+
+                    var parts = option.Split(':');
+                    if (parts.Length == 0) continue;
+
+                    string host = parts[0].Trim();
+                    int port = 6379, tmp;
+                    if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out tmp)) port = tmp;
+                    conn = new RedisConnection(host, port, syncTimeout: syncTimeout, allowAdmin: allowAdmin);
+                    conn.Name = clientName;
+                    log.WriteLine("Opening connection to {0}:{1}...", host, port);
+                    if (keepAlive >= 0) conn.SetKeepAlive(keepAlive);
+                    opens[i] = conn.Open();
+                    var info = conn.GetInfoImpl(null, false, false);
+                    connections.Add(conn);
+                    infos[i] = info;
+                    switch (mode)
+                    {
+                        case AuxMode.TieBreakers:
+                            if (tieBreakerKey != null)
+                            {
+                                aux[i] = conn.Strings.GetString(0, tieBreakerKey);
+                            }
+                            break;
+                        case AuxMode.ClusterNodes:
+                            aux[i] = conn.Cluster.GetNodes();
+                            break;
+                    }
+                    
+                }
+                catch (Exception ex)
+                {
+                    if (conn == null)
+                    {
+                        log.WriteLine("Error parsing option \"{0}\": {1}", option, ex.Message);
+                    }
+                    else
+                    {
+                        log.WriteLine("Error connecting: {0}", ex.Message);
+                    }
+                }
+            }
+
+            TraceWriteTime("Wait for infos");
+            RedisConnectionBase.Trace("select-create", "wait...");
+            var watch = new Stopwatch();
+            foreach (Task task in infos.Concat(aux).Concat(opens))
+            {
+                if (task != null)
+                {
+                    try
+                    {
+                        int remaining = unchecked((int)(syncTimeout - watch.ElapsedMilliseconds));
+                        if (remaining > 0) task.Wait(remaining);
+                    }
+                    catch { }
+                }
+            }
+            watch.Stop();
+            RedisConnectionBase.Trace("select-create", "complete");
+        }
     }
 }
