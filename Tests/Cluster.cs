@@ -1,4 +1,5 @@
-﻿using BookSleeve;
+﻿#if CLUSTER
+using BookSleeve;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -65,11 +66,14 @@ namespace Tests
             }
         }
 
+        private const bool suspendFlush = true;
+
         [Test]
         public void GetSetValues_Cluster()
         {
             using (var conn = Config.GetCluster())
             {
+                if(suspendFlush) conn.SuspendFlush();
                 var watch = Stopwatch.StartNew();
                 var set = new List<Task>();
                 for (int i = 0; i < LOOP; i++)
@@ -81,6 +85,7 @@ namespace Tests
                 {
                     get.Add(conn.Strings.GetString("GetSetValues" + i));
                 }
+                if(suspendFlush) conn.ResumeFlush();
                 for (int i = 0; i < LOOP; i++)
                 {
                     var t = get[i];
@@ -98,7 +103,7 @@ namespace Tests
             using (var conn = Config.GetRemoteConnection(waitForOpen:true))
             {
                 var watch = Stopwatch.StartNew();
-                conn.SuspendFlush();
+                if (suspendFlush) conn.SuspendFlush();
                 var set = new List<Task>();
                 for (int i = 0; i < LOOP; i++)
                 {
@@ -109,7 +114,7 @@ namespace Tests
                 {
                     get.Add(conn.Strings.GetString(0, "GetSetValues" + i));
                 }
-                conn.ResumeFlush();
+                if (suspendFlush) conn.ResumeFlush();
                 for (int i = 0; i < LOOP; i++)
                 {
                     var t = get[i];
@@ -122,3 +127,4 @@ namespace Tests
         }
     }
 }
+#endif

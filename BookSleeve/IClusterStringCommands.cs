@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if CLUSTER
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -91,3 +92,4 @@ namespace BookSleeve
         }
     }
 }
+#endif

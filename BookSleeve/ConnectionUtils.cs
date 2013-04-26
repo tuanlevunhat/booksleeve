@@ -230,6 +230,7 @@ namespace BookSleeve
             return string.Join(Environment.NewLine, toKeep);
         }
 
+#if CLUSTER
         /// <summary>
         /// Obtains the happy nodes from what we know
         /// </summary>
@@ -315,7 +316,7 @@ namespace BookSleeve
             }
 
         }
-
+#endif
         internal static RedisConnection SelectAndCreateConnection(string configuration, TextWriter log, out string selectedConfiguration, out string[] availableEndpoints, bool autoMaster, string newMaster = null, string tieBreakerKey = null)
         {
             TraceWriteTime("Start: " + configuration);

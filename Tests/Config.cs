@@ -29,6 +29,7 @@ namespace Tests
             clusterPort0 = 6400, clusterPort1 = 6401, clusterPort2 = 6402;
 
 
+#if CLUSTER
         internal static RedisCluster GetCluster(TextWriter log = null)
         {
             string clusterConfiguration =
@@ -37,6 +38,7 @@ namespace Tests
                 RemoteHost + ":" + clusterPort2;
             return RedisCluster.Connect(clusterConfiguration, log);
         }
+#endif
 
         //const int unsecuredPort = 6380, securedPort = 6381;
 
@@ -129,4 +131,3 @@ namespace Tests
         }
     }
 }
-

@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if CLUSTER
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,6 +14,17 @@ namespace BookSleeve
     [Obsolete("This API is experimental prototype and entirely subject to change; you have been warned!")]
     public partial class RedisCluster : IDisposable
     {
+        [Obsolete("no no no")]
+        public void SuspendFlush()
+        {
+            foreach (var node in nodes) node.Connection.SuspendFlush();
+        }
+        [Obsolete("no no no")]
+        public void ResumeFlush()
+        {
+            foreach (var node in nodes) node.Connection.ResumeFlush();
+        }
+
         /// <summary>
         /// Computes the hash-slot that would be used by the given key
         /// </summary>
@@ -181,3 +193,4 @@ namespace BookSleeve
 
     }
 }
+#endif
