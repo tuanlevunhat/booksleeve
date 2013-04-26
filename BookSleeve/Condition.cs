@@ -140,6 +140,8 @@ namespace BookSleeve
             {
                 yield return RedisMessage.Create(db, RedisLiteral.WATCH, key);
                 var msgResult = CreateMessageResult(this);
+                // we want this ExecuteSynchronously so that we can exploit the ordered nature of the reader to check all the
+                // results efficiently
                 msgResult.Task.ContinueWith(testEquality, TaskContinuationOptions.ExecuteSynchronously);
                 var message = hashField == null ? RedisMessage.Create(db, RedisLiteral.GET, key)
                                                 : RedisMessage.Create(db, RedisLiteral.HGET, key, hashField);
@@ -223,7 +225,9 @@ namespace BookSleeve
             {
                 yield return RedisMessage.Create(db, RedisLiteral.WATCH, key); 
                 var msgResult = new MessageResultBoolean(this);
-                msgResult.Task.ContinueWith(testExisted);
+                // we want this ExecuteSynchronously so that we can exploit the ordered nature of the reader to check all the
+                // results efficiently
+                msgResult.Task.ContinueWith(testExisted, TaskContinuationOptions.ExecuteSynchronously);
                 var message = hashField == null ? RedisMessage.Create(db, RedisLiteral.EXISTS, key)
                                                 : RedisMessage.Create(db, RedisLiteral.HEXISTS, key, hashField);
                 message.SetMessageResult(msgResult);   

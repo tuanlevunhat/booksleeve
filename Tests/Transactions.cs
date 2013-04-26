@@ -238,6 +238,40 @@ namespace Tests
             return attempts;
         }
 
+        [Test]
+        public void Issue43()
+        {
+            using(var conn = Config.GetRemoteConnection())
+            {
+                conn.Keys.Remove(0, "anExistingKey1");
+                conn.Keys.Remove(0, "anExistingKey2");
+                conn.Keys.Remove(0, "anExistingKey3");
+                conn.Strings.Set(0, "anExistingKey1", "anExistingKey1");
+                conn.Strings.Set(0, "anExistingKey2", "anExistingKey2");
+                conn.Strings.Set(0, "anExistingKey3", "anExistingKey3");
+                for(int i = 0; i < 10000; i++)
+                {
+                       using(var tx = conn.CreateTransaction())
+                       {
+                              var cond1 = tx.AddCondition(Condition.KeyExists(0, "anExistingKey1"));
+                              var cond2 = tx.AddCondition(Condition.KeyExists(0, "anExistingKey2"));
+                              var cond3 = tx.AddCondition(Condition.KeyExists(0, "anExistingKey3"));
+
+                              tx.Strings.Increment(0, "foo", 1);
+                              tx.Strings.Increment(0, "foo", 1);
+                              tx.Strings.Increment(0, "foo", 1);
+
+                              var txRes = tx.Execute();
+
+                              Assert.IsTrue(tx.Wait(cond1), "cond1" + i);  //--> ok
+                              Assert.IsTrue(tx.Wait(cond2), "cond2" + i);  //--> ok
+                              Assert.IsTrue(tx.Wait(cond3), "cond3" + i);  //--> ok
+                              Assert.IsTrue(tx.Wait(txRes), "txRes" + i);   //--> not ok: false
+                       }
+                }
+            }
+        }
+
         static async Task<bool> IsCancelled(Task task)
         {
             try
