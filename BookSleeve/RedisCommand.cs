@@ -798,7 +798,11 @@ namespace BookSleeve
             conn.Flush(true); // make sure we send it all
 
             // now need to check all the preconditions passed
-            if (lastTask != null) conn.Wait(lastTask);
+            if (lastTask != null)
+            {
+                // didn't get result fast enough; treat as abort
+                if (!lastTask.Wait(conn.SyncTimeout)) return false;
+            }
 
             foreach (var cond in conditions)
             {
