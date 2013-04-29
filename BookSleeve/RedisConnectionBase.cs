@@ -598,7 +598,11 @@ namespace BookSleeve
         {
             Trace("read", "async");
             bufferOffset = bufferCount = 0;
-            if (socket.ReceiveAsync(readArgs)) return false; // not yet available
+
+            var tmp = socket;
+            if (tmp == null) return true; // let the caller conclude that it is EOF
+
+            if (tmp.ReceiveAsync(readArgs)) return false; // not yet available
 
             Trace("read", "data available immediately");
             if (readArgs.SocketError == SocketError.Success)
@@ -608,7 +612,7 @@ namespace BookSleeve
             }
 
             // otherwise completed immediately but still need to process errors etc
-            AsyncReadCompleted(socket, readArgs);
+            AsyncReadCompleted(tmp, readArgs);
             return false;
         }
 
