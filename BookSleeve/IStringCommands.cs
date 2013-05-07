@@ -562,7 +562,7 @@ namespace BookSleeve
             var features = Features;
             if (features != null && features.SetConditional)
             {
-                var raw = ExecuteRaw(RedisMessage.Create(0, RedisLiteral.SET, key, value,
+                var raw = ExecuteRaw(RedisMessage.Create(db, RedisLiteral.SET, key, value,
                     RedisLiteral.EX, expirySeconds, RedisLiteral.NX), queueJump, result);
                 raw.ContinueWith(takeLockConditionalContinuation);
             }
