@@ -322,7 +322,7 @@ namespace Tests
             const int LOOP = 10;
             for (int i = 0; i < LOOP; i++)
             {
-                var guid = Guid.NewGuid().ToString();
+                var guid = Config.CreateUniqueName();
                 Task t1, t3;
                 Task<string> t2;
                 string key = "SetValueWhileDisposing:" + i;

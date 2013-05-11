@@ -75,23 +75,18 @@ namespace Tests
 
         }
 
-        static string CreateUniqueName()
-        {
-            return Guid.NewGuid().ToString().Replace("-", "");
-        }
+
         [Test]
         public void TestName()
         {
             using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))
             {
-                string name = CreateUniqueName();
+                string name = Config.CreateUniqueName();
                 conn.Name = name;
                 conn.Wait(conn.Open());
-                if (conn.Features.ClientName)
-                {
-                    var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
-                    Assert.IsNotNull(client);
-                }
+                if (!conn.Features.ClientName) Assert.Inconclusive();
+                var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                Assert.IsNotNull(client, "found client");
             }
         }
 
@@ -132,24 +127,22 @@ namespace Tests
         {
             using (var conn = Config.GetUnsecuredConnection(open: false, allowAdmin: true))
             {
-                string name = Guid.NewGuid().ToString().Replace("-", "");
+                string name = Config.CreateUniqueName();
                 conn.Name = name;
                 conn.Wait(conn.Open());
-                if (conn.Features.ClientName)
+                if (!conn.Features.ClientName) Assert.Inconclusive();
+                using (var subscriber = conn.GetOpenSubscriberChannel())
                 {
-                    using (var subscriber = conn.GetOpenSubscriberChannel())
-                    {
-                        var evt = new ManualResetEvent(false);
-                        var tmp =  subscriber.Subscribe("test-subscriber-name", delegate
-                         {
-                             evt.Set();
-                         });
-                        subscriber.Wait(tmp);
-                        conn.Publish("test-subscriber-name", "foo");
-                        Assert.IsTrue(evt.WaitOne(1000), "event was set");
-                        var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
-                        Assert.AreEqual(2, clients.Count, "number of clients");
-                    }
+                    var evt = new ManualResetEvent(false);
+                    var tmp =  subscriber.Subscribe("test-subscriber-name", delegate
+                        {
+                            evt.Set();
+                        });
+                    subscriber.Wait(tmp);
+                    conn.Publish("test-subscriber-name", "foo");
+                    Assert.IsTrue(evt.WaitOne(1000), "event was set");
+                    var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
+                    Assert.AreEqual(2, clients.Count, "number of clients");
                 }
 
             }
@@ -167,7 +160,7 @@ namespace Tests
         }
         private void TestSubscriberNameOnRemote(bool setName)
         {
-            string id = CreateUniqueName();
+            string id = Config.CreateUniqueName();
             
             using (var pub = new RedisConnection(Config.RemoteHost, allowAdmin: true))
             using (var sub = new RedisSubscriberConnection(Config.RemoteHost))
@@ -221,34 +214,30 @@ namespace Tests
             using (var sub = new RedisSubscriberConnection(conn.Host, conn.Port))
             {
                 var task = sub.Subscribe("foo", delegate { });
-                string name = Guid.NewGuid().ToString().Replace("-", "");
+                string name = Config.CreateUniqueName();
                 sub.Name = name;
                 sub.SetServerVersion(new Version("2.6.9"), ServerType.Master);
                 sub.Wait(sub.Open());
                 sub.Wait(task);
                 Assert.AreEqual(1, sub.SubscriptionCount);
 
-                if (conn.Features.ClientName)
-                {
-                    var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
-                    Assert.AreEqual(1, clients.Count, "number of clients");
-                }
+                if (!conn.Features.ClientName) Assert.Inconclusive();
+                var clients = conn.Wait(conn.Server.ListClients()).Where(c => c.Name == name).ToList();
+                Assert.AreEqual(1, clients.Count, "number of clients");
             }
         }
 
         [Test]
         public void TestNameViaConnect()
         {
-            string name = Guid.NewGuid().ToString().Replace("-","");
+            string name = Config.CreateUniqueName();
             using (var conn = ConnectionUtils.Connect(Config.RemoteHost+",allowAdmin=true,name=" + name))
             {
-                Assert.IsNotNull(conn, NO_SERVER);
-                Assert.AreEqual(name, conn.Name);
-                if (conn.Features.ClientName)
-                {
-                    var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
-                    Assert.IsNotNull(client);
-                }
+                Assert.IsNotNull(conn, NO_SERVER, "connection");
+                Assert.AreEqual(name, conn.Name, "connection name");
+                if (!conn.Features.ClientName) Assert.Inconclusive();
+                var client = conn.Wait(conn.Server.ListClients()).SingleOrDefault(c => c.Name == name);
+                Assert.IsNotNull(client, "find client");
             }
         }
 

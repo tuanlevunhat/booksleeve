@@ -41,10 +41,22 @@ namespace Tests
         }
 
         [Test]
-        public void TestOpCountByVersionLocal()
+        public void TestOpCountByVersionLocal_UpLevel()
         {
             using (var conn = Config.GetUnsecuredConnection(open: false))
             {
+                TestLockOpCountByVersion(conn, 1, false);
+                TestLockOpCountByVersion(conn, 1, true);
+                //TestManualLockOpCountByVersion(conn, 5, false);
+                //TestManualLockOpCountByVersion(conn, 3, true);
+            }
+        }
+        [Test]
+        public void TestOpCountByVersionLocal_DownLevel()
+        {
+            using (var conn = Config.GetUnsecuredConnection(open: false))
+            {
+                conn.SetServerVersion(new Version(2, 6, 0), ServerType.Master);
                 TestLockOpCountByVersion(conn, 5, false);
                 TestLockOpCountByVersion(conn, 3, true);
                 //TestManualLockOpCountByVersion(conn, 5, false);
@@ -69,11 +81,11 @@ namespace Tests
             const string Key = "TestOpCountByVersion";
             conn.Wait(conn.Open());
             conn.Keys.Remove(DB, Key);
-            var newVal = "us:" + Guid.NewGuid().ToString();
+            var newVal = "us:" + Config.CreateUniqueName();
             string expectedVal = newVal;
             if (existFirst)
             {
-                expectedVal = "other:" + Guid.NewGuid().ToString();
+                expectedVal = "other:" + Config.CreateUniqueName();
                 conn.Strings.Set(DB, Key, expectedVal, LockDuration);
             }
             int countBefore = conn.GetCounters().MessagesSent;
@@ -92,11 +104,11 @@ namespace Tests
         //    const string Key = "TestManualLockOpCountByVersion";
         //    conn.Wait(conn.Open());
         //    conn.Keys.Remove(DB, Key);
-        //    var newVal = "us:" + Guid.NewGuid().ToString();
+        //    var newVal = "us:" + Config.CreateUniqueName();
         //    string expectedVal = newVal;
         //    if (existFirst)
         //    {
-        //        expectedVal = "other:" + Guid.NewGuid().ToString();
+        //        expectedVal = "other:" + Config.CreateUniqueName();
         //        conn.Strings.Set(DB, Key, expectedVal, LockDuration);
         //    }
         //    int countBefore = conn.GetCounters().MessagesSent;

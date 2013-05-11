@@ -13,7 +13,7 @@ namespace Tests.Issues
             using (var redis = Config.GetUnsecuredConnection(true))
             {
                 string expectedTestValue = null;
-                var uid = Guid.NewGuid().ToString();
+                var uid = Config.CreateUniqueName();
 
                 redis.Strings.Set(db, uid, expectedTestValue);
             }
@@ -25,7 +25,7 @@ namespace Tests.Issues
             using (var redis = Config.GetUnsecuredConnection(true))
             {
                 string expectedTestValue = "";
-                var uid = Guid.NewGuid().ToString();
+                var uid = Config.CreateUniqueName();
 
                 redis.Wait(redis.Strings.Set(db, uid, expectedTestValue));
                 var testValue = redis.Wait(redis.Strings.GetString(db, uid));
