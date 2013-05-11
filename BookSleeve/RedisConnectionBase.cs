@@ -541,17 +541,23 @@ namespace BookSleeve
                     }
                     ServerType serverType = ServerType.Unknown;
 
+                    bool checkRole = true;
                     if (parsed.TryGetValue("redis_mode", out s))
                     {
                         switch(s)
                         {
                             case "sentinel":
-                                serverType = BookSleeve.ServerType.Sentinel;break;
+                                serverType = BookSleeve.ServerType.Sentinel;
+                                checkRole = false;
+                                break;
                             case "cluster":
-                                serverType = BookSleeve.ServerType.Cluster;break;
+                                serverType = BookSleeve.ServerType.Cluster;
+                                checkRole = false;
+                                break;
+                            //case "standalone":
                         }
                     }
-                    else if (parsed.TryGetValue("role", out s) && s != null)
+                    if (checkRole && parsed.TryGetValue("role", out s) && s != null)
                     {
                         switch (s)
                         {

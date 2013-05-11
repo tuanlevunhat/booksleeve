@@ -12,6 +12,10 @@ namespace Tests
     [TestFixture(Description="Validates that the test environment is configured and responding")]
     public class Config
     {
+        public static string CreateUniqueName()
+        {
+            return Guid.NewGuid().ToString("N");
+        }
         static Config()
         {
             RedisConnectionBase.DefaultCompletionMode = ResultCompletionMode.ConcurrentIfContinuation;

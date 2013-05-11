@@ -71,7 +71,7 @@ namespace Tests
             using (var conn = GetScriptConn())
             {
                 conn.Strings.Set(0, "foo", "bar");
-                var key = Guid.NewGuid().ToString(); // 
+                var key = Config.CreateUniqueName();
                 var result = (long)conn.Wait(conn.Scripting.Eval(0, @"
 redis.call('psetex', KEYS[1], 60000, 'timing')
 for i = 1,100000 do

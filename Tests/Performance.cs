@@ -39,7 +39,7 @@ namespace Tests
                 for (int db = 0; db < 5; db++)
                     Assert.AreEqual("1000", final[db].Result, "async, db:" + db); 
             }
-            using (var conn = new Redis("127.0.0.1", 6379))
+            using (var conn = new Redis(Config.LocalHost, 6379))
             {
                 // do these outside the timings, just to ensure the core methods are JITted etc
                 for (int db = 0; db < 5; db++) {
