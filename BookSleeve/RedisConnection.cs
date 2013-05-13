@@ -214,6 +214,7 @@ namespace BookSleeve
                     if (x.IsFaulted || x.IsCanceled)
                     {
                         var ex = x.Exception; // need to yank this to make TPL happy, but not going to get excited about it
+                        GC.KeepAlive(ex); // just an opaque empty method; to ensure it got yanked
                     }
                     else if (x.IsCompleted)
                     {
@@ -306,7 +307,6 @@ namespace BookSleeve
                 allowTalkToServer ? (int)Wait(Server.Ping()) : -1
             );
         }
-        private DateTime opened;
         internal override void RecordSent(RedisMessage message, bool drainFirst)
         {
             base.RecordSent(message, drainFirst);
@@ -322,17 +322,6 @@ namespace BookSleeve
             var msg = PeekSent(true);
             return msg == null ? null : msg.ToString();
         }
-
-        /// <summary>
-        /// Called after opening a connection
-        /// </summary>
-        protected override void OnOpened()
-        {
-            base.OnOpened();
-            this.opened = DateTime.UtcNow;
-        }
-
-
 
         /// <summary>
         /// Takes a server out of "slave" mode, to act as a replication master.

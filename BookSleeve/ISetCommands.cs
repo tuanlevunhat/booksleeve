@@ -264,7 +264,6 @@ namespace BookSleeve
                 }
                 Task<bool>[] tasks = new Task<bool>[values.Length];
 
-                var sets = tran.Sets;
                 for (int i = 0; i < values.Length; i++)
                 {
                     tasks[i] = ExecuteBoolean(RedisMessage.Create(db, command, key, values[i]), queueJump);
@@ -314,7 +313,6 @@ namespace BookSleeve
                 }
                 Task<bool>[] tasks = new Task<bool>[values.Length];
 
-                var sets = tran.Sets;
                 for (int i = 0; i < values.Length; i++)
                 {
                     tasks[i] = ExecuteBoolean(RedisMessage.Create(db, command, key, values[i]), queueJump);

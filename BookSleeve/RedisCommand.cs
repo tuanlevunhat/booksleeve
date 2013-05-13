@@ -756,12 +756,11 @@ namespace BookSleeve
         void IMultiMessage.Execute(RedisConnectionBase conn, ref int currentDb)
         {
             var pending = messages;
-            int estimateCount = pending.Length;
 
             if (ExecutePreconditions(conn, ref currentDb))
             {
                 conn.WriteRaw(this); // MULTI
-                List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length);
+                List<QueuedMessage> newlyQueued = new List<QueuedMessage>(pending.Length); // estimate same length
                 for (int i = 0; i < pending.Length; i++)
                 {
                     conn.WriteMessage(ref currentDb, pending[i], newlyQueued);

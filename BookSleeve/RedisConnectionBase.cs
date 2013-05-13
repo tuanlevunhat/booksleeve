@@ -290,7 +290,7 @@ namespace BookSleeve
             socket.SendTimeout = this.ioTimeout;
             var args = new SocketAsyncEventArgs {
                 RemoteEndPoint = new DnsEndPoint(this.host, this.port),
-                UserToken = source, 
+                UserToken = Tuple.Create(source, socket),
             };
             args.Completed += ConnectAsyncComplete;
             if (!socket.ConnectAsync(args)) ConnectAsyncComplete(socket, args);
@@ -298,14 +298,16 @@ namespace BookSleeve
         }
         private void ConnectAsyncComplete(object sender, SocketAsyncEventArgs args)
         {
-            var source = (TaskCompletionSource<bool>)args.UserToken;
+            // note: args.ConnectSocket does not exist on Mono
+            var tuple = (Tuple<TaskCompletionSource<bool>, Socket>)args.UserToken;
+            var source = tuple.Item1;
             try
             {
                 Trace("< connect", "async: {0}", args.SocketError);
                 switch (args.SocketError)
                 {
                     case SocketError.Success:
-                        this.socket = args.ConnectSocket;
+                        this.socket = tuple.Item2;
                         var readArgs = new SocketAsyncEventArgs();
                         readArgs.Completed += this.AsyncReadCompleted;
                         readArgs.SetBuffer(buffer, 0, buffer.Length);
