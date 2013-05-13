@@ -11,3 +11,4 @@ Async/obj/
 packages/NuGet.CommandLine.*
 BookSleeve.sln.docstates
 _ReSharper.*
+Mono/
