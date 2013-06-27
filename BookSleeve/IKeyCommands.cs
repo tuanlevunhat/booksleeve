@@ -110,6 +110,13 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/sort</remarks>
         Task<long> SortAndStore(int db, string destination, string key, string byPattern = null, string[] getPattern = null,
                     long offset = 0, long count = -1, bool alpha = false, bool ascending = true, bool queueJump = false);
+
+
+        /// <summary>
+        /// Returns the raw DEBUG OBJECT output for a key; this command is not fully documented and should be avoided unless you have good reason, and then avoided anyway.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/debug-object</remarks>
+        Task<string> DebugObject(int db, string key);
     }
 
     partial class RedisConnection : IKeyCommands
@@ -259,6 +266,12 @@ namespace BookSleeve
         Task<long> IKeyCommands.GetLength(int db, bool queueJump)
         {
             return ExecuteInt64(RedisMessage.Create(db, RedisLiteral.DBSIZE), queueJump);
+        }
+
+        Task<string> IKeyCommands.DebugObject(int db, string key)
+        {
+            CheckAdmin();
+            return ExecuteString(RedisMessage.Create(db, RedisLiteral.DEBUG, RedisLiteral.OBJECT, key), false);
         }
 
         static RedisMessage CreateSortMessage(int db, string key, string byPattern, string[] getPattern,

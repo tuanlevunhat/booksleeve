@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using BookSleeve;
 using NUnit.Framework;
+using System.Text.RegularExpressions;
 
 namespace Tests
 {
@@ -459,6 +460,17 @@ namespace Tests
 
                 Assert.AreEqual(0, conn.Wait(empty));
                 Assert.AreEqual(10, conn.Wait(withData));
+            }
+        }
+
+        [Test]
+        public void TestDebugObject()
+        {
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                conn.Strings.Set(3, "test-debug", "some value");
+                var s = conn.Wait(conn.Keys.DebugObject(3, "test-debug"));
+                Assert.IsTrue(Regex.IsMatch(s, @"\bserializedlength:([0-9]+)\b"));
             }
         }
     }
