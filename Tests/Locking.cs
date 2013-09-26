@@ -98,6 +98,58 @@ namespace Tests
             // note we get a ping from GetCounters
         }
 
+        [Test]
+        public void TakeLockAndExtend()
+        {
+            using (var conn = Config.GetUnsecuredConnection())
+            {
+                string right = Guid.NewGuid().ToString(),
+                    wrong = Guid.NewGuid().ToString();
+
+                const int DB = 7;
+                const string Key = "lock-key";
+
+                conn.SuspendFlush();
+                
+                conn.Keys.Remove(DB, Key);
+                var t1 = conn.Strings.TakeLock(DB, Key, right, 20);
+                var t1b = conn.Strings.TakeLock(DB, Key, wrong, 10);
+                var t2 = conn.Strings.GetString(DB, Key);
+                var t3 = conn.Strings.ReleaseLock(DB, Key, wrong);
+                var t4 = conn.Strings.GetString(DB, Key);
+                var t5 = conn.Strings.ExtendLock(DB, Key, wrong, 60);
+                var t6 = conn.Strings.GetString(DB, Key);
+                var t7 = conn.Keys.TimeToLive(DB, Key);
+                var t8 = conn.Strings.ExtendLock(DB, Key, right, 60);
+                var t9 = conn.Strings.GetString(DB, Key);
+                var t10 = conn.Keys.TimeToLive(DB, Key);
+                var t11 = conn.Strings.ReleaseLock(DB, Key, right);
+                var t12 = conn.Strings.GetString(DB, Key);
+                var t13 = conn.Strings.TakeLock(DB, Key, wrong, 10);
+                conn.ResumeFlush();
+                Assert.IsNotNull(right);
+                Assert.IsNotNull(wrong);
+                Assert.AreNotEqual(right, wrong);
+                Assert.IsTrue(conn.Wait(t1), "1");
+                Assert.IsFalse(conn.Wait(t1b), "1b");
+                Assert.AreEqual(right, conn.Wait(t2), "2");
+                Assert.IsFalse(conn.Wait(t3), "3");
+                Assert.AreEqual(right, conn.Wait(t4), "4");
+                Assert.IsFalse(conn.Wait(t5), "5");
+                Assert.AreEqual(right, conn.Wait(t6), "6");
+                var ttl = conn.Wait(t7);
+                Assert.IsTrue(ttl > 0 && ttl <= 20, "7");
+                Assert.IsTrue(conn.Wait(t8), "8");
+                Assert.AreEqual(right, conn.Wait(t9), "9");
+                ttl = conn.Wait(t10);
+                Assert.IsTrue(ttl > 50 && ttl <= 60, "10");
+                Assert.IsTrue(conn.Wait(t11), "11");
+                Assert.IsNull(conn.Wait(t12), "12");
+                Assert.IsTrue(conn.Wait(t13), "13");
+            }
+        }
+
+
         //public void TestManualLockOpCountByVersion(RedisConnection conn, int expected, bool existFirst)
         //{
         //    const int DB = 0, LockDuration = 30;
