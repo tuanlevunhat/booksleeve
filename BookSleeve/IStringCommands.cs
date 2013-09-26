@@ -289,6 +289,16 @@ namespace BookSleeve
         /// not take, as this will cause problems.
         /// </summary>
         Task ReleaseLock(int db, string key, bool queueJump = false);
+
+        /// <summary>
+        /// Releases a lock that was taken successfully via TakeLock. The value is checked for correctness.
+        /// </summary>
+        Task<bool> ReleaseLock(int db, string key, string value);
+
+        /// <summary>
+        /// Extends a lock that was taken successfully via TakeLock. The value is checked for correctness.
+        /// </summary>
+        Task<bool> ExtendLock(int db, string key, string value, int expirySeconds);
     }
 
     partial class RedisConnection : IStringCommands
@@ -576,6 +586,26 @@ namespace BookSleeve
                 }
             }
             return result.Task;
+        }
+
+        Task<bool> IStringCommands.ExtendLock(int db, string key, string value, int expirySeconds)
+        {
+            using (var tran = CreateTransaction())
+            {
+                tran.AddCondition(Condition.KeyEquals(db, key, value));
+                tran.Keys.Expire(db, key, expirySeconds);
+                return tran.Execute(false);
+            }
+        }
+
+        Task<bool> IStringCommands.ReleaseLock(int db, string key, string value)
+        {
+            using (var tran = CreateTransaction())
+            {
+                tran.AddCondition(Condition.KeyEquals(db, key, value));
+                tran.Keys.Remove(db, key);
+                return tran.Execute(false);
+            }
         }
         Task IStringCommands.ReleaseLock(int db, string key, bool queueJump)
         {
