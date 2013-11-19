@@ -101,6 +101,34 @@ namespace BookSleeve
         /// </summary>
         /// <remarks>http://redis.io/commands/restore</remarks>
         Task Import(int db, string key, byte[] exportedData, int? timeoutMilliseconds = null);
+
+
+        /// <summary>
+        /// This command is used in order to read the slow queries log.
+        /// </summary>
+        /// <param name="count">The number of records to return (or the entire log if not specified)</param>
+        /// <remarks>http://redis.io/commands/slowlog</remarks>
+        Task<CommandTrace[]> GetSlowCommands(int? count = null);
+
+        /// <summary>
+        /// This command is used in order to reset the slow queries log.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/slowlog</remarks>
+        Task ResetSlowCommands();
+
+        /// <summary>
+        /// By default, save the DB in background. Redis forks, the parent continues to serve the clients, the child saves the DB on disk then exits.
+        /// By specifying foreground = true, The SAVE commands performs a synchronous save of the dataset producing a point in time snapshot of all the data inside the Redis instance, in the form of an RDB file.
+        /// A client my be able to check if the operation succeeded using the LASTSAVE command.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/bgsave http://redis.io/commands/save</remarks>
+        Task SaveDatabase(bool foreground = false);
+
+        /// <summary>
+        /// Return the time of the last DB save executed with success. A client may check if a BGSAVE command succeeded reading the LASTSAVE value, then issuing a BGSAVE command and checking at regular intervals every N seconds if LASTSAVE changed.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/lastsave</remarks>
+        Task<DateTime> GetLastSaveTime();
     }
     partial class RedisConnection : IServerCommands
     {
@@ -244,7 +272,7 @@ namespace BookSleeve
                     micros = int.Parse(task.Result[1], CultureInfo.InvariantCulture);
 
                 // unix timestamp is in UTC time
-                var time = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(timestamp).AddTicks(micros * 10); // datetime ticks are 100ns
+                var time = FromUnixTime(timestamp).AddTicks(micros * 10); // datetime ticks are 100ns
 
                 state.TrySetResult(time);
             }
@@ -267,6 +295,61 @@ namespace BookSleeve
         {
             CheckAdmin();
             return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.CONFIG, RedisLiteral.SET, name, value).ExpectOk(), false);
+        }
+
+        static readonly Action<Task<RedisResult>> slowlogCallback = task =>
+        {
+            var source = (TaskCompletionSource<CommandTrace[]>)task.AsyncState;
+            if (task.ShouldSetResult(source))
+            {
+                var result = task.Result;
+                var parts = result.ValueItems;
+                CommandTrace[] arr = new CommandTrace[parts.Length];
+                for(int i = 0; i <parts.Length;i++)
+                {
+                    var subParts = parts[i].ValueItems;
+                    arr[i] = new CommandTrace(
+                        subParts[0].ValueInt64,
+                        subParts[1].ValueInt64,
+                        subParts[2].ValueInt64,
+                        subParts[3].ValueItemsString());
+                }
+                source.TrySetResult(arr);
+            }
+        };
+        Task<CommandTrace[]> IServerCommands.GetSlowCommands(int? count)
+        {
+            CheckAdmin();
+            TaskCompletionSource<CommandTrace[]> result = new TaskCompletionSource<CommandTrace[]>();
+            RedisMessage msg = count == null ? RedisMessage.Create(-1, RedisLiteral.SLOWLOG, RedisLiteral.GET)
+                : RedisMessage.Create(-1, RedisLiteral.SLOWLOG, RedisLiteral.GET, count.Value);
+            ExecuteRaw(msg, false, result).ContinueWith(slowlogCallback);
+            return result.Task;
+        }
+
+        Task IServerCommands.ResetSlowCommands()
+        {
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, RedisLiteral.SLOWLOG, RedisLiteral.RESET).ExpectOk(), false);
+        }
+
+        Task IServerCommands.SaveDatabase(bool foreground)
+        {
+            CheckAdmin();
+            return ExecuteVoid(RedisMessage.Create(-1, foreground ? RedisLiteral.SAVE :  RedisLiteral.BGSAVE), false);
+        }
+
+        static readonly Action<Task<long>> lastSaveCallback = task =>
+        {
+            var source = (TaskCompletionSource<DateTime>)task.AsyncState;
+            if (task.ShouldSetResult(source)) source.TrySetResult(FromUnixTime(task.Result));
+        };
+        Task<DateTime> IServerCommands.GetLastSaveTime()
+        {
+            CheckAdmin();
+            TaskCompletionSource<DateTime> result = new TaskCompletionSource<DateTime>();
+            ExecuteInt64(RedisMessage.Create(-1, RedisLiteral.LASTSAVE), false, result).ContinueWith(lastSaveCallback);
+            return result.Task;
         }
     }
 }

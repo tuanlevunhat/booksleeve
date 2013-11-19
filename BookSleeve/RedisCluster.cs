@@ -14,11 +14,17 @@ namespace BookSleeve
     [Obsolete("This API is experimental prototype and entirely subject to change; you have been warned!")]
     public partial class RedisCluster : IDisposable
     {
+        /// <summary>
+        /// no no no
+        /// </summary>
         [Obsolete("no no no")]
         public void SuspendFlush()
         {
             foreach (var node in nodes) node.Connection.SuspendFlush();
         }
+        /// <summary>
+        /// no no no
+        /// </summary>
         [Obsolete("no no no")]
         public void ResumeFlush()
         {

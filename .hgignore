@@ -12,3 +12,4 @@ packages/NuGet.CommandLine.*
 BookSleeve.sln.docstates
 _ReSharper.*
 Mono/
+*.sln.ide

@@ -56,6 +56,7 @@
     <Compile Include="Cluster.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="Constraints.cs" />
+    <Compile Include="Issues\Issue10.cs" />
     <Compile Include="Issues\Massive Delete.cs" />
     <Compile Include="Issues\SO10504853.cs" />
     <Compile Include="Issues\SO10825542.cs" />

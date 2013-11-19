@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BookSleeve", "BookSleeve\BookSleeve.csproj", "{418634B2-8D66-42DB-9FCC-800639EC4540}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{41DB4CF7-55E0-41E6-B278-3A3B141DDD47}"

@@ -582,5 +582,11 @@ namespace BookSleeve
             
             return ExecuteBoolean(RedisMessage.Create(db, RedisLiteral.SREM, key, value), queueJump);
         }
+
+        private static readonly DateTime UnixEpoch = new DateTime(1970, 1, 1, 0, 0, 0);
+        internal static DateTime FromUnixTime(long timestamp)
+        {
+            return UnixEpoch.AddSeconds(timestamp);
+        }
     }
 }
