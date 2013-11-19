@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClientInfo.cs" />
+    <Compile Include="CommandTrace.cs" />
     <Compile Include="Condition.cs" />
     <Compile Include="ConnectionUtils.cs" />
     <Compile Include="IClusterCommands.cs">

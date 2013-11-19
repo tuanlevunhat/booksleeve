@@ -23,6 +23,74 @@ namespace Tests
         }
 
         [Test]
+        public void BGSaveAndLastSave()
+        {
+            using(var db = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                var oldWhen = db.Server.GetLastSaveTime();
+                db.Wait(db.Server.SaveDatabase(foreground: false));
+
+                bool saved = false;
+                for(int i = 0; i < 50; i++)
+                {
+                    var newWhen = db.Server.GetLastSaveTime();
+                    db.Wait(newWhen);
+                    if(newWhen.Result > oldWhen.Result)
+                    {
+                        saved = true;
+                        break;
+                    }
+                    Console.WriteLine("waiting...");
+                    Thread.Sleep(200);
+                }
+                Assert.IsTrue(saved);
+            }
+        }
+
+        public void Slowlog()
+        {
+            using(var db = Config.GetUnsecuredConnection(allowAdmin: true))
+            {
+                var oldWhen = db.Wait(db.Server.Time());
+                db.Server.FlushAll();
+                db.Server.ResetSlowCommands();
+                for (int i = 0; i < 100000; i++)
+                {
+                    db.Strings.Set(1, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+                }
+                var settings = db.Wait(db.Server.GetConfig("slowlog-*"));
+                var count = int.Parse(settings["slowlog-max-len"]);
+                var threshold = int.Parse(settings["slowlog-log-slower-than"]);
+
+                var ping = db.Server.Ping();
+                Assert.IsTrue(ping.Wait(10000)); // wait until inserted
+                db.Server.SaveDatabase(foreground: true);
+                var keys = db.Keys.Find(1, "*");
+                db.Wait(keys);
+                var slow = db.Wait(db.Server.GetSlowCommands());
+                var slow2 = db.Wait(db.Server.GetSlowCommands(slow.Length)); // different command syntax
+                Assert.AreEqual(slow.Length, slow2.Length);
+                Assert.AreEqual(2, slow.Length);
+
+                foreach(var cmd in slow)
+                {
+                    Console.WriteLine(cmd.UniqueId + ": " + cmd.Duration.Milliseconds + "ms; " +
+                        string.Join(", ", cmd.Arguments), cmd.GetHelpUrl());
+                    Assert.IsTrue(cmd.Time > oldWhen && cmd.Time < oldWhen.AddMinutes(1));
+                }
+
+                Assert.AreEqual(2, slow[0].Arguments.Length);
+                Assert.AreEqual("KEYS", slow[0].Arguments[0]);
+                Assert.AreEqual("*", slow[0].Arguments[1]);
+                Assert.AreEqual("http://redis.io/commands/keys", slow[0].GetHelpUrl());
+
+                Assert.AreEqual(1, slow[1].Arguments.Length);
+                Assert.AreEqual("SAVE", slow[1].Arguments[0]);
+                Assert.AreEqual("http://redis.io/commands/save", slow[1].GetHelpUrl());
+            }
+        }
+
+        [Test]
         public void TestTime()
         {
             using (var db = Config.GetUnsecuredConnection(waitForOpen: true))

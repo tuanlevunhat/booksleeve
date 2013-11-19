@@ -972,61 +972,56 @@ namespace BookSleeve
         OK, QUEUED, PONG,
         // commands (extracted from http://redis.io/commands)
         APPEND,
-        [DbFree]
-        AUTH, BGREWRITEAOF, BITCOUNT, BITOP, BGSAVE, BLPOP, BRPOP, BRPOPLPUSH,
-        [DbFree]
-        CLIENT,
-        [DbFree]
-        SETNAME,
-        [DbFree]
-        CONFIG,
+        [DbFree] AUTH,
+        [DbFree] BGREWRITEAOF,
+        BITCOUNT, BITOP,
+        [DbFree] BGSAVE,
+        BLPOP, BRPOP, BRPOPLPUSH,
+        [DbFree] CLIENT,
+        [DbFree] SETNAME,
+        [DbFree] CONFIG,
         GET, SET, RESETSTAT, DBSIZE, DEBUG, OBJECT, SEGFAULT, DECR, DECRBY, DEL,
-        [DbFree]
-        DISCARD,
-        [DbFree]
-        ECHO, EVAL, EVALSHA,
-        [DbFree]
-        EXEC, EXISTS, EXPIRE, EXPIREAT,
-        [DbFree]
-        FLUSHALL, FLUSHDB, GETBIT, GETRANGE, GETSET, HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HINCRBYFLOAT, HKEYS, HLEN, HMGET, HMSET, HSET, HSETNX, HVALS, INCR, INCRBY, INCRBYFLOAT,
-        [DbFree]
-        INFO, KEYS, LASTSAVE, LINDEX, LINSERT, LLEN, LPOP, LPUSH, LPUSHX, LRANGE, LREM, LSET, LTRIM, MGET,
-        [DbFree]
-        MONITOR, MOVE, MSET, MSETNX,
-        [DbFree]
-        MULTI, PERSIST,
-        [DbFree]
-        PING,
-        [DbFree]
-        PSUBSCRIBE,
-        [DbFree]
-        PUBLISH,
-        [DbFree]
-        PUNSUBSCRIBE,
-        [DbFree]
-        QUIT, RANDOMKEY, RENAME, RENAMENX, RPOP, RPOPLPUSH, RPUSH, RPUSHX, SADD, SAVE, SCARD,
-        [DbFree]
-        SCRIPT,
-        [DbFree]
-        SENTINEL,
+        [DbFree] DISCARD,
+        [DbFree] ECHO,
+        EVAL, EVALSHA,
+        [DbFree] EXEC,
+        EXISTS, EXPIRE, EXPIREAT,
+        [DbFree] FLUSHALL,
+        FLUSHDB, GETBIT, GETRANGE, GETSET, HDEL, HEXISTS, HGET, HGETALL, HINCRBY, HINCRBYFLOAT, HKEYS, HLEN, HMGET, HMSET, HSET, HSETNX, HVALS, INCR, INCRBY, INCRBYFLOAT,
+        [DbFree] INFO,
+        KEYS,
+        [DbFree] LASTSAVE,
+        LINDEX, LINSERT, LLEN, LPOP, LPUSH, LPUSHX, LRANGE, LREM, LSET, LTRIM, MGET,
+        [DbFree] MONITOR,
+        MOVE, MSET, MSETNX,
+        [DbFree] MULTI,
+        PERSIST,
+        [DbFree] PING,
+        [DbFree] PSUBSCRIBE,
+        [DbFree] PUBLISH,
+        [DbFree] PUNSUBSCRIBE,
+        [DbFree] QUIT,
+        RANDOMKEY, RENAME, RENAMENX, RPOP, RPOPLPUSH, RPUSH, RPUSHX, SADD,
+        [DbFree] SAVE,
+        SCARD,
+        [DbFree] SCRIPT,
+        [DbFree] SENTINEL,
         SDIFF, SDIFFSTORE, SELECT, SETBIT, SETEX, SETNX, SETRANGE, SHUTDOWN, SINTER, SINTERSTORE, SISMEMBER,
-        [DbFree]
-        SLAVEOF, SLOWLOG, SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
-        [DbFree]
-        SUBSCRIBE, SUBSTR, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
-        [DbFree]
-        TIME,
-        [DbFree]
-        UNSUBSCRIBE,
-        [DbFree]
-        UNWATCH,
-        DUMP, RESTORE,
+        [DbFree] SLAVEOF,
+        [DbFree] SLOWLOG,
+        SMEMBERS, SMOVE, SORT, SPOP, SRANDMEMBER, SREM, STRLEN,
+        [DbFree] SUBSCRIBE,
+        SUBSTR, SUNION, SUNIONSTORE, SYNC, TTL, TYPE,
+        [DbFree] TIME,
+        [DbFree] UNSUBSCRIBE,
+        [DbFree] UNWATCH,
+        DUMP, RESET, RESTORE,
         WATCH, ZADD, ZCARD, ZCOUNT, ZINCRBY, ZINTERSTORE, ZRANGE, ZRANGEBYSCORE, ZRANK, ZREM, ZREMRANGEBYRANK, ZREMRANGEBYSCORE, ZREVRANGE, ZREVRANGEBYSCORE, ZREVRANK, ZSCORE, ZUNIONSTORE,
         // other
         NO, ONE, WITHSCORES, LIMIT, LOAD, BEFORE, AFTER, AGGREGATE, WEIGHTS, SUM, MIN, MAX, FLUSH, AND, OR, NOT, XOR, LIST, KILL, STORE, BY, ALPHA, DESC, NX, EX, PX, XX,
 
         // redis-cluster
-        [DbFree]
-        CLUSTER, NODES
+        [DbFree] CLUSTER,
+        NODES
     }
 }
