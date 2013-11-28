@@ -23,6 +23,40 @@ namespace Tests
             }
         }
         [Test]
+        public void Scan()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                if (!conn.Features.Scan) Assert.Inconclusive();
+
+                const int db = 3;
+                const string key = "set-scan";
+                conn.Keys.Remove(db, key);
+                conn.Sets.Add(db, key, "abc");
+                conn.Sets.Add(db, key, "def");
+                conn.Sets.Add(db, key, "ghi");
+
+                var t1 = conn.Sets.Scan(db, key);
+                var t3 = conn.Sets.ScanString(db, key);
+                var t4 = conn.Sets.ScanString(db, key, "*h*");
+
+                var v1 = t1.ToArray();
+                var v3 = t3.ToArray();
+                var v4 = t4.ToArray();
+
+                Assert.AreEqual(3, v1.Length);
+                Assert.AreEqual(3, v3.Length);
+                Assert.AreEqual(1, v4.Length);
+                Array.Sort(v1, (x, y) => string.Compare(Encoding.UTF8.GetString(x), Encoding.UTF8.GetString(y)));
+                Array.Sort(v3);
+                Array.Sort(v4);
+
+                Assert.AreEqual("abc,def,ghi", string.Join(",", v1.Select(x => Encoding.UTF8.GetString(x))));
+                Assert.AreEqual("abc,def,ghi", string.Join(",", v3));
+                Assert.AreEqual("ghi", string.Join(",", v4));
+            }
+        }
+        [Test]
         public void AddSingleBinary()
         {
             using (var conn = Config.GetUnsecuredConnection())

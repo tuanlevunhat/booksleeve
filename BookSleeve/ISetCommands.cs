@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
 namespace BookSleeve
@@ -209,10 +210,30 @@ namespace BookSleeve
         /// <returns>1 if the element was removed. 0 if the element was not a member of the set.</returns>
         /// <remarks>http://redis.io/commands/srem</remarks>
         Task<long> Remove(int db, string key, byte[][] values, bool queueJump = false);
+        /// <summary>
+        /// The SSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/sscan</remarks>
+        IEnumerable<byte[]> Scan(int db, string key);
+        /// <summary>
+        /// The SSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/sscan</remarks>
+        IEnumerable<string> ScanString(int db, string key, string pattern = null);
+        
     }
 
     partial class RedisConnection : ISetCommands
     {
+        IEnumerable<string> ISetCommands.ScanString(int db, string key, string pattern)
+        {
+            return new ScanIterator(this, db, RedisLiteral.SSCAN, key, pattern).Read(x => x.ValueString);
+        }
+        IEnumerable<byte[]> ISetCommands.Scan(int db, string key)
+        {
+            return new ScanIterator(this, db, RedisLiteral.SSCAN, key, null).Read(x => x.ValueBytes);
+        }
+    
         /// <summary>
         /// Commands that apply to sets of items per key; sets
         /// have no defined order and are strictly unique. Duplicates

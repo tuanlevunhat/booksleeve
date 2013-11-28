@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading.Tasks;
-
+using System.Linq;
 namespace BookSleeve
 {
     /// <summary>
@@ -45,11 +45,16 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/persist</remarks>
         Task<bool> Persist(int db, string key, bool queueJump = false);
         /// <summary>
-        /// Returns all keys matching pattern.
+        /// Returns all keys matching pattern
         /// </summary>
         /// <remarks>Warning: consider KEYS as a command that should only be used in production environments with extreme care. It may ruin performance when it is executed against large databases. This command is intended for debugging and special operations, such as changing your keyspace layout. Don't use KEYS in your regular application code. If you're looking for a way to find keys in a subset of your keyspace, consider using sets.</remarks>
         /// <remarks>http://redis.io/commands/keys</remarks>
         Task<string[]> Find(int db, string pattern, bool queueJump = false);
+        /// <summary>
+        /// The SCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/scan</remarks>
+        IEnumerable<string> Scan(int db, string pattern = null);
         /// <summary>
         /// Move key from the currently selected database (see SELECT) to the specified destination database. When key already exists in the destination database, or it does not exist in the source database, it does nothing. It is possible to use MOVE as a locking primitive because of this.
         /// </summary>
@@ -195,10 +200,109 @@ namespace BookSleeve
         {
             return Keys.Find(db, pattern, queueJump);
         }
+
+        IEnumerable<string> IKeyCommands.Scan(int db, string pattern)
+        {
+            // the semantics are different enough that I'd rather have it fail than do a KEYS on a server because
+            // the caller doesn't know that the server doesn't support SCAN
+            return new ScanIterator(this, db, RedisLiteral.SCAN, null, pattern).Read(x => x.ValueString);
+        }
         Task<string[]> IKeyCommands.Find(int db, string pattern, bool queueJump)
         {
-            
             return ExecuteMultiString(RedisMessage.Create(db, RedisLiteral.KEYS, pattern), queueJump);
+        }
+
+        class ScanIterator
+        {
+            private readonly int db;
+            private readonly string key, pattern;
+            private readonly RedisLiteral command;
+            private readonly RedisConnection connection;
+
+            public ScanIterator(RedisConnection connection, int db, RedisLiteral command, string key, string pattern)
+            {
+                this.connection = connection;
+                this.db = db;
+                this.pattern = pattern;
+                this.command = command;
+                this.key = key;
+            }
+            
+            Task<RedisResult> ReadNext(long cursor, bool running)
+            {
+                if (cursor == 0 && running) return null; // end of the line
+
+                var pending = new TaskCompletionSource<RedisResult>();
+                RedisMessage msg;
+                if (key == null)
+                {
+                    msg = (string.IsNullOrEmpty(pattern) || pattern == "*") ? RedisMessage.Create(db, command, cursor, RedisLiteral.COUNT, 100)
+                        : RedisMessage.Create(db, command, cursor, RedisLiteral.MATCH, pattern, RedisLiteral.COUNT, 100);
+                } else
+                {
+                    msg = (string.IsNullOrEmpty(pattern) || pattern == "*") ? RedisMessage.Create(db, command, key, cursor, RedisLiteral.COUNT, 100)
+                        : RedisMessage.Create(db, command, key, cursor, RedisLiteral.MATCH, pattern, RedisLiteral.COUNT, 100);
+                }
+                connection.ExecuteRaw(msg, false, pending).ContinueWith(scanContinuation);
+                return pending.Task;
+            }
+
+            public IEnumerable<TResult> Read<TResult>(Func<RedisResult, TResult> selector)
+            {
+                var pending = ReadNext(0, false);
+                // need to wait for the first one
+                connection.Wait(pending);
+                do
+                {
+                    var current = pending.Result;
+                    long cursor = current.ValueItems[0].ValueInt64;
+                    var rows = current.ValueItems[1].ValueItems;
+                    // kick off the next immediately, but don't wait for it yet
+                    pending = ReadNext(cursor, true);
+
+                    // now we can iterate the rows
+                    for (int i = 0; i < rows.Length; i++)
+                        yield return selector(rows[i]);
+
+                    // wait for the next, if any
+                    if (pending != null)
+                    {
+                        connection.Wait(pending);
+                    }
+                } while (pending != null);
+            }
+            public IEnumerable<TResult> Read<TResult>(Func<RedisResult, RedisResult, TResult> selector)
+            {
+                var pending = ReadNext(0, false);
+                // need to wait for the first one
+                connection.Wait(pending);
+                do
+                {
+                    var current = pending.Result;
+                    long cursor = current.ValueItems[0].ValueInt64;
+                    var rows = current.ValueItems[1].ValueItems;
+                    // kick off the next immediately, but don't wait for it yet
+                    pending = ReadNext(cursor, true);
+
+                    // now we can iterate the rows
+                    for (int i = 0; i < rows.Length; i += 2)
+                    {
+                        yield return selector(rows[i], rows[i+1]);
+                    }
+
+                    // wait for the next, if any
+                    if (pending != null)
+                    {
+                        connection.Wait(pending);
+                    }
+                } while (pending != null);
+            }
+
+            private static readonly Action<Task<RedisResult>> scanContinuation = task =>
+            {
+                TaskCompletionSource<RedisResult> source = (TaskCompletionSource<RedisResult>)task.AsyncState;
+                if (task.ShouldSetResult(source)) source.TrySetResult(task.Result);
+            };
         }
 
         /// <summary>

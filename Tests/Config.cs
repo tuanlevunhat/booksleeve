@@ -26,8 +26,8 @@ namespace Tests
             };
         }
 
-        public const string LocalHost = "127.0.0.1";
-        public const string RemoteHost = "192.168.0.6";
+        public const string LocalHost = "192.168.0.10"; //"127.0.0.1";
+        public const string RemoteHost = "192.168.0.10";
         
         const int unsecuredPort = 6379, securedPort = 6381,
             clusterPort0 = 6400, clusterPort1 = 6401, clusterPort2 = 6402;

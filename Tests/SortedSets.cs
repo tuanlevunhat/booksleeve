@@ -12,6 +12,57 @@ namespace Tests
     public class SortedSets // http://redis.io/commands#sorted_set
     {
         [Test]
+        public void SortedTrim()
+        {
+            using(var conn = Config.GetUnsecuredConnection())
+            {
+                const int db = 0;
+                const string key = "sorted-trim";
+                for(int i = 0; i < 200; i++)
+                {
+                    conn.SortedSets.Add(db, key, i.ToString(), i);
+                }
+                conn.SortedSets.RemoveRange(db, key, 0, -21);
+                var count = conn.SortedSets.GetLength(db, key);
+                Assert.AreEqual(20, conn.Wait(count));
+            }
+        }
+
+        [Test]
+        public void Scan()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen:true))
+            {
+                if (!conn.Features.Scan) Assert.Inconclusive();
+
+                const int db = 3;
+                const string key = "sorted-set-scan";
+                conn.Keys.Remove(db, key);
+                conn.SortedSets.Add(db, key, "abc", 1);
+                conn.SortedSets.Add(db, key, "def", 2);
+                conn.SortedSets.Add(db, key, "ghi", 3);
+
+                var t1 = conn.SortedSets.Scan(db, key);
+                var t3 = conn.SortedSets.ScanString(db, key);
+                var t4 = conn.SortedSets.ScanString(db, key, "*h*");
+
+                var v1 = t1.ToArray();
+                var v3 = t3.ToArray();
+                var v4 = t4.ToArray();
+
+                Assert.AreEqual(3, v1.Length);
+                Assert.AreEqual(3, v3.Length);
+                Assert.AreEqual(1, v4.Length);
+                Array.Sort(v1, (x, y) => string.Compare(Encoding.UTF8.GetString(x.Key), Encoding.UTF8.GetString(y.Key)));
+                Array.Sort(v3, (x, y) => string.Compare(x.Key, y.Key));
+                Array.Sort(v4, (x, y) => string.Compare(x.Key, y.Key));
+
+                Assert.AreEqual("abc=1,def=2,ghi=3", string.Join(",", v1.Select(pair => Encoding.UTF8.GetString(pair.Key) + "=" + pair.Value)));
+                Assert.AreEqual("abc=1,def=2,ghi=3", string.Join(",", v3.Select(pair => pair.Key + "=" + pair.Value)));
+                Assert.AreEqual("ghi=3", string.Join(",", v4.Select(pair => pair.Key + "=" + pair.Value)));
+            }
+        }
+        [Test]
         public void Range() // http://code.google.com/p/booksleeve/issues/detail?id=12
         {
             using(var conn = Config.GetUnsecuredConnection())

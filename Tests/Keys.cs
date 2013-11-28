@@ -2,7 +2,8 @@
 using BookSleeve;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
-
+using System.Linq;
+using System;
 namespace Tests
 {
     [TestFixture]
@@ -68,6 +69,35 @@ namespace Tests
             }
         }
 
+        [Test]
+        public void Scan()
+        {
+            using (var conn = Config.GetUnsecuredConnection(allowAdmin: true, waitForOpen: true))
+            {
+                if (!conn.Features.Scan) Assert.Inconclusive();
+
+                const int DB = 3;
+                conn.Wait(conn.Server.FlushDb(DB));
+                conn.Strings.Set(DB, "foo", "foo");
+                conn.Strings.Set(DB, "bar", "bar");
+                conn.Strings.Set(DB, "blap", "blap");
+
+                var keys = conn.Keys.Scan(DB).ToArray();
+                Array.Sort(keys);
+                Assert.AreEqual(3, keys.Length);
+                Assert.AreEqual("bar", keys[0]);
+                Assert.AreEqual("blap", keys[1]);
+                Assert.AreEqual("foo", keys[2]);
+
+                keys = conn.Keys.Scan(DB, "b*").ToArray();
+                Array.Sort(keys);
+                Assert.AreEqual(2, keys.Length);
+                Assert.AreEqual("bar", keys[0]);
+                Assert.AreEqual("blap", keys[1]);
+
+                
+            }
+        }
 
         [Test]
         public void TestExpireAgainstInvalidKey()
@@ -282,7 +312,7 @@ namespace Tests
 
                 Assert.AreEqual("1.1;2;3;10",string.Join(";", conn.Wait(a)));
                 Assert.AreEqual("3;2",string.Join(";", conn.Wait(b)));
-                Assert.AreEqual("1.1;10;2;3",string.Join(";", conn.Wait(c)));
+                Assert.AreEqual("10;1.1;2;3", string.Join(";", conn.Wait(c)));
                 Assert.AreEqual(4, conn.Wait(d));
                 Assert.AreEqual("1.1;2;3;10", string.Join(";", conn.Wait(e)));
                 Assert.AreEqual("10;3;1.1;2", string.Join(";", conn.Wait(f)));
