@@ -203,10 +203,33 @@ namespace BookSleeve
         /// <remarks>http://redis.io/commands/zunionstore</remarks>
         /// <returns>the number of elements in the resulting set.</returns>
         Task<long> UnionAndStore(int db, string destination, string[] keys, RedisAggregate aggregate = RedisAggregate.Sum, bool queueJump = false);
+
+        /// <summary>
+        /// The ZSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/zscan</remarks>
+        IEnumerable<KeyValuePair<string, double>> ScanString(int db, string key, string pattern = null);
+
+        /// <summary>
+        /// The ZSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/zscan</remarks>
+        IEnumerable<KeyValuePair<byte[], double>> Scan(int db, string key);
+        
     }
 
     partial class RedisConnection : ISortedSetCommands
     {
+        IEnumerable<KeyValuePair<string, double>> ISortedSetCommands.ScanString(int db, string key, string pattern)
+        {
+            return new ScanIterator(this, db, RedisLiteral.ZSCAN, key, pattern).Read(
+                (x,y) => new KeyValuePair<string,double>(x.ValueString, y.ValueDouble));
+        }
+        IEnumerable<KeyValuePair<byte[], double>> ISortedSetCommands.Scan(int db, string key)
+        {
+            return new ScanIterator(this, db, RedisLiteral.ZSCAN, key, null).Read(
+                (x, y) => new KeyValuePair<byte[], double>(x.ValueBytes, y.ValueDouble));
+        }
         /// <summary>
         /// Commands that apply to sorted sets per key. A sorted set keeps a "score"
         /// per element, and this score is used to order the elements. Duplicates

@@ -5,6 +5,7 @@ using System.Threading;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace Tests
 {
@@ -47,9 +48,12 @@ namespace Tests
             }
         }
 
-        public void Slowlog()
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public void Slowlog(bool remote)
         {
-            using(var db = Config.GetUnsecuredConnection(allowAdmin: true))
+            using(var db = remote ? Config.GetRemoteConnection(allowAdmin: true) : Config.GetUnsecuredConnection(allowAdmin: true))
             {
                 var oldWhen = db.Wait(db.Server.Time());
                 db.Server.FlushAll();
@@ -65,12 +69,12 @@ namespace Tests
                 var ping = db.Server.Ping();
                 Assert.IsTrue(ping.Wait(10000)); // wait until inserted
                 db.Server.SaveDatabase(foreground: true);
-                var keys = db.Keys.Find(1, "*");
-                db.Wait(keys);
+                var keys = db.Wait(db.Keys.Find(1, "*"));
                 var slow = db.Wait(db.Server.GetSlowCommands());
                 var slow2 = db.Wait(db.Server.GetSlowCommands(slow.Length)); // different command syntax
                 Assert.AreEqual(slow.Length, slow2.Length);
-                Assert.AreEqual(2, slow.Length);
+
+                
 
                 foreach(var cmd in slow)
                 {
@@ -78,6 +82,8 @@ namespace Tests
                         string.Join(", ", cmd.Arguments), cmd.GetHelpUrl());
                     Assert.IsTrue(cmd.Time > oldWhen && cmd.Time < oldWhen.AddMinutes(1));
                 }
+
+                Assert.AreEqual(2, slow.Length);
 
                 Assert.AreEqual(2, slow[0].Arguments.Length);
                 Assert.AreEqual("KEYS", slow[0].Arguments[0]);
@@ -187,7 +193,7 @@ namespace Tests
             using (var victim = Config.GetUnsecuredConnection(waitForOpen: true))
             using (var murderer = Config.GetUnsecuredConnection(allowAdmin: true))
             {
-                const int VictimDB = 16;
+                const int VictimDB = 4;
                 victim.Wait(victim.Strings.GetString(VictimDB, "kill me quick"));
                 victim.CompletionMode = ResultCompletionMode.PreserveOrder;
                 var clients = murderer.Wait(murderer.Server.ListClients());
@@ -238,7 +244,7 @@ namespace Tests
             using (var victim = Config.GetUnsecuredConnection(waitForOpen: true))
             using (var murderer = Config.GetUnsecuredConnection(allowAdmin: true))
             {
-                const int VictimDB = 16;
+                const int VictimDB = 3;
                 victim.Wait(victim.Strings.GetString(VictimDB, "kill me quick"));
                 victim.CompletionMode = ResultCompletionMode.PreserveOrder;
                 var clients = murderer.Wait(murderer.Server.ListClients());

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 using NUnit.Framework;
 
 namespace Tests
@@ -21,6 +22,45 @@ namespace Tests
                     //Assert.AreEqual(i, conn.Wait(conn.Hashes.Increment(5, "hash-test", "a", 1)));
                     //Assert.AreEqual(-i, conn.Wait(conn.Hashes.Increment(5, "hash-test", "b", -1)));
                 }
+            }
+        }
+
+        [Test]
+        public void Scan()
+        {
+            using (var conn = Config.GetUnsecuredConnection(waitForOpen: true))
+            {
+                if (!conn.Features.Scan) Assert.Inconclusive();
+                const int db = 3;
+                const string key = "hash-scan";
+                conn.Keys.Remove(db, key);
+                conn.Hashes.Set(db, key, "abc", "def");
+                conn.Hashes.Set(db, key, "ghi", "jkl");
+                conn.Hashes.Set(db, key, "mno", "pqr");
+
+                var t1 = conn.Hashes.Scan(db, key);
+                var t2 = conn.Hashes.Scan(db, key, "*h*");
+                var t3 = conn.Hashes.ScanString(db, key);
+                var t4 = conn.Hashes.ScanString(db, key, "*h*");
+
+                var v1 = t1.ToArray();
+                var v2 = t2.ToArray();
+                var v3 = t3.ToArray();
+                var v4 = t4.ToArray();
+
+                Assert.AreEqual(3, v1.Length);
+                Assert.AreEqual(1, v2.Length);
+                Assert.AreEqual(3, v3.Length);
+                Assert.AreEqual(1, v4.Length);
+                Array.Sort(v1, (x, y) => string.Compare(x.Key, y.Key));
+                Array.Sort(v2, (x, y) => string.Compare(x.Key, y.Key));
+                Array.Sort(v3, (x, y) => string.Compare(x.Key, y.Key));
+                Array.Sort(v4, (x, y) => string.Compare(x.Key, y.Key));
+
+                Assert.AreEqual("abc=def,ghi=jkl,mno=pqr", string.Join(",", v1.Select(pair => pair.Key + "=" + Encoding.UTF8.GetString(pair.Value))));
+                Assert.AreEqual("ghi=jkl", string.Join(",", v2.Select(pair => pair.Key + "=" + Encoding.UTF8.GetString(pair.Value))));
+                Assert.AreEqual("abc=def,ghi=jkl,mno=pqr", string.Join(",", v3.Select(pair => pair.Key + "=" + pair.Value)));
+                Assert.AreEqual("ghi=jkl", string.Join(",", v4.Select(pair => pair.Key + "=" + pair.Value)));
             }
         }
         [Test]

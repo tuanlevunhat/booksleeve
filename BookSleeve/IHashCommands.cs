@@ -135,10 +135,35 @@ namespace BookSleeve
         /// <returns>1 if field is a new field in the hash and value was set. 0 if field already exists in the hash and no operation was performed.</returns>
         /// <remarks>http://redis.io/commands/hsetnx</remarks>
         Task<bool> SetIfNotExists(int db, string key, string field, byte[] value, bool queueJump = false);
+
+
+        /// <summary>
+        /// The HSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/hscan</remarks>
+        IEnumerable<KeyValuePair<string,byte[]>> Scan(int db, string key, string pattern = null);
+
+        /// <summary>
+        /// The HSCAN command is used in order to incrementally iterate over a collection of elements.
+        /// </summary>
+        /// <remarks>http://redis.io/commands/hscan</remarks>
+        IEnumerable<KeyValuePair<string, string>> ScanString(int db, string key, string pattern = null);
+
     }
 
     partial class RedisConnection : IHashCommands
     {
+        IEnumerable<KeyValuePair<string, byte[]>> IHashCommands.Scan(int db, string key, string pattern)
+        {
+            return new ScanIterator(this, db, RedisLiteral.HSCAN, key, pattern).Read(
+                (x, y) => new KeyValuePair<string, byte[]>(x.ValueString, y.ValueBytes));
+        }
+        IEnumerable<KeyValuePair<string, string>> IHashCommands.ScanString(int db, string key, string pattern)
+        {
+            return new ScanIterator(this, db, RedisLiteral.HSCAN, key, pattern).Read(
+                (x, y) => new KeyValuePair<string, string>(x.ValueString, y.ValueString));
+        }
+
         /// <summary>
         /// Enumerate all keys in a hash.
         /// </summary>

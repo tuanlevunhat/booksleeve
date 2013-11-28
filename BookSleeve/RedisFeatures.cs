@@ -34,7 +34,8 @@ namespace BookSleeve
                                          v2_5_14 = new Version("2.5.14"),
                                          v2_6_0 = new Version("2.6.0"),
                                          v2_6_9 = new Version("2.6.9"),
-                                         v2_6_12 = new Version("2.6.12");
+                                         v2_6_12 = new Version("2.6.12"),
+                                         v2_8_0 = new Version("2.8.0");
         /// <summary>
         /// Is the PERSIST operation supported?
         /// </summary>
@@ -109,5 +110,10 @@ namespace BookSleeve
         /// Does SET have the EX|PX|NX|XX extensions?
         /// </summary>
         public bool SetConditional { get { return version >= v2_6_12;} }
+
+        /// <summary>
+        /// Are cursor-based scans available?
+        /// </summary>
+        public bool Scan { get { return version >= v2_8_0; } }
     }
 }

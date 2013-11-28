@@ -58,7 +58,7 @@ namespace Tests.Issues
             }
         }
 
-        [Test, ExpectedException("BookSleeve.RedisException", ExpectedMessage = "ERR Operation against a key holding the wrong kind of value")]
+        [Test, ExpectedException("BookSleeve.RedisException", ExpectedMessage = "WRONGTYPE Operation against a key holding the wrong kind of value")]
         public void ExecuteWithNonHashStartingPoint()
         {
             using (var conn = Config.GetUnsecuredConnection())
